@@ -31,6 +31,7 @@ import { toast } from "sonner"
 import { ProductService, Product } from "@/modules/products/services/productService"
 import { StationService, StationType } from "@/modules/stations/services/stationService"
 import { useEffect, useState } from "react"
+import { useUserSync } from "@/hooks/useUserSync"
 
 const productFormSchema = z.object({
     name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -60,6 +61,7 @@ export function ProductFormModal({
     onSuccess
 }: ProductFormModalProps) {
     const [stationTypes, setStationTypes] = useState<StationType[]>([])
+    const { dbUser } = useUserSync()
 
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(productFormSchema),
@@ -103,8 +105,13 @@ export function ProductFormModal({
             return
         }
 
+        if (!dbUser) {
+            toast.error("Aguardando sincronização do usuário...")
+            return
+        }
+
         try {
-            const input = {
+            const baseInput = {
                 arena_id: arenaId,
                 name: data.name,
                 item_type: data.item_type,
@@ -114,10 +121,21 @@ export function ProductFormModal({
             }
 
             if (product) {
-                await ProductService.updateProduct(product.id, input)
+                // Update
+                const updateInput = {
+                    ...baseInput,
+                    updated_by: dbUser.id
+                }
+                await ProductService.updateProduct(product.id, updateInput)
                 toast.success("Produto atualizado com sucesso!")
             } else {
-                await ProductService.createProduct(input)
+                // Creation
+                const createInput = {
+                    ...baseInput,
+                    created_by: dbUser.id
+                    // updated_by intentionally omitted during creation
+                }
+                await ProductService.createProduct(createInput)
                 toast.success("Produto criado com sucesso!")
             }
 

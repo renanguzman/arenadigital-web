@@ -25,6 +25,8 @@ export interface ProductInput {
     station_type_id: string;
     price: number;
     status: 'Em estoque' | 'Em falta';
+    created_by?: string;
+    updated_by?: string;
 }
 
 export class ProductService {

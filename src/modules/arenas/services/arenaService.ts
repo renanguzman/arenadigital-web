@@ -12,6 +12,7 @@ export interface ArenaInput {
     description?: string;
     banner_url?: string;
     zip_code?: string;
+    nome_moeda_virtual?: string;
 }
 
 export class ArenaService {

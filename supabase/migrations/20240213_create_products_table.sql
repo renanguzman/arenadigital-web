@@ -9,8 +9,8 @@ create table if not exists products (
   status text default 'Em estoque' check (status in ('Em estoque', 'Em falta')),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  created_by uuid references auth.users(id),
-  updated_by uuid references auth.users(id)
+  created_by uuid references public.users(id),
+  updated_by uuid references public.users(id)
 );
 
 -- Enable RLS

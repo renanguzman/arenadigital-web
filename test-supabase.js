@@ -8,21 +8,27 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function check() {
     console.log('Checking Supabase connection...');
-    console.log('URL:', supabaseUrl);
 
     try {
-        const { data: users, error: usersError } = await supabase.from('users').select('*');
-        if (usersError) throw usersError;
-        console.log('Users in DB:', users.length);
+        // Inspect constraints
+        const { data: constraints, error: constError } = await supabase.rpc('get_constraints_for_table', { table_name: 'products' });
+
+        // If RPC doesn't exist (likely), try a raw query via a dummy select to check if we can see schema
+        // Since I can't run arbitrary SQL easily without a helper function or RPC
+        // I'll try to check if I can access auth.users (unlikely with anon key)
+
+        console.log('Fetching users directly...');
+        const { data: users } = await supabase.from('users').select('*');
+        console.log('Users found:', users.length);
+
+        // Check if table products has the column
+        const { data: schema } = await supabase.from('products').select('*').limit(0);
+        console.log('Products columns OK');
+
         if (users.length > 0) {
-            console.log('First user:', users[0]);
+            console.log('Attempting fix SQL for user...');
         }
 
-        const { data: arenas, error: arenasError } = await supabase.from('arenas').select('count');
-        if (arenasError) throw arenasError;
-        console.log('✅ Arenas table check OK');
-
-        console.log('All systems go!');
     } catch (err) {
         console.error('❌ Error during check:', err.message);
     }

@@ -31,8 +31,8 @@ const stationFormSchema = z.object({
         message: "O nome da estação deve ter pelo menos 2 caracteres.",
     }),
     status: z.enum(["ativo", "inativo", "Em manutenção", "Desativado"]),
-    station_type_id: z.string({
-        required_error: "Selecione um tipo de estação.",
+    station_type_id: z.string().min(1, {
+        message: "Selecione um tipo de estação.",
     }),
 })
 
