@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArenaService } from "@/modules/arenas/services/arenaService";
 import { CourtService } from "@/modules/courts/services/courtService";
+import { BookingService } from "@/modules/bookings/services/bookingService";
 import { CourtForm } from "@/modules/courts/components/CourtForm";
 import {
     Dialog,
@@ -35,6 +36,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +50,7 @@ export default function ArenaDetailPage() {
     const id = params.id as string;
     const [arena, setArena] = useState<any>(null);
     const [courts, setCourts] = useState<any[]>([]);
+    const [bookings, setBookings] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedSpace, setSelectedSpace] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<"espacos" | "cadastro">("espacos");
@@ -50,14 +58,21 @@ export default function ArenaDetailPage() {
 
     const loadData = async () => {
         try {
-            const [arenaData, courtsData] = await Promise.all([
+            const today = new Date();
+            const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+            const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+
+            const [arenaData, courtsData, bookingsData] = await Promise.all([
                 ArenaService.getArenaById(id),
-                CourtService.getCourtsByArena(id)
+                CourtService.getCourtsByArena(id),
+                BookingService.getBookingsByArena(id, startOfDay, endOfDay)
             ]);
             setArena(arenaData);
             setCourts(courtsData);
+            setBookings(bookingsData || []);
         } catch (error) {
             toast.error("Erro ao carregar dados.");
+            console.error(error);
         } finally {
             setIsLoading(false);
         }
@@ -79,6 +94,43 @@ export default function ArenaDetailPage() {
         }
     }
 
+    const getCurrentDayName = () => {
+        const days = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+        return days[new Date().getDay()];
+    };
+
+    const getCourtStatus = (court: any) => {
+        const dayName = getCurrentDayName();
+        // Fallback to legacy available_days if day_config is missing/empty
+        if (!court.day_config || !Array.isArray(court.day_config) || court.day_config.length === 0) {
+            const isAvailable = court.available_days?.includes(dayName);
+            if (!isAvailable) return { status: 'closed', message: 'Fechado hoje' };
+
+            // Estimation for legacy data: 15 hours (8am-11pm)
+            const totalSlots = 15;
+            const courtBookings = bookings.filter(b => b.court_id === court.id && b.status === 'confirmed').length;
+            return { status: 'open', booked: courtBookings, total: totalSlots };
+        }
+
+        const todayConfig = court.day_config.find((d: any) => d.day === dayName);
+
+        if (!todayConfig || !todayConfig.enabled) {
+            return { status: 'closed', message: 'Fechado hoje' };
+        }
+
+        const startHour = parseInt(todayConfig.startTime.split(':')[0]);
+        const endHour = parseInt(todayConfig.endTime.split(':')[0]);
+        // Simple calculation: end hour - start hour. 
+        // Example: 06:00 to 23:00 = 23 - 6 = 17 slots.
+        // Adjust if end time is 00:00 (next day) but for now simple subtraction.
+        let totalSlots = endHour - startHour;
+        if (totalSlots < 0) totalSlots += 24; // Handle overnight
+
+        const courtBookings = bookings.filter(b => b.court_id === court.id && b.status === 'confirmed').length;
+
+        return { status: 'open', booked: courtBookings, total: totalSlots };
+    };
+
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -96,7 +148,7 @@ export default function ArenaDetailPage() {
         <div className="space-y-8">
             {/* Header Area */}
             <div className="flex flex-col gap-1">
-                <h1 className="text-3xl font-black text-[#002B40] tracking-tight">Arena</h1>
+                <h1 className="text-3xl font-black text-[#002B40] tracking-tight">Espaços</h1>
                 <p className="text-[#002B40]/60 font-medium">Gerencie quadras, reservas e disponibilidades.</p>
             </div>
 
@@ -136,60 +188,81 @@ export default function ArenaDetailPage() {
                             <p className="text-[#002B40]/40 font-medium text-lg">Nenhum espaço cadastrado aqui.</p>
                         </Card>
                     ) : (
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {courts.map((court) => (
-                                <Card key={court.id} className="overflow-hidden border-none shadow-lg rounded-xl group relative">
-                                    <div className="aspect-[16/9] relative bg-muted">
-                                        <Image
-                                            src={court.image_url || "/placeholder-court.jpg"}
-                                            alt={court.name}
-                                            fill
-                                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                                        />
-                                    </div>
-                                    <CardContent className="p-0">
-                                        <div className="bg-[#FFC145] p-5 relative">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <h4 className="font-bold text-[#002B40] text-lg">{court.name}</h4>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-[#002B40]/60 hover:bg-black/5">
-                                                            <MoreVertical className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem asChild>
-                                                            <Link href={`/dashboard/arenas/${id}/spaces/${court.id}/edit`} className="w-full cursor-pointer flex items-center">
-                                                                <Edit className="mr-2 h-4 w-4" /> Editar
-                                                            </Link>
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteCourt(court.id)}>
-                                                            <Trash2 className="mr-2 h-4 w-4" /> Excluir
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
-
-                                            <div className="flex items-end justify-between">
-                                                <div>
-                                                    <div className="text-[#002B40] font-black text-2xl flex items-baseline gap-1">
-                                                        5 <span className="text-sm font-bold opacity-60">/ 12 reservas</span>
-                                                    </div>
-                                                    <span className="text-[#002B40] text-xs font-bold opacity-60 tracking-tight">hoje</span>
+                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                            {courts.map((court) => {
+                                const statusInfo = getCourtStatus(court);
+                                return (
+                                    <Card key={court.id} className="overflow-hidden border-none shadow-lg rounded-xl group relative">
+                                        <div className="aspect-[16/9] relative bg-muted">
+                                            <Image
+                                                src={court.image_url || "/placeholder-court.jpg"}
+                                                alt={court.name}
+                                                fill
+                                                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                            />
+                                        </div>
+                                        <CardContent className="p-0">
+                                            <div className="bg-gradient-to-br from-[#FFD043] to-[#FFB01F] p-4 relative">
+                                                <div className="flex justify-between items-start mb-0">
+                                                    <h4 className="font-extrabold text-[#002B40] text-sm uppercase tracking-tight">{court.name}</h4>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-[#002B40]/40 hover:bg-black/5">
+                                                                <MoreVertical className="h-3 w-3" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem asChild>
+                                                                <Link href={`/dashboard/arenas/${id}/spaces/${court.id}/edit`} className="w-full cursor-pointer flex items-center">
+                                                                    <Edit className="mr-2 h-4 w-4" /> Editar
+                                                                </Link>
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteCourt(court.id)}>
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </div>
-                                                <button className="text-[#002B40]/60 hover:text-[#002B40] transition-colors">
-                                                    <Eye className="h-5 w-5" />
-                                                </button>
+
+                                                <div className="flex items-end justify-between">
+                                                    <div>
+                                                        {statusInfo.status === 'open' ? (
+                                                            <>
+                                                                <div className="text-[#002B40] font-black text-3xl flex items-baseline gap-1 -mt-1">
+                                                                    {statusInfo.booked} <span className="text-sm font-bold opacity-60">/ {statusInfo.total} reservas</span>
+                                                                </div>
+                                                                <span className="text-[#002B40] text-[10px] font-black opacity-40 uppercase tracking-tighter">hoje</span>
+                                                            </>
+                                                        ) : (
+                                                            <div className="text-[#002B40] font-black text-xl flex items-baseline gap-1">
+                                                                {statusInfo.message}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Link
+                                                                href={`/dashboard/arenas/${id}/courts/${court.id}/calendar`}
+                                                                className="text-[#002B40]/40 hover:text-[#002B40] transition-colors mb-1"
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Link>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Ver Calendário</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </CardContent>
-                                    {court.status === 'inativo' && (
-                                        <div className="absolute top-2 right-2">
-                                            <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-sm">Inativo</Badge>
-                                        </div>
-                                    )}
-                                </Card>
-                            ))}
+                                        </CardContent>
+                                        {court.status === 'inativo' && (
+                                            <div className="absolute top-2 right-2">
+                                                <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-sm">Inativo</Badge>
+                                            </div>
+                                        )}
+                                    </Card>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -276,14 +349,21 @@ export default function ArenaDetailPage() {
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => setSelectedSpace(court)}
-                                                        className="h-8 w-8 text-teal-600/60 bg-teal-50 hover:bg-teal-100 hover:text-teal-600"
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => setSelectedSpace(court)}
+                                                                className="h-8 w-8 text-teal-600/60 bg-teal-50 hover:bg-teal-100 hover:text-teal-600"
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Ver Calendário</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 </div>
                                             </td>
                                         </tr>

@@ -9,8 +9,10 @@ import { ArenaService } from "@/modules/arenas/services/arenaService";
 import { useUserSync } from "@/hooks/useUserSync";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function ProductsArenaSelectionPage() {
+    const router = useRouter();
     const { dbUser, isLoading: userLoading } = useUserSync();
     const [arenas, setArenas] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +23,11 @@ export default function ProductsArenaSelectionPage() {
                 try {
                     const data = await ArenaService.getArenasByOwner(dbUser.id);
                     setArenas(data);
+
+                    // Auto-redirecionamento se houver apenas uma arena
+                    if (data.length === 1) {
+                        router.replace(`/dashboard/settings/products/${data[0].id}`);
+                    }
                 } catch (error) {
                     console.error("Error loading arenas:", error);
                     toast.error("Erro ao carregar arenas.");
@@ -33,11 +40,11 @@ export default function ProductsArenaSelectionPage() {
         }
 
         loadArenas();
-    }, [dbUser, userLoading]);
+    }, [dbUser, userLoading, router]);
 
     if (isLoading || userLoading) {
         return (
-            <div className="space-y-6 container mx-auto py-6">
+            <div className="space-y-6">
                 <Skeleton className="h-10 w-[200px]" />
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-[200px] w-full" />)}
@@ -47,7 +54,7 @@ export default function ProductsArenaSelectionPage() {
     }
 
     return (
-        <div className="space-y-6 container mx-auto py-6">
+        <div className="space-y-6">
             <div>
                 <h2 className="text-3xl font-bold tracking-tight">Produtos</h2>
                 <p className="text-muted-foreground">

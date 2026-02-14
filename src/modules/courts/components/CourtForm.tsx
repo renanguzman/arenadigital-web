@@ -29,6 +29,7 @@ import { SportService, Sport } from "@/modules/courts/services/sportService"
 import { useEffect, useState, useRef } from "react"
 import { UploadCloud, X, Image as ImageIcon } from "lucide-react"
 import Image from "next/image"
+import { DayScheduleConfig, DayConfig } from "./DayScheduleConfig"
 
 const courtFormSchema = z.object({
     name: z.string().min(2, {
@@ -39,12 +40,11 @@ const courtFormSchema = z.object({
     sportIds: z.array(z.string()).optional(),
     is_covered: z.boolean().default(false),
     observations: z.string().optional(),
-    available_days: z.array(z.string()).min(1, {
-        message: "Selecione pelo menos um dia disponível.",
-    }),
-    price: z.coerce.number().min(0),
     booking_type: z.enum(["unique", "hourly"]),
     image_url: z.string().optional(),
+    // We'll validate day_config manually or roughly, as it's complex
+    day_config: z.array(z.any()).optional(),
+    capacity: z.coerce.number().min(1, { message: "A capacidade deve ser pelo menos 1." }).optional(),
 })
 
 type CourtFormValues = z.infer<typeof courtFormSchema>
@@ -55,6 +55,17 @@ interface CourtFormProps {
     onSuccess?: () => void
 }
 
+const DAYS_OF_WEEK = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"]
+
+const DEFAULT_DAY_CONFIG: DayConfig = {
+    day: "",
+    enabled: false,
+    startTime: "06:00",
+    endTime: "23:00",
+    price: 0,
+    customPrices: []
+}
+
 export function CourtForm({ initialData, arenaId, onSuccess }: CourtFormProps) {
     const router = useRouter()
     const [sports, setSports] = useState<Sport[]>([])
@@ -62,6 +73,18 @@ export function CourtForm({ initialData, arenaId, onSuccess }: CourtFormProps) {
     const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [isUploading, setIsUploading] = useState(false)
+
+    // Initialize day configs
+    const [dayConfigs, setDayConfigs] = useState<DayConfig[]>(() => {
+        if (initialData?.day_config && Array.isArray(initialData.day_config) && initialData.day_config.length > 0) {
+            // Merge with default days to ensure all days are present
+            return DAYS_OF_WEEK.map(day => {
+                const existing = initialData.day_config.find((d: any) => d.day === day)
+                return { ...DEFAULT_DAY_CONFIG, ...existing, day }
+            })
+        }
+        return DAYS_OF_WEEK.map(day => ({ ...DEFAULT_DAY_CONFIG, day }))
+    })
 
     useEffect(() => {
         async function loadSports() {
@@ -84,12 +107,10 @@ export function CourtForm({ initialData, arenaId, onSuccess }: CourtFormProps) {
             sportIds: initialData?.sports?.map((s: any) => s.id) || [],
             is_covered: initialData?.is_covered ?? false,
             observations: initialData?.observations || "",
-            available_days: initialData?.available_days || [
-                "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"
-            ],
-            price: initialData?.price || 0,
             booking_type: initialData?.booking_type || "hourly",
             image_url: initialData?.image_url || "",
+            day_config: initialData?.day_config || [],
+            capacity: initialData?.capacity || 2,
         },
     })
 
@@ -118,8 +139,38 @@ export function CourtForm({ initialData, arenaId, onSuccess }: CourtFormProps) {
         }
     }
 
+    const handleDayConfigChange = (index: number, newConfig: DayConfig) => {
+        const newConfigs = [...dayConfigs]
+        newConfigs[index] = newConfig
+        setDayConfigs(newConfigs)
+    }
+
+    const handleReplicateDayConfig = (sourceIndex: number) => {
+        const sourceConfig = dayConfigs[sourceIndex]
+        const newConfigs = dayConfigs.map((config, index) => {
+            if (index === sourceIndex) return config
+            return {
+                ...config,
+                enabled: true,
+                startTime: sourceConfig.startTime,
+                endTime: sourceConfig.endTime,
+                price: sourceConfig.price,
+                customPrices: [...sourceConfig.customPrices]
+            }
+        })
+        setDayConfigs(newConfigs)
+        toast.success(`Configuração de ${sourceConfig.day} replicada para todos os dias!`)
+    }
+
     async function onSubmit(data: any) {
         try {
+            // Validate that at least one day is enabled
+            const enabledDays = dayConfigs.filter(d => d.enabled)
+            if (enabledDays.length === 0) {
+                toast.error("Selecione pelo menos um dia disponível de funcionamento.")
+                return
+            }
+
             setIsUploading(true)
             let imageUrl = data.image_url
 
@@ -135,7 +186,18 @@ export function CourtForm({ initialData, arenaId, onSuccess }: CourtFormProps) {
             }
 
             const { sportIds, ...input } = data
-            const finalInput = { ...input, image_url: imageUrl }
+            // We update available_days based on enabled days for legacy/search compatibility
+            const available_days = enabledDays.map(d => d.day)
+            // Use the price of the first enabled day as 'default' price for legacy compatibility
+            const price = enabledDays[0]?.price || 0
+
+            const finalInput = {
+                ...input,
+                image_url: imageUrl,
+                day_config: dayConfigs,
+                available_days,
+                price
+            }
 
             if (initialData) {
                 await CourtService.updateCourt(initialData.id, { ...finalInput, arena_id: arenaId } as any, sportIds)
@@ -325,76 +387,59 @@ export function CourtForm({ initialData, arenaId, onSuccess }: CourtFormProps) {
 
                             <FormField
                                 control={form.control}
-                                name="available_days"
+                                name="booking_type"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Dias disponíveis</FormLabel>
-                                        <div className="grid grid-cols-2 gap-2 border rounded-md p-3 max-h-[120px] overflow-y-auto">
-                                            {["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"].map((day) => (
-                                                <div key={day} className="flex items-center space-x-2">
-                                                    <Checkbox
-                                                        id={day}
-                                                        checked={field.value?.includes(day)}
-                                                        onCheckedChange={(checked) => {
-                                                            const current = field.value || []
-                                                            const next = checked
-                                                                ? [...current, day]
-                                                                : current.filter(d => d !== day)
-                                                            field.onChange(next)
-                                                        }}
-                                                    />
-                                                    <label htmlFor={day} className="text-sm font-medium leading-none cursor-pointer">
-                                                        {day}
-                                                    </label>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        <FormLabel>Tipo de reserva</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione o tipo" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="unique">Valor único</SelectItem>
+                                                <SelectItem value="hourly">Por hora</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="price"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Valor da reserva</FormLabel>
-                                            <FormControl>
-                                                <div className="relative">
-                                                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">R$</span>
-                                                    <Input type="number" step="0.01" className="pl-8" {...field} />
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="booking_type"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Tipo de reserva</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Selecione o tipo" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="unique">Valor único</SelectItem>
-                                                    <SelectItem value="hourly">Por hora</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
+                            <FormField
+                                control={form.control}
+                                name="capacity"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Capacidade (pessoas)</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                placeholder="Ex: 4"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </div>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-[#002B40]">Configuração de Horários e Preços</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                        {dayConfigs.map((config, index) => (
+                            <DayScheduleConfig
+                                key={config.day}
+                                day={config.day}
+                                config={config}
+                                onChange={(newConfig) => handleDayConfigChange(index, newConfig)}
+                                onReplicate={() => handleReplicateDayConfig(index)}
+                            />
+                        ))}
                     </div>
                 </div>
 

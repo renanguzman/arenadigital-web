@@ -19,13 +19,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Logo } from "@/components/shared/Logo";
 import { useSidebar } from "@/contexts/SidebarContext";
 
 const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-    { icon: MapPin, label: "Arena", href: "/dashboard/arenas" },
+    { icon: MapPin, label: "Espaços", href: "/dashboard/arenas" },
     { icon: CreditCard, label: "Financeiro", href: "/dashboard/finance" },
     { icon: Store, label: "Estações", href: "/dashboard/stations" },
     { icon: Trophy, label: "Programa de fidelidade", href: "/dashboard/loyalty" },
@@ -35,7 +35,19 @@ const sidebarItems = [
 export function Sidebar({ className, onNavItemClick }: { className?: string, onNavItemClick?: () => void }) {
     const pathname = usePathname();
     const { isCollapsed, toggleSidebar } = useSidebar();
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    // Check if we are in any settings page or editing an arena
+    const isEditingArena = !!pathname.match(/\/dashboard\/arenas\/[^\/]+\/edit$/);
+    const isSettingsActive = pathname.includes("/settings") || isEditingArena;
+
+    const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(isSettingsActive);
+
+    // Sync isSettingsOpen when pathname changes to ensure it stays open when active
+    useEffect(() => {
+        if (isSettingsActive && !isCollapsed) {
+            setIsSettingsOpen(true);
+        }
+    }, [pathname, isSettingsActive, isCollapsed]);
 
     return (
         <div className={cn(
@@ -70,14 +82,21 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                                 ? pathname === "/dashboard"
                                 : pathname.startsWith(item.href);
 
+                            // Special logic for "Espaços" (formerly Arena):
+                            // Do not highlight if we are editing the arena or in the settings list
+                            if (item.label === "Espaços") {
+                                if (isEditingArena || pathname.startsWith("/dashboard/settings/arenas")) {
+                                    isActive = false;
+                                }
+                            }
+
                             // Special case for Stations:
-                            // 1. Make Stations active if path includes /stations
                             if (item.label === "Estações" && pathname.includes("/stations")) {
                                 isActive = true;
                             }
 
-                            // 2. Prevent Arena from being active if path includes /stations (to avoid double highlight)
-                            if (item.label === "Arena" && pathname.includes("/stations")) {
+                            // Prevent Espaços from being active if path includes /stations
+                            if (item.label === "Espaços" && pathname.includes("/stations")) {
                                 isActive = false;
                             }
 
@@ -112,7 +131,7 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                                 className={cn(
                                     "w-full transition-colors flex items-center",
                                     isCollapsed ? "justify-center px-0" : "justify-between text-white/70 hover:text-white hover:bg-white/10",
-                                    (pathname.includes("/settings")) && "text-[#FFC145] bg-white/5"
+                                    isSettingsActive && "text-[#FFC145] bg-white/5"
                                 )}
                                 onClick={() => !isCollapsed && setIsSettingsOpen(!isSettingsOpen)}
                                 title={isCollapsed ? "Configurações" : ""}
@@ -147,6 +166,22 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                                     >
                                         <Link href="/dashboard/settings/products">
                                             Produtos
+                                        </Link>
+                                    </Button>
+
+                                    <Button
+                                        variant="ghost"
+                                        asChild
+                                        className={cn(
+                                            "w-full justify-start h-9 text-sm font-normal",
+                                            (pathname.startsWith("/dashboard/settings/arenas") || isEditingArena)
+                                                ? "text-[#FFC145] bg-white/5"
+                                                : "text-white/60 hover:text-white hover:bg-white/5"
+                                        )}
+                                        onClick={onNavItemClick}
+                                    >
+                                        <Link href="/dashboard/settings/arenas">
+                                            Arena
                                         </Link>
                                     </Button>
                                 </div>

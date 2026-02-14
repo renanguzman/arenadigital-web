@@ -12,7 +12,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     return (
-        <div className="flex min-h-screen flex-col md:flex-row">
+        <div className="flex min-h-[100dvh] flex-col md:flex-row">
             {/* Mobile Menu Wrapper (Sheet) */}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetContent side="left" className="p-0 bg-[#002B40] border-none w-64">
@@ -39,7 +39,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                 className="flex-1 flex flex-col transition-all duration-300 ease-in-out bg-[#F8F9FA]"
             >
                 <Header onMenuClick={() => setIsMobileMenuOpen(true)} />
-                <main className="flex-1 p-4 md:p-6 lg:p-8">
+                <main className="flex-1 p-4 pb-24 md:p-6 lg:p-8">
                     {children}
                 </main>
             </div>

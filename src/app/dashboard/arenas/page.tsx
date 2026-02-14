@@ -2,8 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MapPin, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, MapPin, MoreVertical, Edit, Trash2, Phone, Mail } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArenaService } from "@/modules/arenas/services/arenaService";
 import { useUserSync } from "@/hooks/useUserSync";
@@ -12,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 export default function ArenasPage() {
+    const router = useRouter();
     const { dbUser, isLoading: userLoading } = useUserSync();
     const [arenas, setArenas] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -22,6 +24,11 @@ export default function ArenasPage() {
                 try {
                     const data = await ArenaService.getArenasByOwner(dbUser.id);
                     setArenas(data);
+
+                    // Auto-redirecionamento se houver apenas uma arena
+                    if (data.length === 1) {
+                        router.replace(`/dashboard/arenas/${data[0].id}`);
+                    }
                 } catch (error) {
                     toast.error("Erro ao carregar arenas.");
                 } finally {
@@ -50,10 +57,7 @@ export default function ArenasPage() {
     if (isLoading || userLoading) {
         return (
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <Skeleton className="h-10 w-[200px]" />
-                    <Skeleton className="h-10 w-[150px]" />
-                </div>
+                <Skeleton className="h-10 w-[200px]" />
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-[200px] w-full" />)}
                 </div>
@@ -63,8 +67,11 @@ export default function ArenasPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div>
                 <h2 className="text-3xl font-bold tracking-tight">Minhas Arenas</h2>
+                <p className="text-muted-foreground">
+                    Gerencie suas arenas cadastradas no sistema.
+                </p>
             </div>
 
             {arenas.length === 0 ? (
@@ -82,44 +89,48 @@ export default function ArenasPage() {
             ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {arenas.map((arena) => (
-                        <Card key={arena.id} className="overflow-hidden group hover:shadow-md transition-shadow">
-                            <CardHeader className="pb-3 border-b bg-muted/30">
-                                <div className="flex justify-between items-center">
-                                    <CardTitle className="truncate">{arena.name}</CardTitle>
-                                    <Badge variant={(arena.status === 'active' || arena.status === 'ativo') ? 'default' : 'secondary'}>
-                                        {(arena.status === 'active' || arena.status === 'ativo') ? 'Ativo' :
-                                            (arena.status === 'inactive' || arena.status === 'inativo') ? 'Inativo' :
-                                                'Manutenção'}
-                                    </Badge>
-                                </div>
+                        <Card key={arena.id} className="hover:shadow-md transition-shadow">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">
+                                    {arena.name}
+                                </CardTitle>
+                                <Badge variant={(arena.status === 'active' || arena.status === 'ativo') ? 'default' : 'secondary'}>
+                                    {(arena.status === 'active' || arena.status === 'ativo') ? 'Ativo' :
+                                        (arena.status === 'inactive' || arena.status === 'inativo') ? 'Inativo' :
+                                            'Manutenção'}
+                                </Badge>
                             </CardHeader>
-                            <CardContent className="pt-4 space-y-4">
-                                <div className="flex items-center text-sm text-muted-foreground">
-                                    <MapPin className="mr-2 h-4 w-4" />
-                                    <span className="truncate">{arena.address?.street || 'Endereço não informado'}</span>
-                                </div>
-
-                                <div className="flex flex-wrap gap-2">
-                                    {arena.sports?.map((sport: any) => (
-                                        <Badge key={sport.id || sport} variant="outline" className="text-[10px]">
-                                            {sport.name || sport}
-                                        </Badge>
-                                    ))}
-                                </div>
-
-                                <div className="flex items-center justify-between pt-4 border-t">
-                                    <Button variant="outline" size="sm" asChild>
-                                        <Link href={`/dashboard/arenas/${arena.id}`}>
-                                            Gerenciar Quadras
-                                        </Link>
-                                    </Button>
-                                    <div className="flex items-center gap-2">
-                                        <Button variant="ghost" size="icon" asChild title="Editar Arena">
-                                            <Link href={`/dashboard/arenas/${arena.id}/edit`}>
-                                                <Edit className="h-4 w-4" />
-                                            </Link>
-                                        </Button>
+                            <CardContent>
+                                <div className="space-y-2 mb-4">
+                                    <div className="flex items-center text-sm text-muted-foreground">
+                                        <MapPin className="mr-2 h-4 w-4" />
+                                        <span className="truncate">
+                                            {typeof arena.address === 'string'
+                                                ? arena.address
+                                                : arena.address?.street || 'Endereço não informado'}
+                                        </span>
                                     </div>
+                                    <div className="flex items-center text-sm text-muted-foreground">
+                                        <Phone className="mr-2 h-4 w-4" />
+                                        <span>{arena.phone || 'Telefone não informado'}</span>
+                                    </div>
+                                    <div className="flex items-center text-sm text-muted-foreground">
+                                        <Mail className="mr-2 h-4 w-4" />
+                                        <span className="truncate">{arena.email || 'E-mail não informado'}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Link href={`/dashboard/arenas/${arena.id}`} className="flex-1">
+                                        <Button className="w-full bg-[#FF6B00] hover:bg-[#E66000] text-white">
+                                            Gerenciar Quadras
+                                        </Button>
+                                    </Link>
+                                    <Link href={`/dashboard/arenas/${arena.id}/edit`}>
+                                        <Button variant="outline" size="icon" title="Editar Arena">
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    </Link>
                                 </div>
                             </CardContent>
                         </Card>

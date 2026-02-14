@@ -57,7 +57,7 @@ export default function DashboardPage() {
             title: "Reservas",
             value: stats.reservas.toString(),
             icon: CalendarIcon,
-            description: "Reservas confirmadas",
+            description: "Reservas confirmadas hoje",
             color: "text-blue-500",
         },
         {

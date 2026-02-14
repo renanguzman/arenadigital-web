@@ -102,16 +102,8 @@ export default function ArenaProductsPage() {
     )
 
     return (
-        <div className="space-y-6 container mx-auto py-6">
+        <div className="space-y-6">
             <div className="flex flex-col gap-4">
-                <Button
-                    variant="ghost"
-                    className="w-fit -ml-4 text-muted-foreground hover:text-foreground"
-                    onClick={() => router.back()}
-                >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Voltar para Arenas
-                </Button>
 
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>

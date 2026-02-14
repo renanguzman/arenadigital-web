@@ -16,22 +16,27 @@ export class DashboardService {
             return { receita: 0, receitaChange: 0, reservas: 0, quadras: 0, ativos: 0 };
         }
 
-        // 2. Count Bookings
+        // 2. Count Bookings (Today)
+        const now = new Date();
+        const todayStart = startOfDay(now).toISOString();
+        const todayEnd = endOfDay(now).toISOString();
+
         const { count: bookingCount } = await supabase
             .from('bookings')
             .select('*', { count: 'exact', head: true })
             .in('arena_id', arenaIds)
-            .eq('status', 'confirmed');
+            .eq('status', 'confirmed')
+            .gte('start_time', todayStart)
+            .lte('start_time', todayEnd);
 
         // 3. Count Courts
         const { count: courtCount } = await supabase
             .from('courts')
             .select('*', { count: 'exact', head: true })
             .in('arena_id', arenaIds)
-            .eq('is_active', true);
+            .eq('status', 'ativo');
 
         // 4. Calculate Revenue (Current Month vs Previous Month)
-        const now = new Date();
         const currentMonthStart = startOfMonth(now).toISOString();
         const currentMonthEnd = endOfMonth(now).toISOString();
 

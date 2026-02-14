@@ -4,9 +4,13 @@ export interface BookingInput {
     arena_id: string;
     court_id: string;
     athlete_name: string;
+    athlete_id?: string;
+    sport_id?: string;
     start_time: string;
     end_time: string;
     status: 'confirmed' | 'cancelled' | 'pending';
+    price?: number;
+    recurrence_id?: string;
 }
 
 export class BookingService {
@@ -18,7 +22,21 @@ export class BookingService {
             .single();
 
         if (error) {
-            console.error('Error creating booking:', error);
+            console.error('Error creating booking details:', error);
+            throw error;
+        }
+
+        return data;
+    }
+
+    static async createRecurringBookings(inputs: BookingInput[]) {
+        const { data, error } = await supabase
+            .from('bookings')
+            .insert(inputs)
+            .select();
+
+        if (error) {
+            console.error('Error creating recurring bookings:', error);
             throw error;
         }
 
@@ -38,6 +56,25 @@ export class BookingService {
 
         if (error) {
             console.error('Error fetching bookings:', error);
+            throw error;
+        }
+
+        return data;
+    }
+
+    static async getBookingsByCourt(courtId: string, startDate?: string, endDate?: string) {
+        let query = supabase
+            .from('bookings')
+            .select('*, courts(name), sports(name)')
+            .eq('court_id', courtId);
+
+        if (startDate) query = query.gte('start_time', startDate);
+        if (endDate) query = query.lte('end_time', endDate);
+
+        const { data, error } = await query.order('start_time', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching bookings by court:', error);
             throw error;
         }
 

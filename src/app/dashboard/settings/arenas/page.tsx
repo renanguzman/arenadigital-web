@@ -1,19 +1,17 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, Mail } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlusCircle, MapPin, Edit, Trash2, Phone, Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArenaService } from "@/modules/arenas/services/arenaService";
 import { useUserSync } from "@/hooks/useUserSync";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
-export default function StationsIndexPage() {
-    const router = useRouter();
+export default function SettingsArenasPage() {
     const { dbUser, isLoading: userLoading } = useUserSync();
     const [arenas, setArenas] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -24,14 +22,8 @@ export default function StationsIndexPage() {
                 try {
                     const data = await ArenaService.getArenasByOwner(dbUser.id);
                     setArenas(data);
-
-                    // Auto-redirecionamento se houver apenas uma arena
-                    if (data.length === 1) {
-                        router.replace(`/dashboard/arenas/${data[0].id}/stations`);
-                    }
                 } catch (error) {
-                    console.error("Error loading arenas:", error);
-                    toast.error("Erro ao carregar arenas. Verifique se as migrações foram aplicadas.");
+                    toast.error("Erro ao carregar arenas.");
                 } finally {
                     setIsLoading(false);
                 }
@@ -42,6 +34,18 @@ export default function StationsIndexPage() {
 
         loadArenas();
     }, [dbUser, userLoading]);
+
+    const handleDelete = async (id: string) => {
+        if (confirm("Tem certeza que deseja excluir esta arena? Todas as quadras associadas também serão excluídas.")) {
+            try {
+                await ArenaService.deleteArena(id);
+                setArenas(arenas.filter(a => a.id !== id));
+                toast.success("Arena excluída com sucesso!");
+            } catch (error) {
+                toast.error("Erro ao excluir arena.");
+            }
+        }
+    }
 
     if (isLoading || userLoading) {
         return (
@@ -56,11 +60,19 @@ export default function StationsIndexPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Estações</h2>
-                <p className="text-muted-foreground">
-                    Selecione uma arena para gerenciar suas estações.
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">Configurações de Arena</h2>
+                    <p className="text-muted-foreground">
+                        Edite as informações das suas arenas cadastradas.
+                    </p>
+                </div>
+                <Link href="/dashboard/arenas/new">
+                    <Button className="bg-[#FF6B00] hover:bg-[#E66000] text-white gap-2 font-bold">
+                        <PlusCircle className="h-4 w-4" />
+                        Nova Arena
+                    </Button>
+                </Link>
             </div>
 
             {arenas.length === 0 ? (
@@ -69,13 +81,10 @@ export default function StationsIndexPage() {
                         <div className="rounded-full bg-muted p-4 mb-4">
                             <MapPin className="h-8 w-8 text-muted-foreground" />
                         </div>
-                        <CardTitle className="mb-2">Nenhuma arena encontrada</CardTitle>
+                        <CardTitle className="mb-2">Nenhuma arena cadastrada</CardTitle>
                         <p className="text-muted-foreground max-w-sm mb-6">
-                            Para cadastrar estações, você precisa primeiro ter uma arena cadastrada.
+                            Você ainda não cadastrou nenhuma arena.
                         </p>
-                        <Link href="/dashboard/arenas">
-                            <Button>Ir para Arenas</Button>
-                        </Link>
                     </CardContent>
                 </Card>
             ) : (
@@ -111,12 +120,22 @@ export default function StationsIndexPage() {
                                         <span className="truncate">{arena.email || 'E-mail não informado'}</span>
                                     </div>
                                 </div>
+
                                 <div className="flex gap-2">
-                                    <Link href={`/dashboard/arenas/${arena.id}/stations`} className="w-full">
-                                        <Button className="w-full bg-[#FF6B00] hover:bg-[#E66000] text-white">
-                                            Gerenciar Estações
+                                    <Link href={`/dashboard/arenas/${arena.id}/edit`} className="flex-1">
+                                        <Button variant="outline" className="w-full flex items-center justify-center gap-2 font-bold">
+                                            <Edit className="h-4 w-4" />
+                                            Editar Arena
                                         </Button>
                                     </Link>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => handleDelete(arena.id)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>

@@ -11,7 +11,9 @@ export interface CourtInput {
     price: number;
     booking_type: 'unique' | 'hourly';
     image_url?: string;
+    day_config?: any; // To store detailed schedule and pricing
     is_active: boolean; // Legacy, keep for compatibility
+    capacity?: number;
 }
 
 export class CourtService {
@@ -29,7 +31,9 @@ export class CourtService {
                 price: input.price,
                 booking_type: input.booking_type,
                 image_url: input.image_url,
-                is_active: input.is_active
+                day_config: input.day_config,
+                is_active: input.is_active,
+                capacity: input.capacity
             }])
             .select()
             .single();
@@ -117,7 +121,9 @@ export class CourtService {
                 price: input.price,
                 booking_type: input.booking_type,
                 image_url: input.image_url,
-                is_active: input.is_active
+                day_config: input.day_config,
+                is_active: input.is_active,
+                capacity: input.capacity
             })
             .eq('id', id)
             .select()

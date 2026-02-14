@@ -108,7 +108,7 @@ export default function FidelityPage() {
     }
 
     return (
-        <div className="p-8 space-y-8 bg-[#F8F9FA] min-h-screen font-sans">
+        <div className="space-y-8">
             {/* Header */}
             <div className="flex items-start justify-between">
                 <div className="space-y-1">
