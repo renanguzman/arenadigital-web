@@ -26,7 +26,7 @@ import { BookingService } from "@/modules/bookings/services/bookingService"
 import { toast } from "sonner"
 import { format, addHours, parse, addWeeks } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { cn } from "@/lib/utils"
+import { cn, normalizeString } from "@/lib/utils"
 
 interface Athlete {
     id: string;
@@ -111,9 +111,14 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
         setIsSearching(true)
         searchTimeout.current = setTimeout(async () => {
             try {
-                const result = await searchAthletesAction(value)
+                // Fetch all athletes for the arena to filter in frontend (accent-insensitive)
+                const result = await searchAthletesAction()
                 if (result.success && result.data) {
-                    setAthletes(result.data)
+                    const normalizedSearch = normalizeString(value);
+                    const filtered = (result.data as Athlete[]).filter(athlete =>
+                        athlete && normalizeString(athlete.nome_perfil).includes(normalizedSearch)
+                    );
+                    setAthletes(filtered)
                 }
             } catch (error) {
                 console.error("Search error:", error)

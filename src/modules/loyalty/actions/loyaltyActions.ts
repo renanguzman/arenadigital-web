@@ -73,7 +73,7 @@ export async function getLatestRedemptionsAction() {
     }
 }
 
-export async function searchAthletesAction(query: string) {
+export async function searchAthletesAction(query?: string) {
     try {
         const { userId: clerkId } = await auth()
         if (!clerkId) return { success: false, error: "Não autorizado" }
@@ -177,5 +177,24 @@ export async function createRedemptionTransactionAction(data: {
     } catch (error: any) {
         console.error("Error in createRedemptionTransactionAction:", error)
         return { success: false, error: error.message || "Erro ao criar resgate" }
+    }
+}
+
+export async function getTopAthletesAction() {
+    try {
+        const { userId: clerkId } = await auth()
+        if (!clerkId) return { success: false, error: "Não autorizado" }
+
+        const dbUser = await UserService.getUserByClerkId(clerkId)
+        if (!dbUser) return { success: false, error: "Usuário não encontrado" }
+
+        const arena = await ArenaService.getFirstArenaByOrganizationUser(dbUser.id)
+        if (!arena) return { success: false, error: "Arena não encontrada" }
+
+        const topAthletes = await LoyaltyService.getTopAthletes(arena.id)
+        return { success: true, data: topAthletes }
+    } catch (error: any) {
+        console.error("Error in getTopAthletesAction:", error)
+        return { success: false, error: error.message || "Erro ao buscar top atletas" }
     }
 }

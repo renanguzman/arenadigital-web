@@ -1,0 +1,43 @@
+Crie um aplicativo para meu sistema chamado: Arena Digital.
+Já tenho uma identidade visual criada, coloquei em anexo a logo e a cores principais.
+O Arena Digital é uma plataforma voltada para Gestão de Arenas de Esportes que conecta Arenas com Atletas que utilizam a arena.
+Já existe a plataforma versão web que é exclusiva para a gestão da Arena, agora iremos trabalhar na criação do Aplicativo, que é exclusivo
+para uso dos Atletas e totalmente em português do Brasil.
+Na página inicial, crie uma tela de splash atraente e moderna que é mostrada antes de aparecer a tela de Login.
+O login será utilizado com a ferramenta de Autenticação SSO CLERK.
+Crie um menu fixo no rodapé, que os itens serão:
+
+- Busca
+Em Busca, me mostre um submenu dentro da página de busca onde tenho a possibilidade de buscar por:
+	. Arena
+	(Mostre todas as Arenas da Minha região de acordo com a localização)
+	(Filtro: Posso utilizar o filtro para busca por nome da Arena, cidade ou mudar a visualização para mostrar no mapa)
+	Abaixo uma lista completa das arenas filtradas, onde mostra o nome, cidade, estado, distância em relação a pessoa, esportes que a arena comporta.
+	
+	.Atletas
+	(Mostre todos os atletas que estão compartilhando o perfil dentro da plataforma)
+	(Filtro: Posso buscar pelo nome do Atleta)
+	(Filtro: Esportes (Escolha por praticantes de Esportes: Ex.: Beach Tennis, Vôlei, Futevôlei, Padel, Futebol, etc))
+	O card do atleta mostra a foto, nome do atleta, Esportes que ele joga e nivel em cada esporte.
+	E tem um botáo onde posso clicar para favoritar o atleta, fazendo com que seja enviado uma "Solicitação de Conexão".
+	Ao clicar sob a foto do atleta eu vejo um modal com as informações do perfil do atleta que ele deixou visivel.
+	
+	.Times
+	(Mostre todos os times cadastrados na plataforma de acordo com a Região/Cidade e Esporte.)
+	(Filtro: Busca por nome do time, cidade, estado.)
+	(Filtro: Busca de time atavés do Esporte de cada time)
+	O card do time mostra o nome do time, cidade, quantidade de atletas que fazem parte, nível do time, Esporte praticado, nome do criador do time, data de criação.
+	Ao clicar no card, mostre todos os detalhes e informações do time,
+	mostre a lista de participantes
+	mostre um botão de solicitação, caso a pessoa não faça parte e caso o time esteja com vaga aberta:
+	Botão: "Pedir para participar"
+	
+	
+- Jogos
+	Detalhes em breve
+- Home
+	Detalhes em breve
+- Times
+	Detalhes em breve
+- Perfil
+	Detalhes em breve

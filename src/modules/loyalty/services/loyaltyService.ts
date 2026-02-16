@@ -105,9 +105,9 @@ export class LoyaltyService {
         }
     }
 
-    static async searchArenaAthletes(arenaId: string, query: string) {
+    static async searchArenaAthletes(arenaId: string, query?: string) {
         try {
-            const { data, error } = await supabase
+            let supabaseQuery = supabase
                 .from('arenas_atleta')
                 .select(`
                     id_atleta,
@@ -117,9 +117,13 @@ export class LoyaltyService {
                         telefone
                     )
                 `)
-                .eq('id_arena', arenaId)
-                .ilike('atleta.nome_perfil', `%${query}%`)
-                .limit(10);
+                .eq('id_arena', arenaId);
+
+            if (query) {
+                supabaseQuery = supabaseQuery.ilike('atleta.nome_perfil', `%${query}%`);
+            }
+
+            const { data, error } = await supabaseQuery.limit(query ? 10 : 100);
 
             if (error) {
                 console.error('Error searching arena athletes:', error);
@@ -132,6 +136,35 @@ export class LoyaltyService {
                 .filter(a => a !== null) as any[];
         } catch (error) {
             console.error('LoyaltyService.searchArenaAthletes error:', error);
+            throw error;
+        }
+    }
+
+    static async getTopAthletes(arenaId: string, limit = 5) {
+        try {
+            const { data, error } = await supabase
+                .from('athlete_loyalty_balance')
+                .select(`
+                    balance,
+                    atleta:id_atleta (
+                        nome_perfil
+                    )
+                `)
+                .eq('id_arena', arenaId)
+                .order('balance', { ascending: false })
+                .limit(limit);
+
+            if (error) {
+                console.error('Error fetching top athletes:', error);
+                throw error;
+            }
+
+            return (data || []).map(item => ({
+                name: (item.atleta as any)?.nome_perfil || "Desconhecido",
+                balance: Number(item.balance)
+            }));
+        } catch (error) {
+            console.error('LoyaltyService.getTopAthletes error:', error);
             throw error;
         }
     }

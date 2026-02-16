@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { searchAthletesAction, createRedemptionTransactionAction } from "../actions/loyaltyActions"
+import { normalizeString } from "@/lib/utils"
 import { toast } from "sonner"
 
 interface Athlete {
@@ -53,9 +54,14 @@ export function NewRedemptionModal({ isOpen, onClose, onSuccess }: NewRedemption
         setIsSearching(true)
         searchTimeout.current = setTimeout(async () => {
             try {
-                const result = await searchAthletesAction(value)
+                // Fetch all athletes for the arena to filter in frontend (accent-insensitive)
+                const result = await searchAthletesAction()
                 if (result.success && result.data) {
-                    setAthletes(result.data)
+                    const normalizedSearch = normalizeString(value);
+                    const filtered = (result.data as Athlete[]).filter(athlete =>
+                        athlete && normalizeString(athlete.nome_perfil).includes(normalizedSearch)
+                    );
+                    setAthletes(filtered)
                 }
             } catch (error) {
                 console.error("Search error:", error)

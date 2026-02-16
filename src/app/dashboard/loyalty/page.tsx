@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useState, useEffect, useCallback } from "react"
-import { updateCurrencyName, getLatestCreditsAction, getLatestRedemptionsAction } from "@/modules/loyalty/actions/loyaltyActions"
+import { updateCurrencyName, getLatestCreditsAction, getLatestRedemptionsAction, getTopAthletesAction } from "@/modules/loyalty/actions/loyaltyActions"
 import { toast } from "sonner"
 import { useUser } from "@clerk/nextjs"
 import { UserService } from "@/modules/users/services/userService"
@@ -25,6 +25,8 @@ export default function FidelityPage() {
     const [isLoadingCredits, setIsLoadingCredits] = useState(true)
     const [recentRedemptions, setRecentRedemptions] = useState<FidelityTransaction[]>([])
     const [isLoadingRedemptions, setIsLoadingRedemptions] = useState(true)
+    const [topAthletes, setTopAthletes] = useState<{ name: string, balance: number }[]>([])
+    const [isLoadingTop, setIsLoadingTop] = useState(true)
 
     // Modal states
     const [isNewSendOpen, setIsNewSendOpen] = useState(false)
@@ -35,6 +37,7 @@ export default function FidelityPage() {
             loadArenaData()
             loadRecentCredits()
             loadRecentRedemptions()
+            loadTopAthletes()
         }
     }, [user])
 
@@ -83,6 +86,20 @@ export default function FidelityPage() {
             console.error("Error loading redemptions:", error)
         } finally {
             setIsLoadingRedemptions(false)
+        }
+    }
+
+    async function loadTopAthletes() {
+        try {
+            setIsLoadingTop(true)
+            const result = await getTopAthletesAction()
+            if (result.success && result.data) {
+                setTopAthletes(result.data)
+            }
+        } catch (error) {
+            console.error("Error loading top athletes:", error)
+        } finally {
+            setIsLoadingTop(false)
         }
     }
 
@@ -231,18 +248,31 @@ export default function FidelityPage() {
                         <CardTitle className="text-xl font-bold text-[#002B40]">Top atletas com mais moedas</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-0 p-0">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                            <div key={i} className="flex items-center justify-between px-6 py-4 border-b border-[#002B40]/5 last:border-0 hover:bg-[#F8F9FA] transition-colors">
-                                <div className="flex items-center gap-3">
-                                    {i === 1 && <span className="text-xl">🥇</span>}
-                                    {i === 2 && <span className="text-xl">🥈</span>}
-                                    {i === 3 && <span className="text-xl">🥉</span>}
-                                    {i > 3 && <span className="w-6 text-center text-muted-foreground font-bold">{i}</span>}
-                                    <p className="font-medium text-[#002B40]">Luiza Paniago</p>
-                                </div>
-                                <span className="font-bold text-[#FF6B00]">$ 00</span>
+                        {isLoadingTop ? (
+                            <div className="flex justify-center py-8">
+                                <Loader2 className="h-8 w-8 animate-spin text-[#FF6B00]" />
                             </div>
-                        ))}
+                        ) : topAthletes.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                                Nenhum atleta com saldo no momento.
+                            </div>
+                        ) : (
+                            topAthletes.map((athlete, index) => {
+                                const position = index + 1;
+                                return (
+                                    <div key={index} className="flex items-center justify-between px-6 py-4 border-b border-[#002B40]/5 last:border-0 hover:bg-[#F8F9FA] transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            {position === 1 && <span className="text-xl">🥇</span>}
+                                            {position === 2 && <span className="text-xl">🥈</span>}
+                                            {position === 3 && <span className="text-xl">🥉</span>}
+                                            {position > 3 && <span className="w-6 text-center text-muted-foreground font-bold">{position}</span>}
+                                            <p className="font-medium text-[#002B40]">{athlete.name}</p>
+                                        </div>
+                                        <span className="font-bold text-[#FF6B00]">$ {athlete.balance.toFixed(2)}</span>
+                                    </div>
+                                );
+                            })
+                        )}
                         <div className="p-4 text-center">
                             <Button variant="link" className="text-[#FF6B00] font-semibold hover:no-underline">
                                 Ver tudo

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { StationService } from "@/modules/stations/services/stationService";
+import { OrderService } from "@/modules/stations/services/orderService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -30,7 +31,16 @@ export default function StationsPage() {
             if (id) {
                 try {
                     const data = await StationService.getStationsByArena(id);
-                    setStations(data);
+
+                    // Fetch metrics for each station
+                    const stationsWithMetrics = await Promise.all(
+                        data.map(async (station: any) => {
+                            const metrics = await OrderService.getStationMetrics(station.id);
+                            return { ...station, metrics };
+                        })
+                    );
+
+                    setStations(stationsWithMetrics);
                 } catch (error) {
                     console.error("Error loading stations:", error);
                     toast.error("Erro ao carregar estações.");
@@ -104,7 +114,12 @@ export default function StationsPage() {
                             {/* Card Image */}
                             <div className="aspect-[16/9] relative bg-muted">
                                 <Image
-                                    src={station.image_url || "/placeholder-station.jpg"}
+                                    src={
+                                        station.image_url ||
+                                        (station.station_type?.name === 'Bar' ? "/bg_img_bar.png" :
+                                            station.station_type?.name === 'Loja' ? "/bg_img_lojaesporte.png" :
+                                                "/placeholder-station.jpg")
+                                    }
                                     alt={station.name}
                                     fill
                                     className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -128,13 +143,13 @@ export default function StationsPage() {
                                     {/* Metrics/Stats */}
                                     <div className="space-y-0.5 mb-2">
                                         <div className="flex items-center gap-1.5 font-black text-[#002B40] text-xl">
-                                            Comandas pendentes: 3
+                                            Comandas pendentes: {station.metrics?.pending || 0}
                                         </div>
                                         <div className="text-[10px] font-bold text-[#002B40]/60 uppercase tracking-tighter italic">
-                                            Total fechadas: 7
+                                            Total fechadas: {station.metrics?.closedToday || 0}
                                         </div>
                                         <div className="text-[10px] font-bold text-[#002B40]/60 uppercase tracking-tighter italic">
-                                            Total abertas: 10
+                                            Total abertas: {station.metrics?.openedToday || 0}
                                         </div>
                                     </div>
 
