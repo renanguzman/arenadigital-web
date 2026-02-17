@@ -65,7 +65,7 @@ export class BookingService {
     static async getBookingsByCourt(courtId: string, startDate?: string, endDate?: string) {
         let query = supabase
             .from('bookings')
-            .select('*, courts(name), sports(name)')
+            .select('*, courts(name), sports(name), atleta:athlete_id(id, nome_perfil, telefone)')
             .eq('court_id', courtId);
 
         if (startDate) query = query.gte('start_time', startDate);

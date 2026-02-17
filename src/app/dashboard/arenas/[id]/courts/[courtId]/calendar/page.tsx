@@ -17,6 +17,7 @@ import Link from "next/link";
 import { BookingModal } from "@/modules/bookings/components/BookingModal";
 import { BookingDetailsModal } from "@/modules/bookings/components/BookingDetailsModal";
 import { AvailableTimesModal } from "@/modules/bookings/components/AvailableTimesModal";
+import { DayOpportunitiesModal } from "@/modules/bookings/components/DayOpportunitiesModal";
 
 interface Court {
     id: string;
@@ -37,6 +38,11 @@ interface Booking {
     sports?: {
         id: string;
         name: string;
+    };
+    atleta?: {
+        id: string;
+        nome_perfil: string;
+        telefone: string;
     };
 }
 
@@ -61,6 +67,7 @@ export default function CourtCalendarPage() {
 
     const [isBookingDetailsModalOpen, setIsBookingDetailsModalOpen] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+    const [isDayOpportunitiesModalOpen, setIsDayOpportunitiesModalOpen] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -264,6 +271,13 @@ export default function CourtCalendarPage() {
                             <Clock className="w-4 h-4" />
                             Horários disponíveis
                         </Button>
+                        <Button
+                            onClick={() => setIsDayOpportunitiesModalOpen(true)}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold gap-2"
+                        >
+                            <Check className="w-4 h-4" />
+                            Ver oportunidades do dia
+                        </Button>
                         <Button onClick={() => setIsBookingModalOpen(true)} className="bg-[#FF6B00] hover:bg-[#E66000] text-white font-bold">
                             Cadastrar reserva
                         </Button>
@@ -366,6 +380,13 @@ export default function CourtCalendarPage() {
                 isOpen={isAvailableTimesModalOpen}
                 onClose={() => setIsAvailableTimesModalOpen(false)}
                 arenaId={arenaId}
+                currentDate={currentDate}
+            />
+
+            <DayOpportunitiesModal
+                isOpen={isDayOpportunitiesModalOpen}
+                onClose={() => setIsDayOpportunitiesModalOpen(false)}
+                bookings={bookings.filter(b => isSameDay(parseISO(b.start_time), currentDate))}
                 currentDate={currentDate}
             />
         </div>
