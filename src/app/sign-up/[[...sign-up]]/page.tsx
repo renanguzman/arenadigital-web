@@ -5,10 +5,12 @@ import { CustomSignUp } from "@/components/auth/CustomSignUp";
 
 export default function Page() {
     return (
-        <div className="flex items-center justify-center min-h-screen bg-[#F0E6D2] py-10">
-            <div className="w-full max-w-[480px] bg-[#002B40] rounded-[24px] p-8 md:p-12 shadow-2xl flex flex-col items-center">
+        <div className="flex flex-col min-h-screen bg-[#F0E6D2] p-4 py-8 md:py-12 overflow-y-auto">
+            <div className="m-auto w-full max-w-[480px] bg-[#002B40] rounded-3xl p-6 sm:p-8 md:p-12 shadow-2xl flex flex-col items-center">
                 {/* Logo */}
-                <Logo className="mb-10" />
+                <Link href="/">
+                    <Logo className="mb-8 hover:opacity-80 transition-opacity cursor-pointer" />
+                </Link>
 
                 {/* Welcome Text */}
                 <h1 className="text-3xl font-bold text-white mb-2">Crie sua conta</h1>

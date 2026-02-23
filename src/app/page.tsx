@@ -65,7 +65,7 @@ export default function LandingPage() {
               <span className="text-xs uppercase tracking-widest font-semibold opacity-70">Integrados</span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="text-4xl font-bold text-[#FF6B00] mb-1">6</span>
+              <span className="text-4xl font-bold text-[#FF6B00] mb-1">+10</span>
               <span className="text-xs uppercase tracking-widest font-semibold opacity-70">Modalidades</span>
             </div>
           </div>
@@ -142,7 +142,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-[#002B40] mb-4 tracking-tight">
-              Uma plataforma. Dois lados conectados. <span className="text-[#FF6B00]">Um ecossistema completo.</span>
+              Uma plataforma. Dois lados conectados. <br /><span className="text-[#FF6B00]">Um ecossistema completo.</span>
             </h2>
             <p className="text-slate-500 text-lg max-w-2xl mx-auto">
               O Arena Digital integra tudo que arenas e atletas precisam em um só lugar.
@@ -219,7 +219,7 @@ export default function LandingPage() {
           <div className="mb-16">
             <span className="text-[#0089A0] font-bold tracking-wider text-xs uppercase mb-3 block">Para Atletas</span>
             <h2 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight max-w-3xl mx-auto leading-tight">
-              Encontre jogos. Evolua. <span className="text-[#FF6B00]">Faça parte da comunidade.</span>
+              Encontre jogos. Evolua. <br /><span className="text-[#FF6B00]">Faça parte da comunidade.</span>
             </h2>
           </div>
 
