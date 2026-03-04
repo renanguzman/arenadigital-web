@@ -10,7 +10,7 @@ Este documento descreve a arquitetura atual do banco de dados (Supabase) utiliza
 
 O banco de dados é gerido via **Supabase** (PostgreSQL) com migrações em SQL puro (`supabase/migrations/*.sql`).
 A autenticação primária é gerida por um provedor externo (Clerk), que é sincronizado com a tabela public.`users` (onde o `clerk_user_id` é salvo). No App Mobile, isso significa que ao fazer login/cadastro com Clerk, o usuário deverá estar vinculado à tabela principal de usuários e posteriormente ao seu perfil de **Atleta**.
-> **Nota para Gestores:** Além dos dados de autenticação e nome, a tabela `users` também armazena o `cpf`, fornecido no momento do cadastro do gestor na plataforma Web. O telefone é armazenado diretamente no registro da respectiva `arena`.
+> **Nota para Gestores:** Além dos dados de autenticação e nome, a tabela `users` também armazena o `cpf`, fornecido no momento do cadastro do gestor na plataforma Web. O telefone é armazenado diretamente no registro da respectiva `arena`. Atletas criados via Web Gestor são registrados no Clerk com `unsafeMetadata`: `{ role: 'atleta', origem_cadastro: 'arena' }`, permitindo que o aplicativo identifique a necessidade de criação de senha no primeiro login.
 
 ---
 

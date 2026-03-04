@@ -25,22 +25,33 @@ export default function FinanceDashboard({ params }: { params: Promise<{ arenaId
     const [totals, setTotals] = useState({ entradas: 0, saidas: 0, saldo: 0 });
     const [recentEntradas, setRecentEntradas] = useState<any[]>([]);
     const [recentSaidas, setRecentSaidas] = useState<any[]>([]);
+    const [monthlyComparison, setMonthlyComparison] = useState({
+        entradas: { current: 0, diff: 0 },
+        saidas: { current: 0, diff: 0 }
+    });
     const [isLoading, setIsLoading] = useState(true);
     const [isAddingEntry, setIsAddingEntry] = useState(false);
     const [isAddingExpense, setIsAddingExpense] = useState(false);
+    const [viewType, setViewType] = useState<'saldo' | 'entrada' | 'saída'>('entrada');
+    const [period, setPeriod] = useState<'7d' | '30d'>('7d');
+    const [chartData, setChartData] = useState<{ label: string; value: number; percentage: number; isCurrentDay?: boolean }[]>([]);
+
 
     const loadData = async () => {
         if (!dbUser || !resolvedParams.arenaId) return;
         try {
             setArena({ id: resolvedParams.arenaId });
-            const [totalsData, allEntradas, allSaidas] = await Promise.all([
+            const [totalsData, allEntradas, allSaidas, transactions] = await Promise.all([
                 FinanceService.getTotals(resolvedParams.arenaId),
                 FinanceService.getTransactions(resolvedParams.arenaId, 'entrada'),
-                FinanceService.getTransactions(resolvedParams.arenaId, 'saída')
+                FinanceService.getTransactions(resolvedParams.arenaId, 'saída'),
+                FinanceService.getTransactions(resolvedParams.arenaId)
             ]);
             setTotals(totalsData);
             setRecentEntradas(allEntradas.slice(0, 4));
             setRecentSaidas(allSaidas.slice(0, 4));
+            calculateMonthlyComparison(transactions);
+            processChartData(transactions, period, viewType);
         } catch (error) {
             console.error(error);
         } finally {
@@ -48,9 +59,100 @@ export default function FinanceDashboard({ params }: { params: Promise<{ arenaId
         }
     };
 
+    const calculateMonthlyComparison = (transactions: any[]) => {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        const prevDate = new Date(currentYear, currentMonth - 1, 1);
+        const prevMonth = prevDate.getMonth();
+        const prevYear = prevDate.getFullYear();
+
+        const getStats = (type: 'entrada' | 'saída', month: number, year: number) => {
+            return transactions
+                .filter(t => {
+                    const d = new Date(t.launch_date);
+                    d.setHours(12);
+                    return d.getMonth() === month && d.getFullYear() === year && t.type === type;
+                })
+                .reduce((acc, t) => acc + Number(t.total_value), 0);
+        };
+
+        const currEntradas = getStats('entrada', currentMonth, currentYear);
+        const prevEntradas = getStats('entrada', prevMonth, prevYear);
+
+        const currSaidas = getStats('saída', currentMonth, currentYear);
+        const prevSaidas = getStats('saída', prevMonth, prevYear);
+
+        const calcDiff = (curr: number, prev: number) => {
+            if (prev === 0) return curr === 0 ? 0 : 100;
+            return ((curr - prev) / prev) * 100;
+        };
+
+        setMonthlyComparison({
+            entradas: { current: currEntradas, diff: calcDiff(currEntradas, prevEntradas) },
+            saidas: { current: currSaidas, diff: calcDiff(currSaidas, prevSaidas) }
+        });
+    };
+
     useEffect(() => {
         loadData();
     }, [dbUser, resolvedParams.arenaId]);
+
+    useEffect(() => {
+        const refresh = async () => {
+            if (!resolvedParams.arenaId) return;
+            const transactions = await FinanceService.getTransactions(resolvedParams.arenaId);
+            processChartData(transactions, period, viewType);
+        };
+        refresh();
+    }, [period, viewType]);
+
+    const processChartData = (transactions: any[], periodType: '7d' | '30d', type: 'saldo' | 'entrada' | 'saída') => {
+        const now = new Date();
+        const daysCount = periodType === '7d' ? 7 : 30;
+
+        // Generate chronological array of dates
+        const lastXDays = Array.from({ length: daysCount }, (_, i) => {
+            const d = new Date();
+            d.setDate(now.getDate() - (daysCount - 1 - i));
+            d.setHours(0, 0, 0, 0);
+            return d;
+        });
+
+        const result = lastXDays.map(dateObj => {
+            const dateStr = dateObj.toLocaleDateString();
+            let value = 0;
+
+            transactions.forEach(t => {
+                const tDate = new Date(t.launch_date);
+                // Adjust for potential timezone shifts in YYYY-MM-DD input
+                tDate.setHours(tDate.getHours() + 12);
+
+                if (tDate.toLocaleDateString() === dateStr) {
+                    const val = Number(t.total_value);
+                    if (type === 'saldo') {
+                        value += (t.type === 'entrada' ? val : -val);
+                    } else if (t.type === type) {
+                        value += val;
+                    }
+                }
+            });
+
+            const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+            return {
+                label: daysCount === 7 ? weekdays[dateObj.getDay()] : `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}`,
+                value,
+                isCurrentDay: dateStr === now.toLocaleDateString()
+            };
+        });
+
+        const maxValue = Math.max(...result.map(d => Math.abs(d.value)), 1);
+        setChartData(result.map(d => ({
+            ...d,
+            percentage: (Math.abs(d.value) / maxValue) * 100
+        })));
+    };
 
     if (isLoading) {
         return (
@@ -74,33 +176,49 @@ export default function FinanceDashboard({ params }: { params: Promise<{ arenaId
                 <p className="text-[#002B40]/60 font-medium">Controle suas entradas e saídas em um só lugar.</p>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-2 items-stretch">
                 {/* Left Column: Totals */}
-                <div className="space-y-6">
-                    <Card className="bg-gradient-to-r from-[#FF7A00] to-[#FFB800] border-none shadow-xl rounded-2xl overflow-hidden text-white relative h-[180px] flex items-center p-8">
+                <div className="flex flex-col gap-6">
+                    <Card className="bg-gradient-to-r from-[#FF7A00] to-[#FFB800] border-none shadow-xl rounded-2xl overflow-hidden text-white relative flex-1 flex items-center p-8 min-h-[180px]">
                         <div className="space-y-1 relative z-10">
                             <p className="text-white/80 font-bold text-sm">Saldo Atual</p>
                             <h2 className="text-5xl font-black">{formatCurrency(totals.saldo)}</h2>
-                            <p className="text-white/60 text-xs font-bold uppercase tracking-wider">Lucro líquido mensal</p>
+                            <p className="text-white/60 text-xs font-bold uppercase tracking-wider">Lucro líquido total acumulado</p>
                         </div>
                     </Card>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card className="p-8 border-none shadow-lg rounded-2xl bg-white">
-                            <p className="text-[#002B40]/40 font-bold text-xs uppercase tracking-widest mb-1">Entradas do Mês</p>
-                            <h3 className="text-3xl font-black text-[#20B2AA] mb-1">{formatCurrency(totals.entradas)}</h3>
-                            <p className="text-red-500 font-bold text-xs">-5% vs mês anterior</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
+                        <Card className="p-8 border-none shadow-lg rounded-2xl bg-white flex flex-col justify-between h-full">
+                            <div>
+                                <p className="text-[#002B40]/40 font-bold text-xs uppercase tracking-widest mb-1">Entradas do Mês</p>
+                                <h3 className="text-3xl font-black text-[#20B2AA] mb-1">{formatCurrency(monthlyComparison.entradas.current)}</h3>
+                            </div>
+                            <p className={cn(
+                                "font-bold text-xs",
+                                monthlyComparison.entradas.diff >= 0 ? "text-[#20B2AA]" : "text-red-500"
+                            )}>
+                                {monthlyComparison.entradas.diff >= 0 ? '+' : ''}
+                                {monthlyComparison.entradas.diff.toFixed(0)}% vs mês anterior
+                            </p>
                         </Card>
-                        <Card className="p-8 border-none shadow-lg rounded-2xl bg-white">
-                            <p className="text-[#002B40]/40 font-bold text-xs uppercase tracking-widest mb-1">Despesas do Mês</p>
-                            <h3 className="text-3xl font-black text-[#FF6B00] mb-1">{formatCurrency(totals.saidas)}</h3>
-                            <p className="text-red-500 font-bold text-xs">-5% vs mês anterior</p>
+                        <Card className="p-8 border-none shadow-lg rounded-2xl bg-white flex flex-col justify-between h-full">
+                            <div>
+                                <p className="text-[#002B40]/40 font-bold text-xs uppercase tracking-widest mb-1">Despesas do Mês</p>
+                                <h3 className="text-3xl font-black text-[#FF6B00] mb-1">{formatCurrency(monthlyComparison.saidas.current)}</h3>
+                            </div>
+                            <p className={cn(
+                                "font-bold text-xs",
+                                monthlyComparison.saidas.diff <= 0 ? "text-[#20B2AA]" : "text-red-500"
+                            )}>
+                                {monthlyComparison.saidas.diff >= 0 ? '+' : ''}
+                                {monthlyComparison.saidas.diff.toFixed(0)}% vs mês anterior
+                            </p>
                         </Card>
                     </div>
                 </div>
 
                 {/* Right Column: Chart */}
-                <Card className="p-8 border-none shadow-lg rounded-2xl bg-white flex flex-col">
+                <Card className="p-8 border-none shadow-lg rounded-2xl bg-white flex flex-col h-full min-h-[420px]">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-3">
                             <div className="bg-[#FF6B00]/10 p-2 rounded-lg">
@@ -108,28 +226,100 @@ export default function FinanceDashboard({ params }: { params: Promise<{ arenaId
                             </div>
                             <h3 className="text-xl font-bold text-[#002B40]">Comparativo</h3>
                         </div>
-                        <select className="bg-white border rounded-lg px-3 py-2 text-sm text-[#002B40]/60 focus:outline-none">
-                            <option>Última semana</option>
+                        <select
+                            value={period}
+                            onChange={(e) => setPeriod(e.target.value as any)}
+                            className="bg-white border border-[#002B40]/10 rounded-lg px-3 py-2 text-sm text-[#002B40]/60 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/20 transition-all font-bold"
+                        >
+                            <option value="7d">Última semana</option>
+                            <option value="30d">Últimos 30 dias</option>
                         </select>
                     </div>
 
-                    <div className="flex-1 flex items-end gap-3 justify-between px-4 pb-2">
-                        {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day, i) => (
-                            <div key={day} className="flex flex-col items-center gap-4 flex-1">
-                                <div
+                    <div className="flex gap-8 flex-1">
+                        {/* Sidebar Filters */}
+                        <div className="flex flex-col gap-3 w-48">
+                            <p className="text-[#002B40]/40 font-bold text-[10px] uppercase tracking-widest mb-1">Selecione a visualização desejada:</p>
+                            {[
+                                { id: 'saldo', label: 'Saldo total' },
+                                { id: 'entrada', label: 'Entradas' },
+                                { id: 'saída', label: 'Saídas' }
+                            ].map((filter) => (
+                                <button
+                                    key={filter.id}
+                                    onClick={() => setViewType(filter.id as any)}
                                     className={cn(
-                                        "w-full rounded-full transition-all duration-1000",
-                                        i === 2 ? "bg-[#FF6B00]" : "bg-[#002B40]/5"
+                                        "flex items-center justify-between p-4 rounded-xl border transition-all duration-300 group",
+                                        viewType === filter.id
+                                            ? "bg-[#FFF5EF] border-[#FF6B00]/20"
+                                            : "bg-white border-[#002B40]/5 hover:border-[#002B40]/10"
                                     )}
-                                    style={{ height: `${[40, 70, 85, 95, 60, 75, 55][i]}%` }}
                                 >
-                                    {i === 2 && (
-                                        <div className="bg-white shadow-lg text-[#002B40] font-black text-[10px] px-2 py-1 rounded-md -top-8 relative text-center">8.5</div>
-                                    )}
+                                    <span className={cn(
+                                        "text-sm font-bold transition-colors",
+                                        viewType === filter.id ? "text-[#002B40]" : "text-[#002B40]/40 group-hover:text-[#002B40]/60"
+                                    )}>
+                                        {filter.label}
+                                    </span>
+                                    <div className={cn(
+                                        "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all",
+                                        viewType === filter.id ? "border-[#FF6B00]" : "border-[#002B40]/10"
+                                    )}>
+                                        {viewType === filter.id && <div className="h-2.5 w-2.5 rounded-full bg-[#FF6B00]" />}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Chart Area */}
+                        <div className="flex-1 overflow-x-auto custom-scrollbar pt-12 pb-2">
+                            <div className={cn(
+                                "relative flex items-end gap-2 px-4 h-64",
+                                period === '30d' ? "min-w-[800px]" : "min-w-0 flex-1"
+                            )}>
+                                {/* Grid Lines (Illustration) */}
+                                <div className="absolute inset-x-0 bottom-2 top-0 flex flex-col justify-between pointer-events-none opacity-[0.03]">
+                                    {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map(n => (
+                                        <div key={n} className="w-full border-t border-[#002B40] flex items-center">
+                                            <span className="text-[10px] font-bold pr-2 -translate-y-1/2">{n}</span>
+                                        </div>
+                                    ))}
                                 </div>
-                                <span className="text-[#002B40]/40 font-bold text-[10px]">{day}</span>
+
+                                {chartData.map((d, i) => (
+                                    <div key={i} className="flex flex-col items-center gap-4 flex-1 h-full justify-end group/bar relative">
+                                        <div
+                                            className={cn(
+                                                "w-full rounded-full transition-all duration-700 relative flex items-end justify-center",
+                                                d.isCurrentDay || (d.percentage === 100 && d.value !== 0)
+                                                    ? "bg-gradient-to-t from-[#FF6B00] to-[#FF9E58]"
+                                                    : (viewType === 'saldo' && d.value < 0 ? "bg-gradient-to-t from-[#475569] to-[#94a3b8]" : "bg-[#002B40]/5 group-hover/bar:bg-[#002B40]/10")
+                                            )}
+                                            style={{ height: `${Math.max(d.percentage, 5)}%` }}
+                                        >
+                                            {/* Tooltip on Hover */}
+                                            <div className="absolute -top-10 bg-[#002B40] text-white text-[10px] font-black px-2 py-1 rounded-md opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap shadow-xl z-20 pointer-events-none">
+                                                {formatCurrency(d.value)}
+                                            </div>
+
+                                            {/* Static highlight for current/max if desired */}
+                                            {(d.isCurrentDay || (d.percentage === 100 && d.value !== 0)) && (
+                                                <div className="absolute -top-10 bg-white border border-[#002B40]/5 shadow-xl text-[#002B40] font-black text-[10px] px-2 py-1.5 rounded-lg z-10 transition-transform group-hover/bar:scale-110">
+                                                    {formatCurrency(d.value).replace('R$', '').trim()}
+                                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-white border-b border-r border-[#002B40]/5 rotate-45" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className={cn(
+                                            "text-[10px] font-bold transition-colors whitespace-nowrap",
+                                            d.isCurrentDay ? "text-[#FF6B00]" : "text-[#002B40]/40"
+                                        )}>
+                                            {d.label}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        </div>
                     </div>
                 </Card>
             </div>

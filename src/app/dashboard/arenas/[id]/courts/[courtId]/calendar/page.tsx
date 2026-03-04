@@ -286,7 +286,7 @@ export default function CourtCalendarPage() {
             </header>
 
             <div className="flex-1 p-8 overflow-auto">
-                <Card className="border-none shadow-sm bg-white overflow-hidden min-w-[800px]">
+                <Card className="border-none shadow-sm bg-white overflow-hidden min-w-[800px] flex flex-col gap-0">
                     {/* Header Row */}
                     <div className="grid grid-cols-[80px_1fr] border-b border-[#002B40]/5">
                         <div className="p-4 border-r border-[#002B40]/5 font-bold text-[#002B40]/40 text-xs text-center flex items-center justify-center bg-[#F8FAFC]">
@@ -313,12 +313,12 @@ export default function CourtCalendarPage() {
                         const hasBooking = hasBookingInHour(hour);
                         return (
                             <div key={hour} className={cn(
-                                "grid grid-cols-[80px_1fr] border-b border-[#002B40]/5 last:border-none transition-all",
+                                "grid grid-cols-[80px_1fr] last:border-none transition-all",
                                 hasBooking ? "min-h-[80px]" : "min-h-[40px]"
                             )}>
                                 {/* Time Column */}
                                 <div className={cn(
-                                    "p-2 border-r border-[#002B40]/5 font-bold text-[#002B40]/60 text-[10px] text-center flex items-center justify-center bg-white transition-all",
+                                    "p-2 border-r border-b border-[#002B40]/5 font-bold text-[#002B40]/60 text-[10px] text-center flex items-center justify-center bg-white transition-all",
                                     !hasBooking && "text-[#002B40]/30"
                                 )}>
                                     {String(hour).padStart(2, '0')}:00
@@ -449,7 +449,7 @@ const getSportStyles = (sportName: string) => {
 function TimeSlot({ date, hour, booking, available, court, className, onClick }: { date: Date, hour: number, booking?: Booking, available: boolean, court: Court, className?: string, onClick?: () => void }) {
     if (!available) {
         return (
-            <div className={cn("bg-[#E2E8F0] flex items-center justify-center p-2 opacity-40", className)}>
+            <div className={cn("bg-[#E2E8F0] flex items-center justify-center p-2 opacity-40 border-b border-[#002B40]/5", className)}>
             </div>
         );
     }
@@ -463,13 +463,14 @@ function TimeSlot({ date, hour, booking, available, court, className, onClick }:
         const sportStyles = getSportStyles(booking.sports?.name || court.sports?.[0]?.name || '');
 
         return (
-            <div className={cn("px-1", className)} onClick={onClick}>
+            <div className={cn("px-1 h-full", isEnd && "border-b border-[#002B40]/5", className)} onClick={onClick}>
                 <div className={cn(
                     "w-full h-full flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:brightness-95 transition-all border-l-4",
                     sportStyles.bg,
                     sportStyles.border,
-                    isStart ? "rounded-t pt-2" : "border-t-transparent",
-                    isEnd ? "rounded-b pb-2" : "border-b-transparent"
+                    isStart ? "rounded-t pt-2 border-t" : "border-t-transparent",
+                    isEnd ? "rounded-b pb-2 border-b" : "border-b-transparent",
+                    !isStart && !isEnd && "border-y-transparent"
                 )}>
                     {isStart && (
                         <>
@@ -486,8 +487,8 @@ function TimeSlot({ date, hour, booking, available, court, className, onClick }:
     }
 
     return (
-        <div className={cn("p-1 group", className)} onClick={onClick}>
-            <div className="w-full h-full flex items-center justify-center rounded hover:bg-emerald-50 cursor-pointer transition-colors group-hover:border-emerald-200 border border-transparent">
+        <div className={cn("p-1 group border-b border-[#002B40]/5", className)} onClick={onClick}>
+            <div className="w-full h-full min-h-[40px] flex items-center justify-center rounded hover:bg-emerald-50 cursor-pointer transition-colors group-hover:border-emerald-200 border border-transparent">
                 <span className="text-xs font-medium text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">Disponível</span>
             </div>
         </div>

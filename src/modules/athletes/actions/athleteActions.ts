@@ -36,12 +36,16 @@ export async function linkAthlete(formData: {
         }
 
         // 2. Create User in Clerk
-        // Note: Using await clerk since createClerkClient might return a promise or the client depending on version
         const client = await clerk;
         const clerkUser = await client.users.createUser({
             emailAddress: [formData.email],
             firstName: formData.name.split(' ')[0],
             lastName: formData.name.split(' ').slice(1).join(' ') || undefined,
+            skipPasswordRequirement: true,
+            unsafeMetadata: {
+                role: 'atleta',
+                origem_cadastro: 'arena'
+            }
         });
 
         // 3. Sync to Supabase users table
@@ -83,11 +87,18 @@ export async function linkAthlete(formData: {
 
         return { success: true };
     } catch (error: any) {
-        console.error("Error in linkAthlete action:", error);
+        console.error("DEBUG - Full Error in linkAthlete:", JSON.stringify(error, null, 2));
 
-        // Handle Clerk duplicate email error specifically
-        if (error.errors && error.errors[0]?.code === 'form_identifier_exists') {
-            return { success: false, error: "Este e-mail já está cadastrado no sistema." };
+        if (error.errors && error.errors[0]) {
+            const clerkError = error.errors[0];
+            if (clerkError.code === 'form_identifier_exists') {
+                return { success: false, error: "Este e-mail já está cadastrado no sistema." };
+            }
+            // Retornar a mensagem longa do Clerk para diagnóstico
+            return {
+                success: false,
+                error: clerkError.longMessage || clerkError.message || "Erro de validação no Clerk."
+            };
         }
 
         return {

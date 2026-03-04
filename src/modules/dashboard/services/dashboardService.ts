@@ -74,12 +74,24 @@ export class DashboardService {
             percentageChange = 100; // If previous was 0 and current is > 0, consider 100% increase (or potentially infinite, but 100 is safer for UI)
         }
 
+        // 5. Count Active Athletes (Unique athletes with confirmed bookings this month)
+        const { data: activeAthletesData } = await supabase
+            .from('bookings')
+            .select('athlete_id')
+            .in('arena_id', arenaIds)
+            .eq('status', 'confirmed')
+            .gte('start_time', currentMonthStart)
+            .lte('start_time', currentMonthEnd)
+            .not('athlete_id', 'is', null);
+
+        const uniqueAthletes = new Set(activeAthletesData?.map(b => b.athlete_id)).size;
+
         return {
             receita: currentRevenue,
             receitaChange: percentageChange,
             reservas: bookingCount || 0,
             quadras: courtCount || 0,
-            ativos: 0 // Placeholder
+            ativos: uniqueAthletes
         };
     }
 }

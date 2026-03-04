@@ -141,6 +141,24 @@ export class OrderService {
         return order;
     }
 
+    static async addOrderItems(orderId: string, items: { product_id: string; quantity: number; unit_price: number; total_price: number }[]) {
+        if (items.length === 0) return;
+
+        const itemsInput = items.map(item => ({
+            ...item,
+            order_id: orderId
+        }));
+
+        const { error } = await supabase
+            .from('station_order_items')
+            .insert(itemsInput);
+
+        if (error) {
+            console.error('Error adding order items:', error);
+            throw error;
+        }
+    }
+
     static async getOrderById(id: string) {
         const { data, error } = await supabase
             .from('station_orders')

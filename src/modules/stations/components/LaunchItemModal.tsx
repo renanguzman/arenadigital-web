@@ -24,9 +24,9 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { OrderService, StationOrder } from "../services/orderService"
 import { ProductService, Product } from "@/modules/products/services/productService"
-import { Search, Check, X, Loader2, Plus, Trash2 } from "lucide-react"
+import { Search, Check, X, Loader2, Plus, Minus, Trash2 } from "lucide-react"
 import { Label } from "@/components/ui/label"
-import { normalizeString } from "@/lib/utils"
+import { cn, normalizeString } from "@/lib/utils"
 
 const launchItemSchema = z.object({
     quantity: z.string().min(1, "Informe a quantidade"),
@@ -54,13 +54,29 @@ export function LaunchItemModal({
     order,
     onSuccess
 }: LaunchItemModalProps) {
+    const [allProducts, setAllProducts] = useState<Product[]>([])
     const [productSearch, setProductSearch] = useState("")
-    const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
     const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
     const [isSearchingProducts, setIsSearchingProducts] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    const productSearchTimeout = useRef<NodeJS.Timeout | null>(null)
+    useEffect(() => {
+        if (isOpen) {
+            loadProducts()
+        }
+    }, [isOpen, arenaId])
+
+    const loadProducts = async () => {
+        setIsSearchingProducts(true)
+        try {
+            const productsData = await ProductService.getProductsByArena(arenaId)
+            setAllProducts(productsData || [])
+        } catch (error) {
+            console.error("Error loading products:", error)
+        } finally {
+            setIsSearchingProducts(false)
+        }
+    }
 
     const form = useForm<LaunchItemValues>({
         resolver: zodResolver(launchItemSchema),
@@ -69,43 +85,37 @@ export function LaunchItemModal({
         },
     })
 
-    const handleProductSearch = (value: string) => {
-        setProductSearch(value)
+    const filteredProducts = allProducts.filter(p =>
+        normalizeString(p.name).includes(normalizeString(productSearch))
+    )
 
-        if (productSearchTimeout.current) clearTimeout(productSearchTimeout.current)
+    const groupedProducts = filteredProducts.reduce((acc, product) => {
+        const type = product.item_type || 'Geral'
+        if (!acc[type]) acc[type] = []
+        acc[type].push(product)
+        return acc
+    }, {} as Record<string, Product[]>)
 
-        if (value.length < 2) {
-            setFilteredProducts([])
-            return
-        }
-
-        setIsSearchingProducts(true)
-        productSearchTimeout.current = setTimeout(async () => {
-            try {
-                const productsData = await ProductService.getProductsByArena(arenaId)
-                const filtered = productsData.filter(p =>
-                    normalizeString(p.name).includes(normalizeString(value))
-                )
-                setFilteredProducts(filtered)
-            } catch (error) {
-                console.error("Product search error:", error)
-            } finally {
-                setIsSearchingProducts(false)
-            }
-        }, 500)
+    const getItemQuantity = (productId: string) => {
+        const item = selectedItems.find(i => i.product.id === productId)
+        return item ? item.quantity : 0
     }
 
-    const addItem = (product: Product) => {
-        const qty = parseInt(form.getValues("quantity"))
-        if (isNaN(qty) || qty <= 0) {
-            toast.error("Informe uma quantidade válida")
-            return
-        }
-
-        setSelectedItems(prev => [...prev, { product, quantity: qty }])
-        setProductSearch("")
-        setFilteredProducts([])
-        form.setValue("quantity", "1")
+    const updateItemQuantity = (product: Product, delta: number) => {
+        setSelectedItems(prev => {
+            const existing = prev.find(i => i.product.id === product.id)
+            if (existing) {
+                const newQty = existing.quantity + delta
+                if (newQty <= 0) {
+                    return prev.filter(i => i.product.id !== product.id)
+                }
+                return prev.map(i => i.product.id === product.id ? { ...i, quantity: newQty } : i)
+            }
+            if (delta > 0) {
+                return [...prev, { product, quantity: delta }]
+            }
+            return prev
+        })
     }
 
     const removeItem = (index: number) => {
@@ -131,8 +141,8 @@ export function LaunchItemModal({
 
             const launchTotalValue = itemsToLaunch.reduce((acc, item) => acc + item.total_price, 0)
 
-            // Add all items
-            await Promise.all(itemsToLaunch.map(item => OrderService.addOrderItem(item)))
+            // Add all items in bulk
+            await OrderService.addOrderItems(order.id, itemsToLaunch.map(({ order_id, ...item }) => item))
 
             // Update order total value
             await OrderService.updateOrder(order.id, {
@@ -154,7 +164,6 @@ export function LaunchItemModal({
         form.reset()
         setProductSearch("")
         setSelectedItems([])
-        setFilteredProducts([])
         onClose()
     }
 
@@ -162,7 +171,7 @@ export function LaunchItemModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
+            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
                 <DialogHeader className="p-6 pb-0">
                     <DialogTitle className="text-2xl font-black text-[#002B40]">
                         Lançar item na comanda #{order.order_number.toString().padStart(3, '0')}
@@ -172,84 +181,103 @@ export function LaunchItemModal({
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-6">
                         <div className="space-y-4">
-                            <div className="grid grid-cols-12 gap-3 items-end">
-                                <div className="col-span-4 space-y-2">
-                                    <Label className="text-[#002B40] font-bold">Qtd.</Label>
-                                    <FormField
-                                        control={form.control}
-                                        name="quantity"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        min="1"
-                                                        {...field}
-                                                        className="h-11 border-[#002B40]/10 rounded-xl"
-                                                    />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
+                            <div className="relative">
+                                <Label className="text-[#002B40] font-bold">Itens para lançar</Label>
+                                <div className="relative mt-2">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#002B40]/20" />
+                                    <Input
+                                        placeholder="Filtrar por nome do item..."
+                                        value={productSearch}
+                                        onChange={(e) => setProductSearch(e.target.value)}
+                                        className="pl-10 h-11 border-[#002B40]/10 focus:ring-[#FF6B00] focus:border-[#FF6B00] rounded-xl"
                                     />
-                                </div>
-                                <div className="col-span-8 space-y-2 relative">
-                                    <Label className="text-[#002B40] font-bold">Item</Label>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#002B40]/20" />
-                                        <Input
-                                            placeholder="Selecione o item desejado"
-                                            value={productSearch}
-                                            onChange={(e) => handleProductSearch(e.target.value)}
-                                            className="pl-10 h-11 border-[#002B40]/10 focus:ring-[#FF6B00] focus:border-[#FF6B00] rounded-xl"
-                                        />
-                                        {isSearchingProducts && (
-                                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-[#FF6B00]" />
-                                        )}
-
-                                        {filteredProducts.length > 0 && (
-                                            <div className="absolute z-50 w-full mt-1 bg-white border border-[#002B40]/10 rounded-xl shadow-lg max-h-48 overflow-auto">
-                                                {filteredProducts.map((product) => (
-                                                    <button
-                                                        key={product.id}
-                                                        type="button"
-                                                        onClick={() => addItem(product)}
-                                                        className="w-full text-left px-4 py-3 hover:bg-[#FFF5EF] transition-colors flex items-center justify-between border-b border-[#002B40]/5 last:border-0"
-                                                    >
-                                                        <div className="flex flex-col">
-                                                            <span className="font-semibold text-[#002B40] text-sm">{product.name}</span>
-                                                            <span className="text-xs text-[#002B40]/40">R$ {product.price.toFixed(2)}</span>
-                                                        </div>
-                                                        <Plus className="h-4 w-4 text-[#FF6B00]" />
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                    {isSearchingProducts && (
+                                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-[#FF6B00]" />
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Selected Items List */}
-                            {selectedItems.length > 0 && (
-                                <div className="space-y-2 max-h-40 overflow-auto pr-1">
-                                    {selectedItems.map((item, index) => (
-                                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-xl">
-                                            <div className="flex flex-col">
-                                                <span className="font-semibold text-[#002B40] text-sm">{item.product.name}</span>
-                                                <span className="text-xs text-[#002B40]/40">
-                                                    {item.quantity}x R$ {item.product.price.toFixed(2)} = R$ {(item.product.price * item.quantity).toFixed(2)}
-                                                </span>
+                            {/* Product List by Category */}
+                            <div className="space-y-6 max-h-[300px] overflow-auto pr-2 custom-scrollbar">
+                                {Object.entries(groupedProducts).length === 0 ? (
+                                    <div className="text-center py-8 text-[#002B40]/40 text-sm">
+                                        Nenhum produto encontrado.
+                                    </div>
+                                ) : (
+                                    Object.entries(groupedProducts).map(([category, products]) => (
+                                        <div key={category} className="space-y-3">
+                                            <h3 className="text-xs font-black text-[#002B40]/30 uppercase tracking-widest pl-1">{category}</h3>
+                                            <div className="space-y-2">
+                                                {products.map((product) => {
+                                                    const quantity = getItemQuantity(product.id)
+                                                    return (
+                                                        <div key={product.id} className="flex items-center justify-between p-3 bg-white border border-[#002B40]/5 rounded-xl hover:border-[#FF6B00]/20 transition-all group">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-semibold text-[#002B40] text-sm group-hover:text-[#FF6B00] transition-colors">{product.name}</span>
+                                                                <span className="text-xs text-[#002B40]/40 font-medium">R$ {product.price.toFixed(2)}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 bg-[#F8FAFC] p-1 rounded-lg border border-[#002B40]/5">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    type="button"
+                                                                    onClick={() => updateItemQuantity(product, -1)}
+                                                                    disabled={quantity === 0}
+                                                                    className="h-8 w-8 rounded-md text-[#002B40]/40 hover:text-red-500 hover:bg-red-50 disabled:opacity-20"
+                                                                >
+                                                                    <Minus className="h-3 w-3" />
+                                                                </Button>
+                                                                <span className={cn(
+                                                                    "text-sm font-black min-w-[20px] text-center transition-colors",
+                                                                    quantity > 0 ? "text-[#FF6B00]" : "text-[#002B40]/20"
+                                                                )}>
+                                                                    {quantity}
+                                                                </span>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    type="button"
+                                                                    onClick={() => updateItemQuantity(product, 1)}
+                                                                    className="h-8 w-8 rounded-md text-[#002B40]/40 hover:text-emerald-500 hover:bg-emerald-50"
+                                                                >
+                                                                    <Plus className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
                                             </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                type="button"
-                                                onClick={() => removeItem(index)}
-                                                className="h-8 w-8 hover:bg-red-50 text-red-500"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
                                         </div>
-                                    ))}
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Cart Summary */}
+                            {selectedItems.length > 0 && (
+                                <div className="pt-4 mt-4 border-t border-[#002B40]/5 space-y-3">
+                                    <div className="flex items-center justify-between text-xs font-bold text-[#002B40]/40">
+                                        <span>Resumo do lançamento</span>
+                                        <span>{selectedItems.length} {selectedItems.length === 1 ? 'item' : 'itens'}</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {selectedItems.slice(0, 3).map((item, index) => (
+                                            <div key={index} className="flex items-center justify-between text-sm">
+                                                <span className="text-[#002B40]/60"><span className="font-bold text-[#FF6B00]">{item.quantity}x</span> {item.product.name}</span>
+                                                <span className="font-bold text-[#002B40]">R$ {(item.product.price * item.quantity).toFixed(2)}</span>
+                                            </div>
+                                        ))}
+                                        {selectedItems.length > 3 && (
+                                            <div className="text-xs text-[#002B40]/30 font-medium italic">
+                                                + {selectedItems.length - 3} outros itens...
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center justify-between pt-2 border-t border-dashed border-[#002B40]/10">
+                                        <span className="text-sm font-black text-[#002B40] uppercase tracking-wider">Total a Lançar</span>
+                                        <span className="text-lg font-black text-[#FF6B00]">
+                                            R$ {selectedItems.reduce((acc, item) => acc + (item.product.price * item.quantity), 0).toFixed(2)}
+                                        </span>
+                                    </div>
                                 </div>
                             )}
                         </div>
