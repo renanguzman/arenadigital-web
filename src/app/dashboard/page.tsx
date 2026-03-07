@@ -11,18 +11,20 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useUserSync } from "@/hooks/useUserSync";
+import { useArena } from "@/contexts/ArenaContext";
 import { DashboardService } from "@/modules/dashboard/services/dashboardService";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardPage() {
     const { dbUser, isLoading: userLoading } = useUserSync();
+    const { selectedArena } = useArena();
     const [stats, setStats] = useState({ receita: 0, receitaChange: 0, reservas: 0, quadras: 0, ativos: 0 });
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         async function loadStats() {
             if (dbUser) {
-                const data = await DashboardService.getOverviewStats(dbUser.id);
+                const data = await DashboardService.getOverviewStats(dbUser.id, selectedArena);
                 setStats(data);
                 setIsLoading(false);
             } else if (!userLoading) {
@@ -30,7 +32,7 @@ export default function DashboardPage() {
             }
         }
         loadStats();
-    }, [dbUser, userLoading]);
+    }, [dbUser, userLoading, selectedArena]);
 
     if (isLoading || userLoading) {
         return (

@@ -1,6 +1,7 @@
 "use client"
 
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
+import { ArenaProvider } from "@/contexts/ArenaContext";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
 import { cn } from "@/lib/utils";
@@ -50,9 +51,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 export function DashboardLayoutWrapper({ children }: { children: React.ReactNode }) {
     return (
         <SidebarProvider>
-            <DashboardLayoutContent>
-                {children}
-            </DashboardLayoutContent>
+            <ArenaProvider>
+                <DashboardLayoutContent>
+                    {children}
+                </DashboardLayoutContent>
+            </ArenaProvider>
         </SidebarProvider>
     );
 }

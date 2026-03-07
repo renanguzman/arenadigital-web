@@ -108,7 +108,7 @@ export class UserService {
 
                     if (addressData) {
                         arenaInsertData.zip_code = addressData.cep || undefined;
-                        arenaInsertData.municipio_id = addressData.municipio_id || undefined;
+                        arenaInsertData.id_municipio = addressData.id_municipio || undefined;
                         arenaInsertData.number = addressData.number || undefined;
                         arenaInsertData.complement = addressData.complement || undefined;
                         arenaInsertData.neighborhood = addressData.neighborhood || undefined;

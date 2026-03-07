@@ -52,7 +52,7 @@ const arenaFormSchema = z.object({
     neighborhood: z.string().optional(),
     number: z.string().optional(),
     complement: z.string().optional(),
-    municipio_id: z.number({ message: "O município é obrigatório" }),
+    id_municipio: z.number({ message: "O município é obrigatório" }),
     zip_code: z.string().optional(),
     facebook: z.string().optional(),
     instagram: z.string().optional(),
@@ -132,11 +132,11 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
                 const { data } = await supabase.from('estados').select('*').order('nome')
                 if (data) setEstados(data)
 
-                if (initialData?.municipio_id) {
-                    const { data: munData } = await supabase.from('municipios').select('*').eq('codigo_ibge', initialData.municipio_id).single()
+                if (initialData?.id_municipio) {
+                    const { data: munData } = await supabase.from('municipios').select('*').eq('codigo_ibge', initialData.id_municipio).single()
                     if (munData) {
                         setSelectedEstadoId(munData.codigo_uf)
-                        setTimeout(() => form.setValue("municipio_id", initialData.municipio_id), 100)
+                        setTimeout(() => form.setValue("id_municipio", initialData.id_municipio), 100)
                     }
                 }
             } catch (error) {
@@ -146,7 +146,7 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
         loadSports()
         loadComodidades()
         loadEstados()
-    }, [initialData?.municipio_id])
+    }, [initialData?.id_municipio])
 
     useEffect(() => {
         async function loadMunicipios() {
@@ -180,7 +180,7 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
             neighborhood: initialData?.neighborhood || "",
             number: initialData?.number || "",
             complement: initialData?.complement || "",
-            municipio_id: typeof initialData?.municipio_id === 'number' ? initialData.municipio_id : undefined,
+            id_municipio: typeof initialData?.id_municipio === 'number' ? initialData.id_municipio : undefined,
             facebook: initialData?.facebook || "",
             instagram: initialData?.instagram || "",
             tiktok: initialData?.tiktok || "",
@@ -217,7 +217,7 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
                     setMunicipios(muns); // atualiza estado local
                     const cidadeEncontrada = muns.find(m => m.codigo_ibge.toString() === data.ibge);
                     if (cidadeEncontrada) {
-                        form.setValue("municipio_id", parseInt(data.ibge), { shouldValidate: true, shouldDirty: true });
+                        form.setValue("id_municipio", parseInt(data.ibge), { shouldValidate: true, shouldDirty: true });
                     }
                 }
             }
@@ -291,8 +291,8 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
 
             // Tentar obter geolocalização se houver endereco e municipio preenchido
             let locationPoint = null;
-            if (values.address && values.municipio_id) {
-                const munInfo = municipios.find(m => m.codigo_ibge === values.municipio_id);
+            if (values.address && values.id_municipio) {
+                const munInfo = municipios.find(m => m.codigo_ibge === values.id_municipio);
                 const ufInfo = estados.find(e => e.codigo_uf === selectedEstadoId);
 
                 if (munInfo && ufInfo) {
@@ -492,7 +492,7 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
                                                                         value={estado.nome}
                                                                         onSelect={() => {
                                                                             setSelectedEstadoId(estado.codigo_uf)
-                                                                            form.setValue("municipio_id", undefined as any)
+                                                                            form.setValue("id_municipio", undefined as any)
                                                                             setIsEstadoOpen(false)
                                                                         }}
                                                                     >
@@ -516,7 +516,7 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
                                     <div className="md:col-span-2">
                                         <FormField
                                             control={form.control}
-                                            name="municipio_id"
+                                            name="id_municipio"
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Cidade</FormLabel>
@@ -548,7 +548,7 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
                                                                                 key={municipio.codigo_ibge}
                                                                                 value={municipio.nome}
                                                                                 onSelect={() => {
-                                                                                    form.setValue("municipio_id", municipio.codigo_ibge)
+                                                                                    form.setValue("id_municipio", municipio.codigo_ibge)
                                                                                     setIsMunicipioOpen(false)
                                                                                 }}
                                                                             >

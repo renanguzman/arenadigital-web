@@ -22,6 +22,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Logo } from "@/components/shared/Logo";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { ArenaSelector } from "./ArenaSelector";
 
 const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -76,6 +77,8 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                             )}
                         </Button>
                     </div>
+
+                    <ArenaSelector isCollapsed={isCollapsed} />
 
                     <div className="space-y-2">
                         {sidebarItems.map((item) => {

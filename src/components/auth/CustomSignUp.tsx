@@ -180,7 +180,7 @@ export function CustomSignUp() {
                         cep,
                         state,
                         city,
-                        municipio_id: municipioId,
+                        id_municipio: municipioId,
                         neighborhood,
                         street,
                         number: addressNumber,

@@ -15,7 +15,7 @@ export interface ArenaInput {
     zip_code?: string;
     number?: string;
     complement?: string;
-    municipio_id?: number;
+    id_municipio?: number;
     facebook?: string;
     instagram?: string;
     tiktok?: string;

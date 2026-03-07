@@ -3,14 +3,20 @@ import { supabase } from "@/shared/database/supabaseClient";
 import { startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay } from 'date-fns';
 
 export class DashboardService {
-    static async getOverviewStats(ownerId: string) {
-        // 1. Get Arena IDs for this owner
-        const { data: arenas } = await supabase
-            .from('arenas')
-            .select('id')
-            .eq('owner_id', ownerId);
+    static async getOverviewStats(ownerId: string, selectedArenaId: string | "all" = "all") {
+        let arenaIds: string[] = [];
 
-        const arenaIds = arenas?.map(a => a.id) || [];
+        if (selectedArenaId !== "all") {
+            arenaIds = [selectedArenaId];
+        } else {
+            // 1. Get Arena IDs for this owner
+            const { data: arenas } = await supabase
+                .from('arenas')
+                .select('id')
+                .eq('owner_id', ownerId);
+
+            arenaIds = arenas?.map(a => a.id) || [];
+        }
 
         if (arenaIds.length === 0) {
             return { receita: 0, receitaChange: 0, reservas: 0, quadras: 0, ativos: 0 };
