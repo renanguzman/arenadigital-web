@@ -14,19 +14,30 @@ import { useUserSync } from "@/hooks/useUserSync";
 import { useArena } from "@/contexts/ArenaContext";
 import { DashboardService } from "@/modules/dashboard/services/dashboardService";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OccupancyChart } from "@/modules/dashboard/components/OccupancyChart";
 
 export default function DashboardPage() {
     const { dbUser, isLoading: userLoading } = useUserSync();
     const { selectedArena } = useArena();
     const [stats, setStats] = useState({ receita: 0, receitaChange: 0, reservas: 0, quadras: 0, ativos: 0 });
+    const [occupancyData, setOccupancyData] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         async function loadStats() {
             if (dbUser) {
-                const data = await DashboardService.getOverviewStats(dbUser.id, selectedArena);
-                setStats(data);
-                setIsLoading(false);
+                try {
+                    const [overview, occupancy] = await Promise.all([
+                        DashboardService.getOverviewStats(dbUser.id, selectedArena),
+                        DashboardService.getOccupancyOverview(dbUser.id, selectedArena)
+                    ]);
+                    setStats(overview);
+                    setOccupancyData(occupancy);
+                } catch (error) {
+                    console.error("Error loading dashboard data:", error);
+                } finally {
+                    setIsLoading(false);
+                }
             } else if (!userLoading) {
                 setIsLoading(false);
             }
@@ -112,12 +123,7 @@ export default function DashboardPage() {
                         <CardTitle>Visão Geral</CardTitle>
                     </CardHeader>
                     <CardContent className="pl-2">
-                        <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/30">
-                            <div className="text-center space-y-2">
-                                <BarChart className="h-10 w-10 text-muted-foreground mx-auto opacity-20" />
-                                <p className="text-sm text-muted-foreground">Gráfico de desempenho será exibido aqui conforme os dados forem acumulados.</p>
-                            </div>
-                        </div>
+                        <OccupancyChart data={occupancyData} />
                     </CardContent>
                 </Card>
 

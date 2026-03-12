@@ -1,6 +1,6 @@
 import { supabase } from "@/shared/database/supabaseClient";
 
-import { startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay, addHours } from 'date-fns';
 
 export class DashboardService {
     static async getOverviewStats(ownerId: string, selectedArenaId: string | "all" = "all") {
@@ -99,5 +99,114 @@ export class DashboardService {
             quadras: courtCount || 0,
             ativos: uniqueAthletes
         };
+    }
+    static async getArenaIds(ownerId: string, selectedArenaId: string | "all") {
+        if (selectedArenaId !== "all") return [selectedArenaId];
+        const { data: arenas } = await supabase
+            .from('arenas')
+            .select('id')
+            .eq('owner_id', ownerId);
+        return arenas?.map(a => a.id) || [];
+    }
+
+    private static getCurrentDayName(): string {
+        const days = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+        return days[new Date().getDay()];
+    }
+
+    static async getOccupancyOverview(ownerId: string, selectedArenaId: string | "all" = "all") {
+        try {
+            const arenaIds = await this.getArenaIds(ownerId, selectedArenaId);
+            if (arenaIds.length === 0) return [];
+
+            const today = new Date();
+            const startOfDayStr = startOfDay(today).toISOString();
+            // Expande para 6h do dia seguinte para capturar o overnight (slots de 1h que cruzam a meia-noite)
+            const searchLimitStr = addHours(endOfDay(today), 6).toISOString();
+            const dayName = this.getCurrentDayName();
+
+            // 1. Get all active courts for these arenas
+            const { data: courts, error: courtsError } = await supabase
+                .from('courts')
+                .select('id, name, day_config, arena_id')
+                .in('arena_id', arenaIds)
+                .eq('status', 'ativo');
+
+            if (courtsError) throw courtsError;
+
+            // 2. Get all bookings for today for these specific courts
+            const courtIds = (courts || []).map(c => c.id);
+            if (courtIds.length === 0) return [];
+
+            const { data: bookings, error: bookingsError } = await supabase
+                .from('bookings')
+                .select('court_id, start_time, end_time')
+                .in('court_id', courtIds)
+                .in('status', ['confirmed', 'pending'])
+                .gte('start_time', startOfDayStr)
+                .lte('start_time', searchLimitStr);
+
+            if (bookingsError) throw bookingsError;
+
+            // 3. Process each court's occupancy
+            const occupancyData = (courts || []).map(court => {
+                const courtBookings = (bookings || []).filter(b => b.court_id === court.id);
+                
+                // Normalizing day config access
+                const dayConfigs = Array.isArray(court.day_config) ? court.day_config : [];
+                const configForToday = dayConfigs.find((c: any) => 
+                    c.day.toLowerCase() === dayName.toLowerCase() ||
+                    c.day.toLowerCase().includes(dayName.toLowerCase().split('-')[0])
+                );
+
+                if (!configForToday || !configForToday.enabled) {
+                    return {
+                        courtName: court.name,
+                        percentage: 0,
+                        booked: 0,
+                        total: 0
+                    };
+                }
+
+                // Calculate total possible slots based on start/end time
+                const startHour = parseInt(configForToday.startTime.split(':')[0]);
+                const endHour = parseInt(configForToday.endTime.split(':')[0]);
+                
+                // Cálculo de slots (slots de 1h). Se endHour < startHour, cruzou a meia-noite.
+                const totalPossibleBookings = endHour >= startHour 
+                    ? endHour - startHour 
+                    : (24 - startHour) + endHour;
+
+                // Filtrar reservas que realmente pertencem ao intervalo desta quadra hoje
+                const bookedCount = courtBookings.filter(b => {
+                    const bStart = new Date(b.start_time);
+                    const bHour = bStart.getHours();
+                    
+                    if (endHour >= startHour) {
+                        return bHour >= startHour && bHour < endHour;
+                    } else {
+                        // Caso overnight (ex: 18:00 as 02:00). Aceita slots >= 18h OU < 02h.
+                        return bHour >= startHour || bHour < endHour;
+                    }
+                }).length;
+
+                const percentage = totalPossibleBookings > 0 
+                    ? Math.round((bookedCount / totalPossibleBookings) * 100) 
+                    : 0;
+
+                return {
+                    courtName: court.name,
+                    percentage: Math.min(percentage, 100),
+                    booked: bookedCount,
+                    total: totalPossibleBookings
+                };
+            });
+
+            // Sort by name alphabetically
+            return occupancyData.sort((a, b) => a.courtName.localeCompare(b.courtName));
+        } catch (error) {
+            console.error('Error in getOccupancyOverview:', error);
+            return [];
+        }
     }
 }

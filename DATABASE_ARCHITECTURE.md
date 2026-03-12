@@ -147,6 +147,16 @@ A fim de contar e exibir informações sobre a lotação das arenas, o app rastr
 - **Controlador na Arena (`show_presence`):** A tabela `arenas` recebeu uma flag `show_presence` (boolean, default TRUE). Se FALSE, a arena oculta essas contagens de visitantes em tempo real.
 - **Função RPC (`get_arena_presence`):** Conta quantos atletas estão em um raio de 500 metros da Arena e que tiveram a localização enviada na última hora (`updated_at >= NOW() - INTERVAL '1 hour'`). Retorna -1 se a arena desativou a exibição.
 
+### 2.9. Dashboard e Lógica de Ocupação
+A taxa de ocupação das quadras é calculada sob demanda para o dia atual, cruzando a disponibilidade da grade horária com as reservas confirmadas.
+
+- **Regra de Cálculo de Ocupação (Dashboard):**
+  1. Identificar a configuração de funcionamento da quadra para o dia da semana atual no array `day_config`.
+  2. Calcular o total de slots horários disponíveis (ex: 08:00 às 22:00 = 14 slots de 1h).
+  3. Contar o número de reservas com status `'confirmed'` ou `'pending'` para o dia atual.
+  4. Taxa de Ocupação (%) = `(Número de Reservas / Total de Slots) * 100`.
+- **Implementação Técnica:** Esta lógica reside no `DashboardService.ts`. O campo `day_config` é um `jsonb` contendo um array de objetos (ex: `[{ "day": "Segunda-feira", "enabled": true, "startTime": "08:00", "endTime": "22:00" }, ...]`).
+
 ---
 
 ## 3. Row Level Security (RLS) policies 🛡️

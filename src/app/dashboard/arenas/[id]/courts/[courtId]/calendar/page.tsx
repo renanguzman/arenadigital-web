@@ -138,19 +138,18 @@ export default function CourtCalendarPage() {
 
     // Helper to check if a slot is booked
     const getBookingForSlot = (date: Date, hour: number) => {
+        const slotStart = new Date(date);
+        slotStart.setHours(hour, 0, 0, 0);
+
         return bookings.find(b => {
             const bookingStart = parseISO(b.start_time);
             const bookingEnd = parseISO(b.end_time);
-
-            // Check if same day
-            if (!isSameDay(bookingStart, date)) return false;
+            
             if (b.status === 'cancelled') return false;
 
-            const startH = getHours(bookingStart);
-            const endH = getHours(bookingEnd);
-
-            // A booking from 14:00 to 16:00 occupies 14:00 and 15:00 slots
-            return hour >= startH && hour < endH;
+            // Um slot de 1h (ex: 14:00) está ocupado se o início da reserva 
+            // for menor ou igual ao início do slot E o fim da reserva for maior que o início do slot
+            return slotStart >= bookingStart && slotStart < bookingEnd;
         });
     };
 
@@ -165,39 +164,80 @@ export default function CourtCalendarPage() {
 
         if (!config || !config.enabled) return court.price || 0;
 
-        // Check for custom hourly price
-        // Custom prices are stored as { start: "HH:mm", end: "HH:mm", price: number }
-        const customPrice = config.customPrices?.find((p: any) => {
+        const startHour = parseInt(config.startTime.split(':')[0]);
+        const endHour = parseInt(config.endTime.split(':')[0]);
+
+        // Se o slot pertence à janela que começou hoje
+        let currentConfig = config;
+        
+        // Lógica de Wrap-around (Overnight)
+        if (startHour > endHour) {
+            // Se o horário atual é antes do fim (ex: 01:00 de Terça, mas pertence à Segunda das 22h-02h)
+            if (hour < endHour) {
+                const prevDate = addDays(date, -1);
+                const prevDayName = format(prevDate, 'EEEE', { locale: ptBR });
+                const formattedPrevDayName = prevDayName.charAt(0).toUpperCase() + prevDayName.slice(1);
+                const prevConfig = court.day_config.find((d: any) => d.day.toLowerCase() === formattedPrevDayName.toLowerCase());
+                if (prevConfig?.enabled) {
+                    currentConfig = prevConfig;
+                }
+            }
+        }
+
+        const customPrice = currentConfig.customPrices?.find((p: any) => {
             if (!p.start || !p.end) return false;
-            const startHour = parseInt(p.start.split(':')[0]);
-            const endHour = parseInt(p.end.split(':')[0]);
-            return hour >= startHour && hour < endHour;
+            const pStartHour = parseInt(p.start.split(':')[0]);
+            const pEndHour = parseInt(p.end.split(':')[0]);
+            return hour >= pStartHour && hour < pEndHour;
         });
 
         if (customPrice) return customPrice.price;
 
-        return config.price || court.price || 0;
+        return currentConfig.price || court.price || 0;
     };
 
     // Helper to check if a slot is unavailable based on day_config
     const isSlotAvailable = (date: Date, hour: number) => {
-        if (!court?.day_config) return true; // Default available if no config
+        if (!court?.day_config) return true;
 
         const dayName = format(date, 'EEEE', { locale: ptBR });
-        // Capitalize first letter to match config (Segunda-feira)
         const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
 
         const config = court.day_config.find((d: any) => d.day.toLowerCase() === formattedDayName.toLowerCase());
 
-        if (!config || !config.enabled) return false;
+        if (!config) return false;
 
         const startHour = parseInt(config.startTime.split(':')[0]);
         const endHour = parseInt(config.endTime.split(':')[0]);
 
-        return hour >= startHour && hour < endHour;
+        // Caso normal: 08:00 às 22:00
+        if (startHour < endHour) {
+            return config.enabled && hour >= startHour && hour < endHour;
+        }
+
+        // Caso overnight: 22:00 às 02:00
+        if (startHour > endHour) {
+            // Janela que começou hoje (ex: 23:00)
+            if (hour >= startHour) return config.enabled;
+
+            // Janela que começou ontem (ex: 01:00)
+            if (hour < endHour) {
+                const prevDate = addDays(date, -1);
+                const prevDayName = format(prevDate, 'EEEE', { locale: ptBR });
+                const formattedPrevDayName = prevDayName.charAt(0).toUpperCase() + prevDayName.slice(1);
+                const prevConfig = court.day_config.find((d: any) => d.day.toLowerCase() === formattedPrevDayName.toLowerCase());
+                
+                const prevStart = parseInt(prevConfig?.startTime.split(':')[0] || "0");
+                const prevEnd = parseInt(prevConfig?.endTime.split(':')[0] || "0");
+                
+                return prevConfig?.enabled && prevStart > prevEnd && hour < prevEnd;
+            }
+        }
+
+        return false;
     };
 
-    const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 06:00 to 23:00
+    const hours = Array.from({ length: 24 }, (_, i) => i); // 00:00 to 23:00
 
     const weekDays = Array.from({ length: 7 }, (_, i) => {
         const date = addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), i);

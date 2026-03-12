@@ -2,8 +2,10 @@
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowLeft, ChevronLeft, ChevronRight, Edit, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { startOfMonth, endOfMonth, format, addMonths, subMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Plus, ArrowLeft, ChevronLeft, ChevronRight, Edit, Trash2, Calendar } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
 import { useUserSync } from "@/hooks/useUserSync";
 import { ArenaService } from "@/modules/arenas/services/arenaService";
 import { FinanceService } from "@/modules/finance/services/financeService";
@@ -33,6 +35,7 @@ export default function EntradasPage() {
     const [arena, setArena] = useState<any>(null);
     const [transactions, setTransactions] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [currentDate, setCurrentDate] = useState(new Date());
 
     // Estado do modal de criação/edição
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -41,25 +44,39 @@ export default function EntradasPage() {
     // Estado do modal de confirmação de exclusão
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         if (!dbUser) return;
+        setIsLoading(true);
         try {
             const arenas = await ArenaService.getArenasByOwner(dbUser.id);
             if (arenas.length > 0) {
                 setArena(arenas[0]);
-                const data = await FinanceService.getTransactions(arenas[0].id, 'entrada');
+                
+                const start = startOfMonth(currentDate);
+                const end = endOfMonth(currentDate);
+                
+                const data = await FinanceService.getTransactions(
+                    arenas[0].id, 
+                    'entrada',
+                    format(start, 'yyyy-MM-dd'),
+                    format(end, 'yyyy-MM-dd')
+                );
                 setTransactions(data);
             }
-        } catch (error) {
-            console.error(error);
+        } catch (_error) {
+            console.error(_error);
+            toast.error("Erro ao carregar lançamentos.");
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [dbUser, currentDate]);
 
     useEffect(() => {
         loadData();
-    }, [dbUser]);
+    }, [loadData]);
+
+    const handlePrevMonth = () => setCurrentDate(prev => subMonths(prev, 1));
+    const handleNextMonth = () => setCurrentDate(prev => addMonths(prev, 1));
 
     const handleOpenCreate = () => {
         setEditingTransaction(null);
@@ -128,13 +145,33 @@ export default function EntradasPage() {
             </div>
 
             <Card className="border-none shadow-xl rounded-2xl overflow-hidden bg-white">
-                <div className="p-6 border-b border-[#002B40]/5 flex justify-end gap-3">
-                    <div className="flex items-center border rounded-lg overflow-hidden">
-                        <button className="p-2 border-r hover:bg-gray-50"><ChevronLeft className="h-4 w-4" /></button>
-                        <button className="p-2 hover:bg-gray-50"><ChevronRight className="h-4 w-4" /></button>
+                <div className="p-6 border-b border-[#002B40]/5 flex justify-end gap-3 items-center">
+                    <div className="flex items-center bg-gray-50 rounded-xl p-1 border border-[#002B40]/5">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={handlePrevMonth}
+                            className="h-9 w-9 text-[#002B40]/60 hover:text-[#002B40] hover:bg-white hover:shadow-sm rounded-lg"
+                        >
+                            <ChevronLeft className="h-5 w-5" />
+                        </Button>
+                        <div className="px-6 flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-[#FF6B00]" />
+                            <span className="text-sm font-black text-[#002B40] uppercase tracking-wider min-w-[150px] text-center">
+                                {format(currentDate, "MMMM yyyy", { locale: ptBR })}
+                            </span>
+                        </div>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={handleNextMonth}
+                            className="h-9 w-9 text-[#002B40]/60 hover:text-[#002B40] hover:bg-white hover:shadow-sm rounded-lg"
+                        >
+                            <ChevronRight className="h-5 w-5" />
+                        </Button>
                     </div>
-                    <div className="border rounded-lg px-4 py-2 text-sm font-bold text-[#002B40]/60">
-                        00/00/0000 - 00/00/0000
+                    <div className="bg-[#002B40]/5 rounded-xl px-5 py-2.5 text-xs font-black text-[#002B40]/40 uppercase tracking-widest border border-[#002B40]/5">
+                        {format(startOfMonth(currentDate), 'dd/MM/yyyy')} - {format(endOfMonth(currentDate), 'dd/MM/yyyy')}
                     </div>
                 </div>
                 <Table>

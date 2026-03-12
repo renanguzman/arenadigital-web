@@ -31,7 +31,7 @@ export class FinanceService {
         return data;
     }
 
-    static async getTransactions(arenaId: string, type?: 'entrada' | 'saída') {
+    static async getTransactions(arenaId: string, type?: 'entrada' | 'saída', startDate?: string, endDate?: string) {
         let query = supabase
             .from('transactions')
             .select('*, registered_by:users(name), atleta:atleta_id(id, nome_perfil)')
@@ -40,6 +40,14 @@ export class FinanceService {
 
         if (type) {
             query = query.eq('type', type);
+        }
+
+        if (startDate) {
+            query = query.gte('launch_date', startDate);
+        }
+
+        if (endDate) {
+            query = query.lte('launch_date', endDate);
         }
 
         const { data, error } = await query;
