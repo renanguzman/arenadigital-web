@@ -19,8 +19,7 @@ export function HeroAnimation() {
         for (let i = 0; i < TOTAL_FRAMES; i++) {
             const img = new Image();
             const frameNum = i.toString().padStart(3, '0');
-            // The filename contains an accented 'i'. Using encodeURI helps ensure it's requested correctly by the browser.
-            const basePath = encodeURI("/img/imgs_hero_landingpg/Vídeo_de_Jogo_Animado_e_Torcida_");
+            const basePath = "/img/imgs_hero_landingpg/Video_de_Jogo_Animado_e_Torcida_";
             img.src = `${basePath}${frameNum}.png`;
 
             img.onload = () => {
