@@ -6,11 +6,14 @@ import { ChevronLeft, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { OrderService, StationOrder } from "@/modules/stations/services/orderService";
+import { StockService } from "@/modules/products/services/stockService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LaunchItemModal } from "@/modules/stations/components/LaunchItemModal";
 import { RegisterPaymentModal } from "@/modules/stations/components/RegisterPaymentModal";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { useUserSync } from "@/hooks/useUserSync";
 
 export default function OrderDetailsPage() {
     const params = useParams();
@@ -23,6 +26,8 @@ export default function OrderDetailsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
+    const { dbUser } = useUserSync();
 
     const loadOrderData = async () => {
         setIsLoading(true);
@@ -39,6 +44,24 @@ export default function OrderDetailsPage() {
     useEffect(() => {
         if (orderId) loadOrderData();
     }, [orderId]);
+
+    const handleCancelOrder = async () => {
+        if (!order || !dbUser) return;
+        if (!window.confirm("Tem certeza que deseja cancelar esta comanda? Essa ação não pode ser desfeita e os itens retornarão ao estoque.")) return;
+
+        setIsCancelling(true);
+        try {
+            await OrderService.updateOrder(order.id, { status: 'cancelled' });
+            await StockService.restoreStockForOrder(order.id, arenaId, dbUser.id);
+            toast.success("Comanda cancelada com sucesso!");
+            loadOrderData();
+        } catch (error) {
+            console.error("Error cancelling order:", error);
+            toast.error("Erro ao cancelar comanda.");
+        } finally {
+            setIsCancelling(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -86,6 +109,11 @@ export default function OrderDetailsPage() {
                                     Fechada
                                 </span>
                             )}
+                            {order.status === 'cancelled' && (
+                                <span className="bg-red-50 text-red-500 px-3 py-1 rounded-full text-xs font-black uppercase border border-red-200">
+                                    Cancelada
+                                </span>
+                            )}
                         </div>
                         <p className="text-[#002B40]/60 font-medium">
                             Cliente: {order.atleta?.nome_perfil || order.station_customer?.name || order.customer_name || "N/A"}
@@ -112,6 +140,14 @@ export default function OrderDetailsPage() {
                         <h2 className="text-xl font-black text-[#002B40]">Itens pedidos</h2>
                         {order.status === 'open' && (
                             <div className="flex items-center gap-3">
+                                <Button
+                                    onClick={handleCancelOrder}
+                                    variant="outline"
+                                    disabled={isCancelling}
+                                    className="text-red-500 border-red-100 hover:bg-red-50 hover:text-red-600 rounded-xl"
+                                >
+                                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancelar comanda"}
+                                </Button>
                                 <Button
                                     onClick={() => setIsLaunchModalOpen(true)}
                                     className="bg-[#FF6B00] hover:bg-[#E66000] text-white font-bold rounded-xl"

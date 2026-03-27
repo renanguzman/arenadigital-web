@@ -37,6 +37,7 @@ import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FinanceService } from "../services/financeService";
 import { AthleteService } from "@/modules/athletes/services/athleteService";
+import { supabase } from "@/shared/database/supabaseClient";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 
@@ -51,6 +52,7 @@ const transactionSchema = zod.object({
     launch_date: zod.string(),
     registration_date: zod.string(),
     atleta_id: zod.string().optional(),
+    modo_pagamento_id: zod.string().optional(),
 });
 
 type TransactionFormValues = zod.infer<typeof transactionSchema>;
@@ -58,6 +60,11 @@ type TransactionFormValues = zod.infer<typeof transactionSchema>;
 interface Atleta {
     id: string;
     name: string;
+}
+
+interface ModoPagamento {
+    id: string;
+    nome: string;
 }
 
 export interface TransactionData {
@@ -73,6 +80,8 @@ export interface TransactionData {
     registration_date: string;
     atleta_id?: string | null;
     atleta?: { id: string; nome_perfil: string } | null;
+    modo_pagamento_id?: string | null;
+    modo_pagamento?: { id: string; nome: string } | null;
 }
 
 interface TransactionFormProps {
@@ -103,6 +112,7 @@ export function TransactionForm({
             ? { id: transaction.atleta.id, name: transaction.atleta.nome_perfil }
             : null
     );
+    const [modosPagamento, setModosPagamento] = useState<ModoPagamento[]>([]);
 
     const form = useForm<TransactionFormValues>({
         resolver: zodResolver(transactionSchema) as any,
@@ -117,6 +127,7 @@ export function TransactionForm({
             launch_date: transaction?.launch_date?.split("T")[0] ?? new Date().toISOString().split("T")[0],
             registration_date: transaction?.registration_date?.split("T")[0] ?? new Date().toISOString().split("T")[0],
             atleta_id: transaction?.atleta_id ?? undefined,
+            modo_pagamento_id: transaction?.modo_pagamento_id ?? undefined,
         },
     });
 
@@ -129,6 +140,23 @@ export function TransactionForm({
         const total = (Number(quantity) * Number(unitValue)) - Number(discount);
         setValue("total_value", Math.max(0, total));
     }, [quantity, unitValue, discount, setValue]);
+
+    // Carregar modos de pagamento
+    useEffect(() => {
+        async function loadModosPagamento() {
+            try {
+                const { data, error } = await supabase
+                    .from('modo_pagamento')
+                    .select('id, nome')
+                    .order('nome');
+                if (error) throw error;
+                setModosPagamento(data ?? []);
+            } catch (err) {
+                console.error("Erro ao carregar modos de pagamento:", err);
+            }
+        }
+        loadModosPagamento();
+    }, []);
 
     // Carregar atletas da carteira da arena (somente para entradas)
     useEffect(() => {
@@ -150,6 +178,7 @@ export function TransactionForm({
                 await FinanceService.updateTransaction(transaction.id, {
                     ...values,
                     atleta_id: values.atleta_id || null,
+                    modo_pagamento_id: values.modo_pagamento_id || null,
                 });
                 toast.success("Lançamento atualizado com sucesso!");
             } else {
@@ -158,6 +187,7 @@ export function TransactionForm({
                     arena_id: arenaId,
                     registered_by: registeredBy,
                     atleta_id: values.atleta_id || null,
+                    modo_pagamento_id: values.modo_pagamento_id || null,
                 });
                 toast.success("Lançamento realizado com sucesso!");
             }
@@ -232,6 +262,29 @@ export function TransactionForm({
                                 <SelectContent>
                                     {categories.map(cat => (
                                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="modo_pagamento_id"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Modo de Pagamento</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione o modo de pagamento" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {modosPagamento.map(mp => (
+                                        <SelectItem key={mp.id} value={mp.id}>{mp.nome}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>

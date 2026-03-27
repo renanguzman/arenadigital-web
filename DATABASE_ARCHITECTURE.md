@@ -132,6 +132,17 @@ O pagamento realizado pelo usuário através do aplicativo **deve ser direcionad
 - **Migração:** `ALTER TABLE transactions ADD COLUMN atleta_id UUID REFERENCES atleta(id) ON DELETE SET NULL;`
 - **Desenho Futuro (App):** Deve-se definir a infraestrutura de pagamentos (Ex: Stripe, Pagar.me ou MercadoPago com Split de Pagamentos, ou cobrança na chave própria da Arena). Ao efetuar a reserva no App, o status da reserva no `bookings` muda para e.g. `'confirmed'`, e um registro poderá ser injetado em `transactions` com tipo `'entrada'` e a origem do App, garantindo que o relatório do gestor reflita essa venda imediatamente.
 
+### 2.6.1. Modos de Pagamento (`modo_pagamento`)
+Tabela de referência que armazena os métodos de pagamento disponíveis para lançamentos financeiros.
+- **Tabela `modo_pagamento`:**
+  - `id` (uuid, primary key, default `gen_random_uuid()`)
+  - `nome` (text, unique, not null) — Nome do modo de pagamento.
+  - `created_at` (timestamp with time zone, default utc now)
+- **Dados iniciais (seed):** Cartão de crédito, Cartão de débito, Dinheiro em espécie, Pix.
+- **Relacionamento com `transactions`:** A tabela `transactions` possui a coluna `modo_pagamento_id` (UUID, nullable, FK → `modo_pagamento.id` com `ON DELETE SET NULL`). Ao registrar um lançamento (entrada ou saída), o gestor pode selecionar opcionalmente o modo de pagamento utilizado.
+- **Migração:** `ALTER TABLE transactions ADD COLUMN modo_pagamento_id UUID REFERENCES modo_pagamento(id) ON DELETE SET NULL;`
+- **RLS:** Política permissiva `Allow all for modo_pagamento` (padrão atual do projeto).
+
 ### 2.7. Programa de Fidelidade (`programa_fidelidade_extrato`)
 Algumas arenas oferecem cashback ou pontos ("Coins" da Arena).
 - Os extratos são visualizados usando a view `athlete_loyalty_balance` (soma os créditos e subtrai resgates).
@@ -156,6 +167,20 @@ A taxa de ocupação das quadras é calculada sob demanda para o dia atual, cruz
   3. Contar o número de reservas com status `'confirmed'` ou `'pending'` para o dia atual.
   4. Taxa de Ocupação (%) = `(Número de Reservas / Total de Slots) * 100`.
 - **Implementação Técnica:** Esta lógica reside no `DashboardService.ts`. O campo `day_config` é um `jsonb` contendo um array de objetos (ex: `[{ "day": "Segunda-feira", "enabled": true, "startTime": "08:00", "endTime": "22:00" }, ...]`).
+
+### 2.10. Produtos e Controle de Estoque (`products`, `product_stock_entries` e `product_stock_movements`)
+O sistema de Ponto de Venda (PDV) das estações exige o controle rigoroso do estoque de produtos e suas movimentações para rastreabilidade e segurança.
+- **Tabela `products`:** Cadastro do produto.
+  - `id`, `arena_id`, `name`, `description`, `price`, `status`.
+  - `stock_quantity` (integer, default 0): Guarda o saldo atual do produto em estoque. O status do produto ("Em estoque" ou "Sem estoque") no frontend passou a ser derivado ativamente dessa coluna (em regra: `stock_quantity > 0`).
+- **Tabela `product_stock_entries`:** Registra exclusivamente as entradas físicas e recebimento de mercadorias.
+  - `id`, `product_id`, `arena_id`, `quantity`, `entry_date`, `supplier`, `description`, `invoice_number`, `registered_by` (FK -> `users`), `created_at`.
+- **Tabela `product_stock_movements`:** Representa o log de auditoria e linha do tempo do estoque, englobando entradas, saídas (lançamento em comandas) e estornos (cancelamento de comanda).
+  - `id`, `product_id`, `arena_id`, `type` ('entrada' ou 'saida'), `quantity`, `reference_type` (ex: 'stock_entry', 'order_item', 'cancellation'), `reference_id`, `balance_after`, `registered_by` (FK -> `users`), `created_at`.
+- **Fluxo do Frontend e Backend:**
+  1. A entrada de um estoque insere um registro em `product_stock_entries`, cria um evento `entrada` em `product_stock_movements` e incrementa o `stock_quantity` do produto.
+  2. O lançamento de itens numa comanda cria a saída do estoque: um evento `saida` em `product_stock_movements` e um decremento direto no saldo do produto. Regras de tela bloqueiam novos lançamentos que extrapolam o saldo (`quantity > stock_quantity`).
+  3. O cancelamento de uma comanda (`status = 'cancelled'`) localiza os itens estornados, adiciona o saldo de volta no produto e lança um novo movimento do tipo `entrada` com a flag `cancellation`.
 
 ---
 

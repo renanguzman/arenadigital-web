@@ -338,7 +338,7 @@ export default function FinanceDashboard({ params }: { params: Promise<{ arenaId
                             <div key={t.id} className="bg-[#FFF8F1] p-4 rounded-xl flex items-center justify-between">
                                 <div>
                                     <p className="text-[#002B40] font-bold text-sm">{t.category} - {t.description}</p>
-                                    <p className="text-[#002B40]/40 text-xs font-medium">{new Date(t.launch_date).toLocaleDateString()}</p>
+                                    <p className="text-[#002B40]/40 text-xs font-medium">{new Date(t.launch_date).toLocaleDateString('pt-BR')}</p>
                                     {t.atleta?.nome_perfil && (
                                         <span className="inline-flex items-center gap-1 mt-1 bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">
                                             👤 {t.atleta.nome_perfil}
@@ -370,7 +370,7 @@ export default function FinanceDashboard({ params }: { params: Promise<{ arenaId
                             <div key={t.id} className="bg-[#FFF8F1] p-4 rounded-xl flex items-center justify-between">
                                 <div>
                                     <p className="text-[#002B40] font-bold text-sm">{t.category} - {t.description}</p>
-                                    <p className="text-[#002B40]/40 text-xs font-medium">{new Date(t.launch_date).toLocaleDateString()}</p>
+                                    <p className="text-[#002B40]/40 text-xs font-medium">{new Date(t.launch_date).toLocaleDateString('pt-BR')}</p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[#FF6B00] font-black text-sm">- {formatCurrency(t.total_value)}</p>

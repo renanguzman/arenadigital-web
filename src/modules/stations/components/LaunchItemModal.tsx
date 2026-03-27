@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { OrderService, StationOrder } from "../services/orderService"
 import { ProductService, Product } from "@/modules/products/services/productService"
+import { StockService } from "@/modules/products/services/stockService"
+import { useUserSync } from "@/hooks/useUserSync"
 import { Search, Check, X, Loader2, Plus, Minus, Trash2 } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { cn, normalizeString } from "@/lib/utils"
@@ -59,6 +61,7 @@ export function LaunchItemModal({
     const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
     const [isSearchingProducts, setIsSearchingProducts] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const { dbUser } = useUserSync()
 
     useEffect(() => {
         if (isOpen) {
@@ -106,12 +109,23 @@ export function LaunchItemModal({
             const existing = prev.find(i => i.product.id === product.id)
             if (existing) {
                 const newQty = existing.quantity + delta
+                
+                // Block if trying to add more than stock
+                if (delta > 0 && newQty > product.stock_quantity) {
+                    toast.error(`Estoque máximo atingido (${product.stock_quantity} un.)`)
+                    return prev;
+                }
+
                 if (newQty <= 0) {
                     return prev.filter(i => i.product.id !== product.id)
                 }
                 return prev.map(i => i.product.id === product.id ? { ...i, quantity: newQty } : i)
             }
             if (delta > 0) {
+                if (delta > product.stock_quantity) {
+                    toast.error(`Estoque insuficiente (${product.stock_quantity} un.)`)
+                    return prev;
+                }
                 return [...prev, { product, quantity: delta }]
             }
             return prev
@@ -141,8 +155,25 @@ export function LaunchItemModal({
 
             const launchTotalValue = itemsToLaunch.reduce((acc, item) => acc + item.total_price, 0)
 
-            // Add all items in bulk
-            await OrderService.addOrderItems(order.id, itemsToLaunch.map(({ order_id, ...item }) => item))
+            // Add all items in bulk and capture the created items
+            const createdItems = await OrderService.addOrderItems(order.id, itemsToLaunch.map(({ order_id, ...item }) => item))
+
+            // Register stock outflow
+            if (dbUser) {
+                for (let i = 0; i < selectedItems.length; i++) {
+                    const item = selectedItems[i]
+                    // We assume createdItems has the same length/order, or we just pass null for referenceId if we can't extract it easily
+                    const createdItem = createdItems?.[i]
+                    await StockService.registerStockOutflow(
+                        item.product.id,
+                        item.quantity,
+                        arenaId,
+                        dbUser.id,
+                        createdItem?.id,
+                        'order_item'
+                    )
+                }
+            }
 
             // Update order total value
             await OrderService.updateOrder(order.id, {
@@ -215,6 +246,12 @@ export function LaunchItemModal({
                                                             <div className="flex flex-col">
                                                                 <span className="font-semibold text-[#002B40] text-sm group-hover:text-[#FF6B00] transition-colors">{product.name}</span>
                                                                 <span className="text-xs text-[#002B40]/40 font-medium">R$ {product.price.toFixed(2)}</span>
+                                                                <span className={cn(
+                                                                    "text-[10px] font-bold mt-0.5",
+                                                                    product.stock_quantity > 0 ? "text-emerald-500" : "text-red-500"
+                                                                )}>
+                                                                    {product.stock_quantity > 0 ? `${product.stock_quantity} em estoque` : 'Sem estoque'}
+                                                                </span>
                                                             </div>
                                                             <div className="flex items-center gap-3 bg-[#F8FAFC] p-1 rounded-lg border border-[#002B40]/5">
                                                                 <Button
@@ -238,7 +275,8 @@ export function LaunchItemModal({
                                                                     size="icon"
                                                                     type="button"
                                                                     onClick={() => updateItemQuantity(product, 1)}
-                                                                    className="h-8 w-8 rounded-md text-[#002B40]/40 hover:text-emerald-500 hover:bg-emerald-50"
+                                                                    disabled={product.stock_quantity <= 0 || quantity >= product.stock_quantity}
+                                                                    className="h-8 w-8 rounded-md text-[#002B40]/40 hover:text-emerald-500 hover:bg-emerald-50 disabled:opacity-20"
                                                                 >
                                                                     <Plus className="h-3 w-3" />
                                                                 </Button>

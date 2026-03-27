@@ -13,6 +13,7 @@ export interface TransactionInput {
     launch_date: string;
     registered_by: string;
     atleta_id?: string | null;
+    modo_pagamento_id?: string | null;
 }
 
 export class FinanceService {
@@ -34,7 +35,7 @@ export class FinanceService {
     static async getTransactions(arenaId: string, type?: 'entrada' | 'saída', startDate?: string, endDate?: string) {
         let query = supabase
             .from('transactions')
-            .select('*, registered_by:users(name), atleta:atleta_id(id, nome_perfil)')
+            .select('*, registered_by:users(name), atleta:atleta_id(id, nome_perfil), modo_pagamento:modo_pagamento_id(id, nome)')
             .eq('arena_id', arenaId)
             .order('launch_date', { ascending: false });
 

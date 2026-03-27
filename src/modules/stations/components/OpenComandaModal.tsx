@@ -25,7 +25,9 @@ import { toast } from "sonner"
 import { OrderService } from "../services/orderService"
 import { CustomerService, StationCustomer } from "../services/customerService"
 import { ProductService, Product } from "@/modules/products/services/productService"
+import { StockService } from "@/modules/products/services/stockService"
 import { AthleteService } from "@/modules/athletes/services/athleteService"
+import { useUserSync } from "@/hooks/useUserSync"
 import { Plus, Minus, Search, Check, X, Loader2, Trash2 } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { cn, normalizeString } from "@/lib/utils"
@@ -62,6 +64,7 @@ export function OpenComandaModal({
     const [filteredCustomers, setFilteredCustomers] = useState<any[]>([])
     const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null)
     const [isSearchingCustomers, setIsSearchingCustomers] = useState(false)
+    const { dbUser } = useUserSync()
 
     const [allProducts, setAllProducts] = useState<Product[]>([])
     const [productSearch, setProductSearch] = useState("")
@@ -155,12 +158,23 @@ export function OpenComandaModal({
             const existing = prev.find(i => i.product.id === product.id)
             if (existing) {
                 const newQty = existing.quantity + delta
+                
+                // Block if trying to add more than stock
+                if (delta > 0 && newQty > product.stock_quantity) {
+                    toast.error(`Estoque máximo atingido (${product.stock_quantity} un.)`)
+                    return prev;
+                }
+
                 if (newQty <= 0) {
                     return prev.filter(i => i.product.id !== product.id)
                 }
                 return prev.map(i => i.product.id === product.id ? { ...i, quantity: newQty } : i)
             }
             if (delta > 0) {
+                if (delta > product.stock_quantity) {
+                    toast.error(`Estoque insuficiente (${product.stock_quantity} un.)`)
+                    return prev;
+                }
                 return [...prev, { product, quantity: delta }]
             }
             return prev
@@ -187,7 +201,7 @@ export function OpenComandaModal({
             const isAthlete = selectedCustomer.id.startsWith('athlete:')
             const actualId = selectedCustomer.id.split(':')[1]
 
-            await OrderService.createOrderWithItems(
+            const { items: createdItems } = await OrderService.createOrderWithItems(
                 {
                     arena_id: arenaId,
                     station_id: stationId,
@@ -203,6 +217,22 @@ export function OpenComandaModal({
                     total_price: item.product.price * item.quantity
                 }))
             )
+
+            // Register stock outflow
+            if (dbUser && createdItems && createdItems.length > 0) {
+                for (let i = 0; i < selectedItems.length; i++) {
+                    const item = selectedItems[i]
+                    const createdItem = createdItems[i]
+                    await StockService.registerStockOutflow(
+                        item.product.id,
+                        item.quantity,
+                        arenaId,
+                        dbUser.id,
+                        createdItem?.id,
+                        'order_item'
+                    )
+                }
+            }
 
             toast.success("Comanda aberta com sucesso!")
             onSuccess()
@@ -336,6 +366,12 @@ export function OpenComandaModal({
                                                             <div className="flex flex-col">
                                                                 <span className="font-semibold text-[#002B40] text-sm group-hover:text-[#FF6B00] transition-colors">{product.name}</span>
                                                                 <span className="text-xs text-[#002B40]/40 font-medium">R$ {product.price.toFixed(2)}</span>
+                                                                <span className={cn(
+                                                                    "text-[10px] font-bold mt-0.5",
+                                                                    product.stock_quantity > 0 ? "text-emerald-500" : "text-red-500"
+                                                                )}>
+                                                                    {product.stock_quantity > 0 ? `${product.stock_quantity} em estoque` : 'Sem estoque'}
+                                                                </span>
                                                             </div>
                                                             <div className="flex items-center gap-3 bg-[#F8FAFC] p-1 rounded-lg border border-[#002B40]/5">
                                                                 <Button
@@ -359,7 +395,8 @@ export function OpenComandaModal({
                                                                     size="icon"
                                                                     type="button"
                                                                     onClick={() => updateItemQuantity(product, 1)}
-                                                                    className="h-8 w-8 rounded-md text-[#002B40]/40 hover:text-emerald-500 hover:bg-emerald-50"
+                                                                    disabled={product.stock_quantity <= 0 || quantity >= product.stock_quantity}
+                                                                    className="h-8 w-8 rounded-md text-[#002B40]/40 hover:text-emerald-500 hover:bg-emerald-50 disabled:opacity-20"
                                                                 >
                                                                     <Plus className="h-3 w-3" />
                                                                 </Button>

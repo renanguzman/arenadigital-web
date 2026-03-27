@@ -11,7 +11,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { Plus, Search, MoreHorizontal, Edit, Trash, ArrowLeft } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Edit, Trash, PackagePlus, History } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import {
     DropdownMenu,
@@ -26,6 +26,8 @@ import { toast } from "sonner"
 import { ProductService, Product } from "@/modules/products/services/productService"
 import { ArenaService } from "@/modules/arenas/services/arenaService"
 import { ProductFormModal } from "@/modules/products/components/ProductFormModal"
+import { StockEntryModal } from "@/modules/products/components/StockEntryModal"
+import { StockHistoryModal } from "@/modules/products/components/StockHistoryModal"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
@@ -42,6 +44,12 @@ export default function ArenaProductsPage() {
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+
+    // Stock modals state
+    const [stockEntryProduct, setStockEntryProduct] = useState<Product | null>(null)
+    const [isStockEntryOpen, setIsStockEntryOpen] = useState(false)
+    const [stockHistoryProduct, setStockHistoryProduct] = useState<Product | null>(null)
+    const [isStockHistoryOpen, setIsStockHistoryOpen] = useState(false)
 
     // Load arena and products
     useEffect(() => {
@@ -91,9 +99,24 @@ export default function ArenaProductsPage() {
         }
     }
 
+    const handleStockEntry = (product: Product) => {
+        setStockEntryProduct(product)
+        setIsStockEntryOpen(true)
+    }
+
+    const handleStockHistory = (product: Product) => {
+        setStockHistoryProduct(product)
+        setIsStockHistoryOpen(true)
+    }
+
     const handleSuccess = () => {
         // Reload products
         ProductService.getProductsByArena(arenaId).then(setProducts)
+    }
+
+    const getStockStatus = (qty: number) => {
+        if (qty <= 0) return 'Em falta'
+        return 'Em estoque'
     }
 
     const filteredProducts = products.filter(product =>
@@ -140,6 +163,7 @@ export default function ArenaProductsPage() {
                             <TableHead>Tipo de Item</TableHead>
                             <TableHead>Tipo de Estação</TableHead>
                             <TableHead>Valor</TableHead>
+                            <TableHead>Estoque</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Criado em</TableHead>
                             <TableHead className="w-[50px]"></TableHead>
@@ -148,70 +172,88 @@ export default function ArenaProductsPage() {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center">
+                                <TableCell colSpan={8} className="h-24 text-center">
                                     Carregando...
                                 </TableCell>
                             </TableRow>
                         ) : filteredProducts.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center">
+                                <TableCell colSpan={8} className="h-24 text-center">
                                     Nenhum produto encontrado.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            filteredProducts.map((product) => (
-                                <TableRow key={product.id}>
-                                    <TableCell className="font-medium">{product.name}</TableCell>
-                                    <TableCell>{product.item_type}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">
-                                            {product.station_type?.name || 'N/A'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        {new Intl.NumberFormat('pt-BR', {
-                                            style: 'currency',
-                                            currency: 'BRL'
-                                        }).format(product.price)}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge
-                                            variant={product.status === 'Em estoque' ? 'default' : 'destructive'}
-                                            className={product.status === 'Em estoque' ? 'bg-emerald-500 hover:bg-emerald-600' : ''}
-                                        >
-                                            {product.status}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">
-                                        {format(new Date(product.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                                    <span className="sr-only">Abrir menu</span>
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                                                <DropdownMenuItem onClick={() => handleEdit(product)}>
-                                                    <Edit className="mr-2 h-4 w-4" />
-                                                    Editar
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    onClick={() => handleDelete(product.id)}
-                                                    className="text-red-600 focus:text-red-600"
-                                                >
-                                                    <Trash className="mr-2 h-4 w-4" />
-                                                    Excluir
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))
+                            filteredProducts.map((product) => {
+                                const stockStatus = getStockStatus(product.stock_quantity)
+                                return (
+                                    <TableRow key={product.id}>
+                                        <TableCell className="font-medium">{product.name}</TableCell>
+                                        <TableCell>{product.item_type}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">
+                                                {product.station_type?.name || 'N/A'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {new Intl.NumberFormat('pt-BR', {
+                                                style: 'currency',
+                                                currency: 'BRL'
+                                            }).format(product.price)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className={`font-bold text-lg ${product.stock_quantity > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                {product.stock_quantity}
+                                            </span>
+                                            <span className="text-muted-foreground text-xs ml-1">un.</span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={stockStatus === 'Em estoque' ? 'default' : 'destructive'}
+                                                className={stockStatus === 'Em estoque' ? 'bg-emerald-500 hover:bg-emerald-600' : ''}
+                                            >
+                                                {stockStatus}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground text-sm">
+                                            {format(new Date(product.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                        </TableCell>
+                                        <TableCell>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                                        <span className="sr-only">Abrir menu</span>
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                                    <DropdownMenuItem onClick={() => handleStockEntry(product)}>
+                                                        <PackagePlus className="mr-2 h-4 w-4 text-emerald-500" />
+                                                        Lançar Entrada
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleStockHistory(product)}>
+                                                        <History className="mr-2 h-4 w-4 text-blue-500" />
+                                                        Ver Movimentações
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem onClick={() => handleEdit(product)}>
+                                                        <Edit className="mr-2 h-4 w-4" />
+                                                        Editar
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleDelete(product.id)}
+                                                        className="text-red-600 focus:text-red-600"
+                                                    >
+                                                        <Trash className="mr-2 h-4 w-4" />
+                                                        Excluir
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })
                         )}
                     </TableBody>
                 </Table>
@@ -224,6 +266,24 @@ export default function ArenaProductsPage() {
                 product={editingProduct}
                 onSuccess={handleSuccess}
             />
+
+            {stockEntryProduct && (
+                <StockEntryModal
+                    arenaId={arenaId}
+                    product={stockEntryProduct}
+                    open={isStockEntryOpen}
+                    onOpenChange={setIsStockEntryOpen}
+                    onSuccess={handleSuccess}
+                />
+            )}
+
+            {stockHistoryProduct && (
+                <StockHistoryModal
+                    product={stockHistoryProduct}
+                    open={isStockHistoryOpen}
+                    onOpenChange={setIsStockHistoryOpen}
+                />
+            )}
         </div>
     )
 }

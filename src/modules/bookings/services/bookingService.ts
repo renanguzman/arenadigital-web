@@ -81,6 +81,23 @@ export class BookingService {
         return data;
     }
 
+    static async getBookingsByArenaWithSports(arenaId: string, startDate: string, endDate: string) {
+        const { data, error } = await supabase
+            .from('bookings')
+            .select('*, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil, telefone)')
+            .eq('arena_id', arenaId)
+            .gte('start_time', startDate)
+            .lte('end_time', endDate)
+            .order('start_time', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching bookings by arena with sports:', error);
+            throw error;
+        }
+
+        return data;
+    }
+
     static async updateBookingStatus(id: string, status: 'confirmed' | 'cancelled') {
         const { data, error } = await supabase
             .from('bookings')

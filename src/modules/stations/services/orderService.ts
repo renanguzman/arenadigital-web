@@ -1,4 +1,6 @@
 import { supabase } from "@/shared/database/supabaseClient";
+import { FinanceService } from "@/modules/finance/services/financeService";
+import { StationService } from "@/modules/stations/services/stationService";
 
 export interface StationOrder {
     id: string;
@@ -129,34 +131,39 @@ export class OrderService {
                 order_id: order.id
             }));
 
-            const { error: itemsError } = await supabase
+            const { data: insertedItems, error: itemsError } = await supabase
                 .from('station_order_items')
-                .insert(itemsInput);
+                .insert(itemsInput)
+                .select();
 
             if (itemsError) {
                 console.error('Error creating order items:', itemsError);
                 throw itemsError;
             }
+            return { order, items: insertedItems as StationOrderItem[] };
         }
-        return order;
+        return { order, items: [] };
     }
 
     static async addOrderItems(orderId: string, items: { product_id: string; quantity: number; unit_price: number; total_price: number }[]) {
-        if (items.length === 0) return;
+        if (items.length === 0) return [];
 
         const itemsInput = items.map(item => ({
             ...item,
             order_id: orderId
         }));
 
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('station_order_items')
-            .insert(itemsInput);
+            .insert(itemsInput)
+            .select();
 
         if (error) {
             console.error('Error adding order items:', error);
             throw error;
         }
+
+        return data as StationOrderItem[];
     }
 
     static async getOrderById(id: string) {
@@ -196,6 +203,78 @@ export class OrderService {
         }
 
         return data as StationOrderPayment;
+    }
+
+    static async closeOrderAndGenerateFinance(orderId: string, registeredByUserId: string) {
+        const now = new Date().toISOString();
+        
+        // 1. Close the order
+        const { error: orderError } = await supabase
+            .from('station_orders')
+            .update({ status: 'closed', closed_at: now })
+            .eq('id', orderId);
+
+        if (orderError) {
+            console.error('Error closing order:', orderError);
+            throw orderError;
+        }
+
+        // 2. Fetch order details to get payments
+        const order = await this.getOrderById(orderId);
+
+        if (!order || !order.station_payments || order.station_payments.length === 0) {
+            return order;
+        }
+
+        // 3. Fetch payment methods
+        const { data: dbPaymentMethods, error: pmError } = await supabase
+            .from('modo_pagamento')
+            .select('id, nome');
+            
+        if (pmError) {
+            console.error('Error fetching payment methods:', pmError);
+            throw pmError;
+        }
+
+        // 4. Fetch the specific station type to use for categorization
+        let stationTypeName = 'Bar';
+        try {
+            const station = await StationService.getStationById(order.station_id);
+            if (station?.station_type?.name) {
+                stationTypeName = station.station_type.name;
+            }
+        } catch (err) {
+            console.error('Could not fetch station type, fallback to Bar', err);
+        }
+
+        // 5. Create financial transactions
+        for (const payment of order.station_payments) {
+            const matchedMethod = dbPaymentMethods?.find(
+                pm => pm.nome.toLowerCase() === payment.payment_method.toLowerCase()
+            );
+
+            let description = `${stationTypeName} - Comanda #${order.order_number.toString().padStart(3, '0')}`;
+            if (payment.observation) description += ` - ${payment.observation}`;
+            if (payment.paid_by_name) description += ` (Pago por: ${payment.paid_by_name})`;
+
+            await FinanceService.createTransaction({
+                arena_id: order.arena_id,
+                type: 'entrada',
+                category: stationTypeName,
+                description,
+                quantity: 1,
+                unit_value: payment.amount,
+                discount: 0,
+                total_value: payment.amount,
+                registration_date: now,
+                launch_date: now,
+                registered_by: registeredByUserId,
+                atleta_id: order.atleta_id || null,
+                modo_pagamento_id: matchedMethod?.id || null,
+            });
+        }
+
+        return order;
     }
 
     static async getStationMetrics(stationId: string) {

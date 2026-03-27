@@ -7,6 +7,7 @@ export interface Product {
     item_type: 'Alimentação' | 'Bebida' | 'Vestimenta' | 'Acessório';
     station_type_id: string;
     price: number;
+    stock_quantity: number;
     status: 'Em estoque' | 'Em falta';
     created_at: string;
     updated_at: string;
@@ -24,7 +25,7 @@ export interface ProductInput {
     item_type: 'Alimentação' | 'Bebida' | 'Vestimenta' | 'Acessório';
     station_type_id: string;
     price: number;
-    status: 'Em estoque' | 'Em falta';
+    status?: 'Em estoque' | 'Em falta';
     created_by?: string;
     updated_by?: string;
 }

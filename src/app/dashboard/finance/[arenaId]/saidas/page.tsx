@@ -95,6 +95,8 @@ export default function SaidasPage() {
             registration_date: t.registration_date,
             atleta_id: t.atleta_id,
             atleta: t.atleta,
+            modo_pagamento_id: t.modo_pagamento_id,
+            modo_pagamento: t.modo_pagamento,
         });
         setIsFormOpen(true);
     };
@@ -182,6 +184,7 @@ export default function SaidasPage() {
                             <TableHead className="text-[#002B40]/40 font-bold uppercase text-xs">Desconto</TableHead>
                             <TableHead className="text-[#002B40]/40 font-bold uppercase text-xs text-[#FF6B00]">Valor total</TableHead>
                             <TableHead className="text-[#002B40]/40 font-bold uppercase text-xs">Data de lançamento</TableHead>
+                            <TableHead className="text-[#002B40]/40 font-bold uppercase text-xs">Modo pagamento</TableHead>
                             <TableHead className="text-[#002B40]/40 font-bold uppercase text-xs">Registrado por</TableHead>
                             <TableHead className="w-24"></TableHead>
                         </TableRow>
@@ -197,7 +200,13 @@ export default function SaidasPage() {
                                 <TableCell className="text-[#002B40]/60 font-medium">{formatCurrency(t.unit_value)}</TableCell>
                                 <TableCell className="text-[#002B40]/60 font-medium">{formatCurrency(t.discount)}</TableCell>
                                 <TableCell className="text-[#FF6B00] font-black">{formatCurrency(t.total_value)}</TableCell>
-                                <TableCell className="text-[#002B40]/60 font-medium">{new Date(t.launch_date).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-[#002B40]/60 font-medium">{new Date(t.launch_date).toLocaleDateString('pt-BR')}</TableCell>
+                                <TableCell className="text-[#002B40]/60 font-medium">
+                                    {t.modo_pagamento?.nome
+                                        ? <span className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded">{t.modo_pagamento.nome}</span>
+                                        : <span className="text-[#002B40]/30">—</span>
+                                    }
+                                </TableCell>
                                 <TableCell className="text-[#002B40]/60 font-medium">{t.registered_by?.name}</TableCell>
                                 <TableCell>
                                     <div className="flex gap-2">

@@ -36,7 +36,6 @@ import { useUserSync } from "@/hooks/useUserSync"
 const productFormSchema = z.object({
     name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
     item_type: z.enum(['Alimentação', 'Bebida', 'Vestimenta', 'Acessório']),
-    status: z.enum(['Em estoque', 'Em falta']),
     station_type_id: z.string().min(1, "Selecione um tipo de estação"),
     price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
         message: "Preço deve ser um número válido e positivo",
@@ -68,7 +67,6 @@ export function ProductFormModal({
         defaultValues: {
             name: "",
             item_type: "Alimentação",
-            status: "Em estoque",
             station_type_id: "",
             price: "",
         },
@@ -80,7 +78,6 @@ export function ProductFormModal({
             form.reset({
                 name: product?.name || "",
                 item_type: product?.item_type || "Alimentação",
-                status: product?.status || "Em estoque",
                 station_type_id: product?.station_type_id || "",
                 price: product?.price?.toString() || "",
             })
@@ -115,7 +112,6 @@ export function ProductFormModal({
                 arena_id: arenaId,
                 name: data.name,
                 item_type: data.item_type,
-                status: data.status,
                 station_type_id: data.station_type_id,
                 price: Number(data.price)
             }
@@ -239,27 +235,7 @@ export function ProductFormModal({
                                 )}
                             />
 
-                            <FormField
-                                control={form.control}
-                                name="status"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Status</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Selecione..." />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="Em estoque">Em estoque</SelectItem>
-                                                <SelectItem value="Em falta">Em falta</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+
                         </div>
 
                         <div className="flex justify-end pt-4">

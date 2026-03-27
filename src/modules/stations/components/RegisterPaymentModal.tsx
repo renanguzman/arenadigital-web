@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner"
 import { OrderService, StationOrder } from "../services/orderService"
 import { Loader2, X } from "lucide-react"
+import { useUserSync } from "@/hooks/useUserSync"
 
 const paymentSchema = z.object({
     amount: z.string().min(1, "Informe o valor"),
@@ -56,6 +57,7 @@ export function RegisterPaymentModal({
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [showCloseConfirmation, setShowCloseConfirmation] = useState(false)
     const [currentBalance, setCurrentBalance] = useState(0)
+    const { dbUser } = useUserSync()
 
     const form = useForm<PaymentValues>({
         resolver: zodResolver(paymentSchema),
@@ -111,12 +113,14 @@ export function RegisterPaymentModal({
 
     const handleCloseComanda = async () => {
         if (!order) return
+        if (!dbUser) {
+            toast.error("Usuário não identificado.");
+            return;
+        }
+
         setIsSubmitting(true)
         try {
-            await OrderService.updateOrder(order.id, {
-                status: 'closed',
-                closed_at: new Date().toISOString()
-            })
+            await OrderService.closeOrderAndGenerateFinance(order.id, dbUser.id)
             toast.success("Comanda fechada com sucesso!")
             onSuccess()
             handleClose()

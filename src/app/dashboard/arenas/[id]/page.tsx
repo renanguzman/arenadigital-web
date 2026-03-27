@@ -10,7 +10,8 @@ import {
     MoreVertical,
     Edit,
     Trash2,
-    Search
+    Search,
+    CalendarDays
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -44,6 +45,7 @@ import {
 } from "@/components/ui/tooltip"
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { DayOperationModal } from "@/modules/bookings/components/DayOperationModal";
 
 export default function ArenaDetailPage() {
     const params = useParams();
@@ -55,6 +57,7 @@ export default function ArenaDetailPage() {
     const [selectedSpace, setSelectedSpace] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<"espacos" | "cadastro">("espacos");
     const [searchQuery, setSearchQuery] = useState("");
+    const [isDayOperationOpen, setIsDayOperationOpen] = useState(false);
 
     const loadData = async () => {
         try {
@@ -182,6 +185,18 @@ export default function ArenaDetailPage() {
 
             {activeTab === "espacos" && (
                 <div className="space-y-6">
+                    {/* Day Operation Button */}
+                    {courts.length > 0 && (
+                        <div className="flex justify-end">
+                            <Button
+                                onClick={() => setIsDayOperationOpen(true)}
+                                className="bg-[#002B40] hover:bg-[#001D2C] text-white font-bold gap-2"
+                            >
+                                <CalendarDays className="w-4 h-4" />
+                                Ver operação do dia
+                            </Button>
+                        </div>
+                    )}
                     {courts.length === 0 ? (
                         <Card className="bg-white/50 border-dashed border-2 py-20 flex flex-col items-center justify-center">
                             <PlusCircle className="h-12 w-12 text-[#002B40]/20 mb-4" />
@@ -436,6 +451,15 @@ export default function ArenaDetailPage() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Day Operation Modal */}
+            <DayOperationModal
+                isOpen={isDayOperationOpen}
+                onClose={() => setIsDayOperationOpen(false)}
+                arenaId={id}
+                arenaName={arena?.name || ''}
+                courts={courts}
+            />
 
         </div>
     );
