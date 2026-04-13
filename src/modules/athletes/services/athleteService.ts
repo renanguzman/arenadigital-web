@@ -13,7 +13,7 @@ export interface AtletaInput {
 export interface AtletaEsporteInput {
     id_atleta: string;
     id_esporte: string;
-    nivel_habilidade?: string;
+    id_nivel_habilidade_esporte?: string;
 }
 
 export interface ArenaAtletaInput {

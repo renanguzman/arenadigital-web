@@ -1,23 +1,70 @@
 "use server";
 
 import { clerkClient } from "@clerk/nextjs/server";
-import { supabase } from "@/shared/database/supabaseClient";
+import { assertArenaAccess } from "@/lib/server-auth";
+import { getSupabaseAdmin } from "@/lib/supabase-server";
 
-export async function createArenaUserAction(arenaId: string, data: any) {
+type ArenaUserFormData = {
+    email: string;
+    login?: string;
+    name: string;
+    password?: string;
+    role: string;
+    senha?: string;
+    status: string;
+};
+
+type ArenaUserListItem = {
+    arenaUserId: string;
+    clerkUserId: string;
+    email: string;
+    id: string;
+    name: string;
+    role: string;
+    status: string;
+};
+
+type ActionResult<T = undefined> =
+    | { success: true; data?: T; user?: T }
+    | { success: false; error: string };
+
+type ArenaUserQueryRow = {
+    id: string;
+    role: string;
+    status: string;
+    created_at: string;
+    user_id: string;
+    users: Array<{
+        id: string;
+        name: string | null;
+        email: string;
+        clerk_user_id: string;
+    }>;
+};
+
+function getErrorMessage(error: unknown) {
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    return "Erro desconhecido";
+}
+
+export async function createArenaUserAction(arenaId: string, data: ArenaUserFormData): Promise<ActionResult<{ clerk_user_id: string; email: string; id: string; name: string | null; role: string | null }>> {
     try {
+        await assertArenaAccess(arenaId);
+
         const client = await clerkClient();
+        const supabase = getSupabaseAdmin();
 
         // 1. Create user in Clerk
-        const clerkUserOptions: any = {
+        const clerkUserOptions = {
             emailAddress: [data.email],
             password: data.senha || data.password,
             firstName: data.name,
             skipPasswordChecks: true,
+            ...(data.login ? { username: data.login } : {}),
         };
-
-        if (data.login) {
-            clerkUserOptions.username = data.login;
-        }
 
         const clerkUser = await client.users.createUser(clerkUserOptions);
 
@@ -54,15 +101,18 @@ export async function createArenaUserAction(arenaId: string, data: any) {
         }
 
         return { success: true, user: newUser };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error creating arena user:", error);
-        return { success: false, error: error.errors?.[0]?.longMessage || error.message || "Erro desconhecido" };
+        return { success: false, error: getErrorMessage(error) };
     }
 }
 
-export async function updateArenaUserAction(arenaId: string, arenaUserId: string, userId: string, data: any) {
+export async function updateArenaUserAction(arenaId: string, arenaUserId: string, userId: string, data: ArenaUserFormData): Promise<ActionResult> {
     try {
+        await assertArenaAccess(arenaId);
+
         const client = await clerkClient();
+        const supabase = getSupabaseAdmin();
 
         // Find clerk id first to update Clerk fields
         const { data: localUser, error: localUserError } = await supabase
@@ -72,9 +122,10 @@ export async function updateArenaUserAction(arenaId: string, arenaUserId: string
             .single();
 
         if (!localUserError && localUser) {
-            const clerkUpdateOptions: any = {};
-            if (data.name) clerkUpdateOptions.firstName = data.name;
-            if (data.senha) clerkUpdateOptions.password = data.senha;
+            const clerkUpdateOptions = {
+                ...(data.name ? { firstName: data.name } : {}),
+                ...(data.senha ? { password: data.senha } : {}),
+            };
 
             if (Object.keys(clerkUpdateOptions).length > 0) {
                 await client.users.updateUser(localUser.clerk_user_id, clerkUpdateOptions);
@@ -101,15 +152,18 @@ export async function updateArenaUserAction(arenaId: string, arenaUserId: string
         }
 
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error updating arena user:", error);
-        return { success: false, error: error.errors?.[0]?.longMessage || error.message || "Erro desconhecido" };
+        return { success: false, error: getErrorMessage(error) };
     }
 }
 
-export async function deleteArenaUserAction(arenaId: string, arenaUserId: string, userId: string) {
+export async function deleteArenaUserAction(arenaId: string, arenaUserId: string, userId: string): Promise<ActionResult> {
     try {
+        await assertArenaAccess(arenaId);
+
         const client = await clerkClient();
+        const supabase = getSupabaseAdmin();
 
         // 1. Get clerk ID
         const { data: localUser, error: localUserError } = await supabase
@@ -137,14 +191,17 @@ export async function deleteArenaUserAction(arenaId: string, arenaUserId: string
         }
 
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error deleting arena user:", error);
-        return { success: false, error: error.errors?.[0]?.longMessage || error.message || "Erro desconhecido" };
+        return { success: false, error: getErrorMessage(error) };
     }
 }
 
-export async function getArenaUsersAction(arenaId: string) {
+export async function getArenaUsersAction(arenaId: string): Promise<ActionResult<ArenaUserListItem[]>> {
     try {
+        await assertArenaAccess(arenaId);
+
+        const supabase = getSupabaseAdmin();
         const { data, error } = await supabase
             .from('arena_users')
             .select(`
@@ -168,19 +225,25 @@ export async function getArenaUsersAction(arenaId: string) {
         }
 
         // Transform data to flat format for easy table rendering
-        const formattedData = data.map((item: any) => ({
+        const formattedData = ((data ?? []) as unknown as ArenaUserQueryRow[])
+            .filter((item) => item.users.length > 0)
+            .map((item) => {
+            const linkedUser = item.users[0];
+
+            return {
             arenaUserId: item.id,
-            id: item.users.id, // mapped to user.id so existing code might work
-            name: item.users.name,
-            email: item.users.email,
+            id: linkedUser.id, // mapped to user.id so existing code might work
+            name: linkedUser.name ?? '',
+            email: linkedUser.email,
             role: item.role,
             status: item.status,
-            clerkUserId: item.users.clerk_user_id,
-        }));
+            clerkUserId: linkedUser.clerk_user_id,
+            };
+        });
 
         return { success: true, data: formattedData };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error fetching arena users:", error);
-        return { success: false, error: error.message || "Erro ao buscar usuários" };
+        return { success: false, error: getErrorMessage(error) };
     }
 }

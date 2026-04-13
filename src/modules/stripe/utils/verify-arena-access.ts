@@ -1,14 +1,21 @@
-import { getSupabaseAdmin } from '@/lib/supabase-server'
+import { assertArenaAccess, AuthorizationError, requireAuthenticatedDbUser } from '@/lib/server-auth'
 
 export async function verifyArenaAccess(clerkUserId: string, arenaId: string): Promise<boolean> {
-  const supabase = getSupabaseAdmin()
+  try {
+    const currentUser = await requireAuthenticatedDbUser()
 
-  const { data } = await supabase
-    .from('arenas')
-    .select('id, users!inner(id)')
-    .eq('id', arenaId)
-    .eq('users.clerk_user_id', clerkUserId)
-    .maybeSingle()
+    if (currentUser.clerkUserId !== clerkUserId) {
+      return false
+    }
 
-  return !!data
+    await assertArenaAccess(arenaId)
+    return true
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return false
+    }
+
+    console.error('[verifyArenaAccess] Failed to verify access', error)
+    return false
+  }
 }

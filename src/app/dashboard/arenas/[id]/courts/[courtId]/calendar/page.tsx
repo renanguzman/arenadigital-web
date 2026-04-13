@@ -19,22 +19,24 @@ import { BookingDetailsModal } from "@/modules/bookings/components/BookingDetail
 import { AvailableTimesModal } from "@/modules/bookings/components/AvailableTimesModal";
 import { DayOpportunitiesModal } from "@/modules/bookings/components/DayOpportunitiesModal";
 
+import type { Json } from '@/types/supabase.types';
+
 interface Court {
     id: string;
     name: string;
-    day_config: any[];
-    booking_type: 'unique' | 'hourly';
-    price: number;
-    sports: any[];
+    day_config: Json | null;
+    booking_type: string | null;
+    price: number | null;
+    sports: { id: string; name: string }[];
 }
 
 interface Booking {
     id: string;
-    athlete_name: string;
+    athlete_name: string | null;
     start_time: string;
     end_time: string;
-    status: 'confirmed' | 'cancelled' | 'pending';
-    price?: number;
+    status: string | null;
+    price?: number | null;
     sports?: {
         id: string;
         name: string;
@@ -43,7 +45,7 @@ interface Booking {
         id: string;
         nome_perfil: string;
         telefone: string;
-    };
+    } | null;
 }
 
 export default function CourtCalendarPage() {
@@ -77,7 +79,7 @@ export default function CourtCalendarPage() {
         setIsLoading(true);
         try {
             const courtData = await CourtService.getCourtById(courtId);
-            setCourt(courtData);
+            setCourt(courtData as unknown as Court);
 
             let startStr, endStr;
             if (viewMode === 'day') {
@@ -91,7 +93,7 @@ export default function CourtCalendarPage() {
             }
 
             const bookingsData = await BookingService.getBookingsByCourt(courtId, startStr, endStr);
-            setBookings(bookingsData || []);
+            setBookings((bookingsData ?? []) as unknown as Booking[]);
         } catch (error) {
             console.error("Failed to load data", error);
             toast.error("Erro ao carregar agenda.");
@@ -160,7 +162,7 @@ export default function CourtCalendarPage() {
         const dayName = format(date, 'EEEE', { locale: ptBR });
         const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
 
-        const config = court.day_config.find((d: any) => d.day.toLowerCase() === formattedDayName.toLowerCase());
+        const config = (court.day_config as any[]).find((d: any) => d.day.toLowerCase() === formattedDayName.toLowerCase());
 
         if (!config || !config.enabled) return court.price || 0;
 
@@ -177,7 +179,7 @@ export default function CourtCalendarPage() {
                 const prevDate = addDays(date, -1);
                 const prevDayName = format(prevDate, 'EEEE', { locale: ptBR });
                 const formattedPrevDayName = prevDayName.charAt(0).toUpperCase() + prevDayName.slice(1);
-                const prevConfig = court.day_config.find((d: any) => d.day.toLowerCase() === formattedPrevDayName.toLowerCase());
+                const prevConfig = (court.day_config as any[]).find((d: any) => d.day.toLowerCase() === formattedPrevDayName.toLowerCase());
                 if (prevConfig?.enabled) {
                     currentConfig = prevConfig;
                 }
@@ -203,7 +205,7 @@ export default function CourtCalendarPage() {
         const dayName = format(date, 'EEEE', { locale: ptBR });
         const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
 
-        const config = court.day_config.find((d: any) => d.day.toLowerCase() === formattedDayName.toLowerCase());
+        const config = (court.day_config as any[]).find((d: any) => d.day.toLowerCase() === formattedDayName.toLowerCase());
 
         if (!config) return false;
 
@@ -225,7 +227,7 @@ export default function CourtCalendarPage() {
                 const prevDate = addDays(date, -1);
                 const prevDayName = format(prevDate, 'EEEE', { locale: ptBR });
                 const formattedPrevDayName = prevDayName.charAt(0).toUpperCase() + prevDayName.slice(1);
-                const prevConfig = court.day_config.find((d: any) => d.day.toLowerCase() === formattedPrevDayName.toLowerCase());
+                const prevConfig = (court.day_config as any[]).find((d: any) => d.day.toLowerCase() === formattedPrevDayName.toLowerCase());
                 
                 const prevStart = parseInt(prevConfig?.startTime.split(':')[0] || "0");
                 const prevEnd = parseInt(prevConfig?.endTime.split(':')[0] || "0");

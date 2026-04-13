@@ -32,13 +32,7 @@ export async function createSetupIntent(
     if (!parsed.success) throw new InvalidPlanKeyError()
     planKey = parsed.data
   } else {
-    const { data: arena } = await supabase
-      .from('arenas')
-      .select('plan_key')
-      .eq('id', arenaId)
-      .single()
-
-    planKey = (arena?.plan_key as PlanKey) ?? 'starter'
+    planKey = 'starter'
   }
 
   const plan = getStripePlanByKey(planKey)

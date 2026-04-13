@@ -1,6 +1,12 @@
 import { supabase } from "@/shared/database/supabaseClient";
 import { FinanceService } from "@/modules/finance/services/financeService";
 import { StationService } from "@/modules/stations/services/stationService";
+import type { Database } from "@/types/supabase.types";
+
+type StationOrderInsert = Database['public']['Tables']['station_orders']['Insert'];
+type StationOrderUpdate = Database['public']['Tables']['station_orders']['Update'];
+type StationOrderItemInsert = Database['public']['Tables']['station_order_items']['Insert'];
+type StationOrderPaymentInsert = Database['public']['Tables']['station_payments']['Insert'];
 
 export interface StationOrder {
     id: string;
@@ -71,7 +77,7 @@ export class OrderService {
         return data as StationOrder[];
     }
 
-    static async createOrder(input: Partial<StationOrder>) {
+    static async createOrder(input: StationOrderInsert) {
         const { data, error } = await supabase
             .from('station_orders')
             .insert([input])
@@ -86,7 +92,7 @@ export class OrderService {
         return data as StationOrder;
     }
 
-    static async updateOrder(id: string, input: Partial<StationOrder>) {
+    static async updateOrder(id: string, input: StationOrderUpdate) {
         const { data, error } = await supabase
             .from('station_orders')
             .update(input)
@@ -102,7 +108,7 @@ export class OrderService {
         return data as StationOrder;
     }
 
-    static async addOrderItem(input: Partial<StationOrderItem>) {
+    static async addOrderItem(input: StationOrderItemInsert) {
         const { data, error } = await supabase
             .from('station_order_items')
             .insert([input])
@@ -118,7 +124,7 @@ export class OrderService {
     }
 
     static async createOrderWithItems(
-        orderInput: Partial<StationOrder>,
+        orderInput: StationOrderInsert,
         items: { product_id: string; quantity: number; unit_price: number; total_price: number }[]
     ) {
         // Create the order first
@@ -190,7 +196,7 @@ export class OrderService {
         return data as StationOrder;
     }
 
-    static async addPayment(input: Partial<StationOrderPayment>) {
+    static async addPayment(input: StationOrderPaymentInsert) {
         const { data, error } = await supabase
             .from('station_payments')
             .insert([input])

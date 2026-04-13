@@ -24,10 +24,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useUserSync } from "@/hooks/useUserSync";
-import { ArenaService } from "@/modules/arenas/services/arenaService";
 import { toast } from "sonner";
 import { UserFormModal } from "@/modules/users/components/UserFormModal";
 import { getArenaUsersAction, createArenaUserAction, updateArenaUserAction, deleteArenaUserAction } from "@/modules/users/actions/userActions";
+
+type ArenaSummary = {
+    id: string;
+    name: string;
+    owner_id: string;
+};
 
 type SelectedUser = {
     arenaUserId: string;
@@ -39,13 +44,23 @@ type SelectedUser = {
     clerkUserId: string;
 };
 
+type UserFormData = {
+    email: string;
+    login?: string;
+    name: string;
+    password?: string;
+    role: string;
+    senha?: string;
+    status: string;
+};
+
 export default function UsersCRUDPage() {
     const params = useParams();
     const router = useRouter();
     const arenaId = params.arenaId as string;
-    const { dbUser, isLoading: authLoading } = useUserSync();
+    const { isLoading: authLoading } = useUserSync();
 
-    const [arena, setArena] = useState<any>(null);
+    const [arena, setArena] = useState<ArenaSummary | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -63,11 +78,12 @@ export default function UsersCRUDPage() {
     const fetchUsers = useCallback(async () => {
         if (!arenaId) return;
         const res = await getArenaUsersAction(arenaId);
-        if (res.success && res.data) {
-            setUsers(res.data);
-        } else {
+        if (!res.success) {
             toast.error("Erro ao carregar usuários: " + res.error);
+            return;
         }
+
+        setUsers(res.data ?? []);
     }, [arenaId]);
 
     useEffect(() => {
@@ -75,7 +91,21 @@ export default function UsersCRUDPage() {
             if (!arenaId) return;
 
             try {
-                const fetchedArena = await ArenaService.getArenaById(arenaId);
+                const response = await fetch(`/api/arenas/${arenaId}`, {
+                    credentials: 'same-origin',
+                });
+
+                if (response.status === 404) {
+                    toast.error("Arena não encontrada");
+                    router.push("/dashboard/settings/users");
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('Falha ao carregar arena');
+                }
+
+                const fetchedArena = await response.json();
                 if (fetchedArena) {
                     setArena(fetchedArena);
                 } else {
@@ -123,14 +153,14 @@ export default function UsersCRUDPage() {
             } else {
                 toast.error(res.error || "Erro ao excluir usuário");
             }
-        } catch (error) {
+        } catch {
             toast.error("Erro ao excluir usuário");
         } finally {
             setIsDeleting(false);
         }
     };
 
-    const handleSaveUser = async (userData: any) => {
+    const handleSaveUser = async (userData: UserFormData) => {
         let res;
         if (selectedUser) {
             res = await updateArenaUserAction(arenaId, selectedUser.arenaUserId, selectedUser.id, userData);

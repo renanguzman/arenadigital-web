@@ -10,16 +10,16 @@ import { cn } from "@/lib/utils"
 
 interface Booking {
     id: string;
-    athlete_name: string;
+    athlete_name: string | null;
     start_time: string;
     end_time: string;
-    status: 'confirmed' | 'cancelled' | 'pending';
-    price?: number;
+    status: string | null;
+    price?: number | null;
     atleta?: {
         id: string;
         nome_perfil: string;
         telefone: string;
-    };
+    } | null;
     sports?: {
         id: string;
         name: string;
@@ -105,7 +105,7 @@ export function DayOpportunitiesModal({ isOpen, onClose, bookings, currentDate }
                                             <Button
                                                 size="icon"
                                                 className="h-10 w-10 rounded-xl bg-[#25D366] hover:bg-[#128C7E] text-white shadow-lg shadow-[#25D366]/20 shrink-0"
-                                                onClick={() => handleWhatsAppClick(athletePhone, athleteName)}
+                                                onClick={() => handleWhatsAppClick(athletePhone, athleteName ?? '')}
                                                 title={`WhatsApp: ${athletePhone}`}
                                             >
                                                 <MessageCircle className="w-5 h-5" />

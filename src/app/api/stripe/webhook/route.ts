@@ -102,7 +102,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     cancel_at_period_end: subscription.cancel_at_period_end,
     canceled_at: canceledAt,
     updated_at: new Date().toISOString(),
-    ...(matchedPlan ? { plan_key: matchedPlan.key } : {})
+    ...(matchedPlan ? { plan_key: matchedPlan.key } : { plan_key: '' })
   }
 
   if (arenaId) {
@@ -152,10 +152,11 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   if (arenaId) {
     const { error } = await supabase
       .from('arena_subscriptions')
-      .upsert({ arena_id: arenaId, stripe_customer_id: getCustomerId(subscription), ...payload }, { onConflict: 'arena_id' })
+      .update(payload)
+      .eq('arena_id', arenaId)
 
     if (error) {
-      console.error('[stripe-webhook] handleSubscriptionDeleted — upsert failed', error)
+      console.error('[stripe-webhook] handleSubscriptionDeleted — update failed', error)
       throw error
     }
   } else {
@@ -205,10 +206,11 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   if (arenaId) {
     const { error } = await supabase
       .from('arena_subscriptions')
-      .upsert({ arena_id: arenaId, stripe_customer_id: getCustomerId(subscription), ...payload }, { onConflict: 'arena_id' })
+      .update(payload)
+      .eq('arena_id', arenaId)
 
     if (error) {
-      console.error('[stripe-webhook] handleInvoicePaid — upsert failed', error)
+      console.error('[stripe-webhook] handleInvoicePaid — update failed', error)
       throw error
     }
   } else {

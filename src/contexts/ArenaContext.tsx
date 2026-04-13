@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useDbUser } from "@/contexts/UserContext";
-import { supabase } from "@/shared/database/supabaseClient";
 
 interface Arena {
     id: string;
@@ -27,20 +26,38 @@ export function ArenaProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         async function fetchArenas() {
             if (!dbUser) {
+                setArenas([]);
+                setSelectedArena("");
                 setIsLoadingArenas(false);
                 return;
             }
-            setIsLoadingArenas(true);
-            const { data, error } = await supabase
-                .from('arenas')
-                .select('id, name')
-                .eq('owner_id', dbUser.id)
-                .order('name');
 
-            if (!error && data && data.length > 0) {
+            setIsLoadingArenas(true);
+
+            try {
+                const response = await fetch('/api/arenas', {
+                    credentials: 'same-origin',
+                });
+
+                if (!response.ok) {
+                    throw new Error('Falha ao carregar arenas');
+                }
+
+                const data: Arena[] = await response.json();
                 setArenas(data);
-                setSelectedArena(data[0].id);
+                setSelectedArena((currentArenaId) => {
+                    if (currentArenaId && data.some((arena) => arena.id === currentArenaId)) {
+                        return currentArenaId;
+                    }
+
+                    return data[0]?.id ?? "";
+                });
+            } catch (error) {
+                console.error('Error fetching arenas:', error);
+                setArenas([]);
+                setSelectedArena("");
             }
+
             setIsLoadingArenas(false);
         }
         fetchArenas();

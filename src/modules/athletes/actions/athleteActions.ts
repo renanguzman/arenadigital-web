@@ -82,7 +82,7 @@ export async function linkAthlete(formData: {
         await AthleteService.addSport({
             id_atleta: atleta.id,
             id_esporte: formData.sportId,
-            nivel_habilidade: "Iniciante"
+            id_nivel_habilidade_esporte: undefined
         });
 
         return { success: true };

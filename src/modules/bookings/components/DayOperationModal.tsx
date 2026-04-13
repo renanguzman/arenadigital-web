@@ -17,11 +17,11 @@ interface Court {
 
 interface Booking {
     id: string;
-    athlete_name: string;
+    athlete_name: string | null;
     court_id: string;
     start_time: string;
     end_time: string;
-    status: string;
+    status: string | null;
     price?: number;
     sports?: {
         id: string;
@@ -167,7 +167,7 @@ export function DayOperationModal({ isOpen, onClose, arenaId, arenaName, courts 
                 start.toISOString(),
                 end.toISOString()
             );
-            setBookings(data || []);
+            setBookings((data ?? []) as unknown as Booking[]);
         } catch (error) {
             console.error("Error loading bookings for day operation", error);
         } finally {
