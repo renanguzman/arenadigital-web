@@ -13,6 +13,14 @@ import {
     TableRow,
     TableCell,
 } from "@/components/ui/table";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
 import { PaymentSetupForm } from "@/modules/stripe/components/PaymentSetupForm";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
@@ -63,6 +71,8 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
     const [subscription, setSubscription] = useState<ArenaSubscription>(initialSubscription);
     const [setupData, setSetupData] = useState<SetupData | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+    const [cardModalOpen, setCardModalOpen] = useState(false);
 
     async function refreshSubscription() {
         try {
@@ -74,7 +84,7 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
         }
     }
 
-    async function handleSetupCard() {
+    async function handleOpenCardModal() {
         setActionLoading(true);
         try {
             const res = await fetch("/api/stripe/setup-intent", {
@@ -88,6 +98,7 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
                 return;
             }
             setSetupData({ clientSecret: data.clientSecret, planLabel: data.planLabel, priceCents: data.priceCents });
+            setCardModalOpen(true);
         } finally {
             setActionLoading(false);
         }
@@ -107,6 +118,7 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
                 return;
             }
             toast.success("Assinatura cancelada. Você mantém o acesso até o fim do período atual.");
+            setCancelModalOpen(false);
             await refreshSubscription();
         } finally {
             setActionLoading(false);
@@ -135,8 +147,14 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
 
     function handlePaymentSuccess() {
         setSetupData(null);
-        toast.success("Assinatura ativada com sucesso!");
+        setCardModalOpen(false);
+        toast.success("Cartão atualizado com sucesso!");
         refreshSubscription();
+    }
+
+    function handleCloseCardModal() {
+        setCardModalOpen(false);
+        setSetupData(null);
     }
 
     const hasSubscription = subscription.status !== "none";
@@ -150,44 +168,8 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
                 </p>
             </div>
 
-            {/* Payment Element (setup flow) */}
-            {setupData && (
-                <Card>
-                    <CardContent className="space-y-4 pt-6">
-                        <div>
-                            <p className="font-medium">{setupData.planLabel}</p>
-                            <p className="text-sm text-muted-foreground">
-                                {formatPrice(setupData.priceCents)} / mês
-                            </p>
-                        </div>
-                        <Elements
-                            stripe={stripePromise}
-                            options={{
-                                clientSecret: setupData.clientSecret,
-                                appearance: { theme: "stripe" },
-                                locale: "pt-BR",
-                            }}
-                        >
-                            <PaymentSetupForm
-                                arenaId={arenaId}
-                                onSuccess={handlePaymentSuccess}
-                                onError={(msg) => toast.error(msg)}
-                            />
-                        </Elements>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSetupData(null)}
-                            className="text-muted-foreground"
-                        >
-                            Cancelar
-                        </Button>
-                    </CardContent>
-                </Card>
-            )}
-
             {/* No subscription state */}
-            {!hasSubscription && !setupData && (
+            {!hasSubscription && (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
                         <div className="rounded-full bg-muted p-4">
@@ -200,7 +182,7 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
                             </p>
                         </div>
                         <Button
-                            onClick={handleSetupCard}
+                            onClick={handleOpenCardModal}
                             disabled={actionLoading}
                             className="bg-[#FF6B00] hover:bg-[#E66000] text-white"
                         >
@@ -211,7 +193,7 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
             )}
 
             {/* Active subscription — tabbed view */}
-            {hasSubscription && !setupData && (
+            {hasSubscription && (
                 <Tabs defaultValue="dados-basicos">
                     <TabsList variant="line">
                         <TabsTrigger value="dados-basicos">Dados básicos</TabsTrigger>
@@ -275,7 +257,7 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
                                         ) : (
                                             subscription.status === "active" && (
                                                 <button
-                                                    onClick={handleCancel}
+                                                    onClick={() => setCancelModalOpen(true)}
                                                     disabled={actionLoading}
                                                     className="text-sm text-[#1B7B8A] hover:underline disabled:opacity-50"
                                                 >
@@ -319,7 +301,7 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
 
                                             <div className="pt-1 flex justify-end">
                                                 <button
-                                                    onClick={handleSetupCard}
+                                                    onClick={handleOpenCardModal}
                                                     disabled={actionLoading}
                                                     className="text-sm text-[#1B7B8A] hover:underline disabled:opacity-50"
                                                 >
@@ -333,7 +315,7 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
                                                 Nenhum cartão cadastrado.
                                             </p>
                                             <button
-                                                onClick={handleSetupCard}
+                                                onClick={handleOpenCardModal}
                                                 disabled={actionLoading}
                                                 className="text-sm text-[#1B7B8A] hover:underline disabled:opacity-50"
                                             >
@@ -390,6 +372,82 @@ export function SubscriptionPageClient({ arenaId, initialSubscription, initialPa
                     </TabsContent>
                 </Tabs>
             )}
+
+            {/* Modal: Alterar cartão */}
+            <Dialog open={cardModalOpen} onOpenChange={(open) => { if (!open) handleCloseCardModal(); }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold text-[#0D3B45]">
+                            Alterar cartão
+                        </DialogTitle>
+                        <DialogDescription className="sr-only">
+                            Insira os dados do novo cartão de pagamento.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {setupData ? (
+                        <Elements
+                            stripe={stripePromise}
+                            options={{
+                                clientSecret: setupData.clientSecret,
+                                appearance: {
+                                    theme: "stripe",
+                                    variables: {
+                                        colorPrimary: "#FF6B00",
+                                        borderRadius: "8px",
+                                    },
+                                },
+                                locale: "pt-BR",
+                            }}
+                        >
+                            <PaymentSetupForm
+                                arenaId={arenaId}
+                                onSuccess={handlePaymentSuccess}
+                                onError={(msg) => toast.error(msg)}
+                                onCancel={handleCloseCardModal}
+                                submitLabel="Salvar"
+                            />
+                        </Elements>
+                    ) : (
+                        <div className="flex items-center justify-center py-8">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal: Cancelamento de assinatura */}
+            <Dialog open={cancelModalOpen} onOpenChange={setCancelModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold text-[#0D3B45]">
+                            Cancelamento de assinatura
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-foreground mt-2">
+                            Tem certeza que deseja cancelar sua assinatura? Tudo o que foi
+                            inserido dentro da plataforma será excluído.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter className="flex-row gap-3 sm:justify-start mt-2">
+                        <Button
+                            variant="outline"
+                            className="flex-1 border-[#0D3B45] text-[#0D3B45]"
+                            onClick={() => setCancelModalOpen(false)}
+                            disabled={actionLoading}
+                        >
+                            Fechar
+                        </Button>
+                        <Button
+                            className="flex-1 bg-[#FF6B00] hover:bg-[#E66000] text-white"
+                            onClick={handleCancel}
+                            disabled={actionLoading}
+                        >
+                            {actionLoading ? "Cancelando..." : "Cancelar"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
