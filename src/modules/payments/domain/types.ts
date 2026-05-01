@@ -1,0 +1,85 @@
+export type DomainSubscriptionStatus =
+  | 'active'
+  | 'incomplete'
+  | 'incomplete_expired'
+  | 'past_due'
+  | 'canceled'
+  | 'unpaid'
+  | 'paused'
+  | 'trialing'
+
+export type CardDetails = {
+  brand: string
+  last4: string
+}
+
+export type DomainPaymentMethod = {
+  id: string
+  type: string
+  card: CardDetails | null
+}
+
+export type DomainSubscriptionItem = {
+  id: string
+  priceId: string
+  currentPeriodEndIso: string | null
+}
+
+export type DomainSubscription = {
+  id: string
+  customerId: string
+  status: DomainSubscriptionStatus
+  cancelAtPeriodEnd: boolean
+  canceledAtIso: string | null
+  metadata: Record<string, string>
+  primaryItem: DomainSubscriptionItem | null
+  paymentMethod: DomainPaymentMethod | null
+  latestInvoice: {
+    id: string | null
+    requiresActionClientSecret: string | null
+    requiresPaymentMethod: boolean
+  } | null
+}
+
+export type DomainInvoiceStatus = 'paid' | 'open' | 'void' | 'uncollectible' | 'draft'
+
+export type DomainInvoice = {
+  id: string
+  amountCents: number
+  status: DomainInvoiceStatus
+  number: string | null
+  description: string | null
+  createdAtIso: string
+  attemptCount: number
+}
+
+export type DomainWebhookEvent =
+  | {
+      kind: 'subscription.updated'
+      providerEventId: string
+      subscription: DomainSubscription
+    }
+  | {
+      kind: 'subscription.deleted'
+      providerEventId: string
+      subscription: DomainSubscription
+    }
+  | {
+      kind: 'invoice.paid'
+      providerEventId: string
+      invoice: DomainInvoice
+      subscriptionId: string | null
+    }
+  | {
+      kind: 'invoice.payment_failed'
+      providerEventId: string
+      invoice: DomainInvoice
+      subscriptionId: string | null
+    }
+  | {
+      kind: 'invoice.action_required'
+      providerEventId: string
+      invoice: DomainInvoice
+      subscriptionId: string | null
+    }
+  | { kind: 'unhandled'; providerEventId: string; eventType: string }

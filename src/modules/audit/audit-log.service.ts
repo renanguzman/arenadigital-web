@@ -7,7 +7,7 @@ function toJson(value?: Record<string, unknown> | null): Json | null {
   return (value ?? null) as Json | null
 }
 
-export type AuditActorType = 'user' | 'system' | 'stripe_webhook'
+export type AuditActorType = 'user' | 'system' | 'stripe_webhook' | 'payment_webhook'
 
 export type AuditEventInput = {
   entityType: string

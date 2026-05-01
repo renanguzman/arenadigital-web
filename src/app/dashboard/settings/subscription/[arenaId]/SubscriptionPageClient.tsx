@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Elements } from '@stripe/react-stripe-js'
-import { loadStripe } from '@stripe/stripe-js'
 import { AlertCircle, Check, CreditCard } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -25,15 +23,14 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { PaymentSetupForm } from '@/modules/stripe/components/PaymentSetupForm'
-import type { PlanKey } from '@/modules/stripe/stripe-plans'
-import type { PaymentHistoryItem } from '@/modules/stripe/usecases/get-payment-history.usecase'
-import type { ArenaSubscription } from '@/modules/stripe/usecases/get-subscription.usecase'
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '')
+import { PaymentMethodCollector } from '@/modules/payments/components/PaymentMethodCollector'
+import type { CardCollectionContext } from '@/modules/payments/gateway/payment-gateway.interface'
+import type { PlanKey } from '@/modules/payments/plans'
+import type { PaymentHistoryItem } from '@/modules/payments/usecases/get-payment-history.usecase'
+import type { ArenaSubscription } from '@/modules/payments/usecases/get-subscription.usecase'
 
 type SetupData = {
-  clientSecret: string
+  cardCollection: CardCollectionContext
   planKey: PlanKey
   planLabel: string
   priceCents: number
@@ -117,7 +114,7 @@ export function SubscriptionPageClient({
 
   async function refreshSubscription() {
     try {
-      const res = await fetch(`/api/stripe/subscriptions/${arenaId}`)
+      const res = await fetch(`/api/payments/subscriptions/${arenaId}`)
       const data = await res.json()
 
       if (!res.ok) {
@@ -135,7 +132,7 @@ export function SubscriptionPageClient({
     setActionLoading(true)
 
     try {
-      const res = await fetch('/api/stripe/setup-intent', {
+      const res = await fetch('/api/payments/setup-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ arenaId, planKey })
@@ -148,7 +145,7 @@ export function SubscriptionPageClient({
       }
 
       setSetupData({
-        clientSecret: data.clientSecret,
+        cardCollection: data.cardCollection,
         planKey: data.planKey,
         planLabel: data.planLabel,
         priceCents: data.priceCents
@@ -163,7 +160,7 @@ export function SubscriptionPageClient({
     setActionLoading(true)
 
     try {
-      const res = await fetch('/api/stripe/subscriptions/cancel', {
+      const res = await fetch('/api/payments/subscriptions/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ arenaId, action: 'cancel' })
@@ -187,7 +184,7 @@ export function SubscriptionPageClient({
     setActionLoading(true)
 
     try {
-      const res = await fetch('/api/stripe/subscriptions/cancel', {
+      const res = await fetch('/api/payments/subscriptions/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ arenaId, action: 'reactivate' })
@@ -535,29 +532,15 @@ export function SubscriptionPageClient({
           </DialogHeader>
 
           {setupData ? (
-            <Elements
-              stripe={stripePromise}
-              options={{
-                clientSecret: setupData.clientSecret,
-                appearance: {
-                  theme: 'stripe',
-                  variables: {
-                    colorPrimary: '#FF6B00',
-                    borderRadius: '8px'
-                  }
-                },
-                locale: 'pt-BR'
-              }}
-            >
-              <PaymentSetupForm
-                arenaId={arenaId}
-                planKey={setupData.planKey}
-                onSuccess={handlePaymentSuccess}
-                onError={(msg) => toast.error(msg)}
-                onCancel={handleCloseCardModal}
-                submitLabel={modalPlanChange ? 'Salvar e trocar plano' : 'Salvar'}
-              />
-            </Elements>
+            <PaymentMethodCollector
+              arenaId={arenaId}
+              planKey={setupData.planKey}
+              cardCollection={setupData.cardCollection}
+              onSuccess={handlePaymentSuccess}
+              onError={(msg) => toast.error(msg)}
+              onCancel={handleCloseCardModal}
+              submitLabel={modalPlanChange ? 'Salvar e trocar plano' : 'Salvar'}
+            />
           ) : (
             <div className="flex items-center justify-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />

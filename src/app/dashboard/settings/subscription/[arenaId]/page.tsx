@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation'
 import { assertArenaSubscriptionAccess } from '@/lib/server-auth'
-import { fetchAllActivePlans } from '@/modules/stripe/repositories/subscription-plans.repository'
+import { fetchAllActivePlans } from '@/modules/payments/repositories/subscription-plans.repository'
 import {
   EARLY_ACCESS_PLAN_KEY,
   isPlanSelectionEnabled,
   planKeySchema
-} from '@/modules/stripe/stripe-plans'
-import { getPaymentHistory } from '@/modules/stripe/usecases/get-payment-history.usecase'
-import { getSubscription } from '@/modules/stripe/usecases/get-subscription.usecase'
+} from '@/modules/payments/plans'
+import { getPaymentHistory } from '@/modules/payments/usecases/get-payment-history.usecase'
+import { getSubscription } from '@/modules/payments/usecases/get-subscription.usecase'
 import { SubscriptionPageClient } from './SubscriptionPageClient'
 
 function normalizeFeatures(features: unknown) {

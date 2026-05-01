@@ -85,8 +85,8 @@ export type Database = {
           plan_id: string | null
           plan_key: string
           status: string
-          stripe_customer_id: string
-          stripe_subscription_id: string | null
+          gateway_customer_id: string
+          gateway_subscription_id: string | null
           updated_at: string
         }
         Insert: {
@@ -99,8 +99,8 @@ export type Database = {
           plan_id?: string | null
           plan_key: string
           status?: string
-          stripe_customer_id: string
-          stripe_subscription_id?: string | null
+          gateway_customer_id: string
+          gateway_subscription_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -113,8 +113,8 @@ export type Database = {
           plan_id?: string | null
           plan_key?: string
           status?: string
-          stripe_customer_id?: string
-          stripe_subscription_id?: string | null
+          gateway_customer_id?: string
+          gateway_subscription_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -194,6 +194,7 @@ export type Database = {
           address: Json | null
           banner_url: string | null
           complement: string | null
+          cpf_cnpj: string | null
           created_at: string
           description: string | null
           email: string | null
@@ -219,6 +220,7 @@ export type Database = {
           address?: Json | null
           banner_url?: string | null
           complement?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
           description?: string | null
           email?: string | null
@@ -244,6 +246,7 @@ export type Database = {
           address?: Json | null
           banner_url?: string | null
           complement?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
           description?: string | null
           email?: string | null
@@ -1750,7 +1753,7 @@ export type Database = {
           max_spaces: number
           price_cents: number
           sort_order: number
-          stripe_price_id: string
+          gateway_price_id: string
           updated_at: string
         }
         Insert: {
@@ -1763,7 +1766,7 @@ export type Database = {
           max_spaces: number
           price_cents: number
           sort_order?: number
-          stripe_price_id?: string
+          gateway_price_id?: string
           updated_at?: string
         }
         Update: {
@@ -1776,7 +1779,7 @@ export type Database = {
           max_spaces?: number
           price_cents?: number
           sort_order?: number
-          stripe_price_id?: string
+          gateway_price_id?: string
           updated_at?: string
         }
         Relationships: []
