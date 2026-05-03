@@ -72,6 +72,9 @@ async function persistSubscriptionState(input: {
       plan_key: input.planKey,
       status: input.status,
       current_period_end: input.currentPeriodEnd,
+      ...(input.status === 'active'
+        ? { cancel_at_period_end: false, canceled_at: null }
+        : {}),
       updated_at: new Date().toISOString()
     })
     .eq('arena_id', input.arenaId)

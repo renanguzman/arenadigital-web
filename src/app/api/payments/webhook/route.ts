@@ -93,25 +93,33 @@ async function updateArenaSubscriptionRecord(input: {
   const supabase = getSupabaseAdmin()
 
   if (input.arenaId) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('arena_subscriptions')
-      .upsert(
-        { arena_id: input.arenaId, ...input.payload } as ArenaSubscriptionTable['Insert'],
-        { onConflict: 'arena_id' }
-      )
+      .update(input.payload)
+      .eq('arena_id', input.arenaId)
+      .select('arena_id')
+      .maybeSingle()
 
     if (error) throw error
-    return input.arenaId
+    if (data?.arena_id) return data.arena_id
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('arena_subscriptions')
     .update(input.payload)
     .eq('gateway_subscription_id', input.subscriptionId)
+    .select('arena_id')
+    .maybeSingle()
 
   if (error) throw error
 
-  return resolveArenaIdBySubscriptionId(input.subscriptionId)
+  if (data?.arena_id) return data.arena_id
+
+  console.warn('[payments-webhook] Subscription record not found for event', {
+    arena_id: input.arenaId,
+    gateway_subscription_id: input.subscriptionId
+  })
+  return null
 }
 
 async function resolveSubscriptionPlan(subscription: DomainSubscription) {
@@ -134,8 +142,9 @@ async function handleSubscriptionUpdated(
     gateway_customer_id: subscription.customerId,
     status: subscription.status,
     current_period_end: subscription.primaryItem?.currentPeriodEndIso ?? null,
-    cancel_at_period_end: subscription.cancelAtPeriodEnd,
-    canceled_at: subscription.canceledAtIso,
+    cancel_at_period_end:
+      subscription.status === 'active' ? false : subscription.cancelAtPeriodEnd,
+    canceled_at: subscription.status === 'active' ? null : subscription.canceledAtIso,
     updated_at: new Date().toISOString(),
     ...(matchedPlan ? { plan_key: matchedPlan.key, plan_id: matchedPlan.id } : {})
   }
@@ -232,8 +241,8 @@ async function handleInvoicePaid(
     gateway_customer_id: subscription.customerId,
     status: 'active' as const,
     current_period_end: subscription.primaryItem?.currentPeriodEndIso ?? null,
-    cancel_at_period_end: subscription.cancelAtPeriodEnd,
-    canceled_at: subscription.canceledAtIso,
+    cancel_at_period_end: false,
+    canceled_at: null,
     updated_at: new Date().toISOString(),
     ...(matchedPlan ? { plan_key: matchedPlan.key, plan_id: matchedPlan.id } : {})
   }
