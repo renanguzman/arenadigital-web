@@ -21,6 +21,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { Logo } from "@/components/shared/Logo";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useArena } from "@/contexts/ArenaContext";
@@ -31,6 +32,7 @@ const navActiveText = "text-arena-accent";
 
 export function Sidebar({ className, onNavItemClick }: { className?: string, onNavItemClick?: () => void }) {
     const pathname = usePathname();
+    const { user } = useUser();
     const { isCollapsed, toggleSidebar } = useSidebar();
     const { selectedArena, selectedArenaDetails } = useArena();
 
@@ -154,11 +156,12 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
 
     return (
         <div className={cn(
-            "pb-12 min-h-screen bg-arena-navy-800 text-white transition-all duration-300 ease-in-out relative flex flex-col",
+            "flex min-h-screen flex-col bg-arena-navy-800 text-white transition-all duration-300 ease-in-out",
             isCollapsed ? "w-20" : "w-64",
             className
         )}>
-            <div className="space-y-4 py-6 flex-1 overflow-x-hidden">
+            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                <div className="space-y-4 py-6">
                 <div className={cn("px-4 py-2 transition-all duration-300", isCollapsed ? "px-2" : "px-6")}>
                     <div className={cn(
                         "flex items-center transition-all duration-300",
@@ -421,13 +424,38 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                         )}
                     </div>
                 </div>
+                </div>
             </div>
 
-            {!isCollapsed && (
-                <div className="absolute bottom-6 left-6 text-[10px] text-white/30 whitespace-nowrap">
-                    Arena Digital © 2025
+            <div className="mt-auto shrink-0 border-t border-white/10">
+                <div
+                    className={cn(
+                        "flex py-4",
+                        isCollapsed ? "justify-center px-2" : "items-center gap-3 px-6",
+                    )}
+                >
+                    <UserButton
+                        afterSignOutUrl="/"
+                        appearance={{
+                            elements: {
+                                avatarBox: "h-9 w-9 ring-2 ring-white/15",
+                            },
+                        }}
+                    />
+                    {!isCollapsed && (
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-white/85">
+                            {user?.firstName?.trim()
+                                ? user.firstName
+                                : user?.primaryEmailAddress?.emailAddress ?? "Minha conta"}
+                        </span>
+                    )}
                 </div>
-            )}
+                {!isCollapsed && (
+                    <div className="px-6 pb-4 text-[10px] text-white/30 whitespace-nowrap">
+                        Arena Digital © 2026
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
