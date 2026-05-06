@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AthletesLoading() {
   return (
-    <div className="p-8 space-y-8">
+    <div className="space-y-8">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-9 w-32" />

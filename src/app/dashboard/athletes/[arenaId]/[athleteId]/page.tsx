@@ -335,7 +335,7 @@ export default function AthleteDetailPage({
     const totalSpent = data.total_pago_arena + data.total_gasto_comandas + data.valor_total_rotativos;
 
     return (
-        <div className="min-h-screen bg-[#F8F9FA] p-8">
+        <div className="min-h-screen bg-[#F8F9FA]">
             <div className="max-w-6xl mx-auto">
                 
                 {/* ── HEADER ── */}

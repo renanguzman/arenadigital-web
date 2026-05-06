@@ -163,7 +163,7 @@ export function RotativoPageClient({ arenaId, initialSports, initialRotativos, i
     }
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="space-y-8">
             <div className="flex items-start justify-between">
                 <div className="space-y-1">
                     <h1 className="text-3xl font-bold text-[#002B40]">Gestão de Rotativo</h1>

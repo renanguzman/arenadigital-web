@@ -64,7 +64,7 @@ export default function OrderDetailsPage() {
 
     if (isLoading) {
         return (
-            <div className="space-y-6 max-w-7xl mx-auto p-6">
+            <div className="space-y-6 max-w-7xl mx-auto">
                 <Skeleton className="h-8 w-64" />
                 <Skeleton className="h-48 w-full" />
                 <Skeleton className="h-48 w-full" />

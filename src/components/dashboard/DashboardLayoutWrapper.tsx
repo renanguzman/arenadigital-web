@@ -4,9 +4,10 @@ import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 import { ArenaProvider } from '@/contexts/ArenaContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { Sidebar } from '@/components/dashboard/Sidebar';
-import { Header } from '@/components/dashboard/Header';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Menu } from 'lucide-react';
 import { useState } from 'react';
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
@@ -41,8 +42,17 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
 
       <div className="flex-1 flex flex-col transition-all duration-300 ease-in-out bg-[#F8F9FA]">
-        <Header onMenuClick={() => setIsMobileMenuOpen(true)} />
-        <main className="flex-1 p-4 pb-24 md:p-6 lg:p-8">{children}</main>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="fixed top-4 left-4 z-50 h-10 w-10 rounded-lg bg-[#002B40] text-white shadow-md hover:bg-[#003a55] hover:text-white md:hidden"
+          onClick={() => setIsMobileMenuOpen(true)}
+          aria-label="Abrir menu"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+        <main className="flex-1 min-w-0 p-4 pb-24 md:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

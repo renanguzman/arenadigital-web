@@ -96,7 +96,7 @@ export default function SimulateRegistrationPage({ params }: { params: { arenaId
     }
 
     return (
-        <div className="p-8 max-w-4xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-8">
             <div className="space-y-1 text-center">
                 <Badge variant="outline" className="text-[#FF6B00] border-[#FF6B00]/20 bg-[#FF6B00]/5 px-3 py-1 mb-2">
                     Área Experimental

@@ -208,9 +208,9 @@ export function ClientesOverviewPageClient({ arenaId, initialCategories }: Props
     }
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8">
+        <div className="min-h-full bg-[#F8FAFC]">
             <div className="mb-6">
-                <h1 className="text-2xl font-black text-[#002B40]">Clientes — Overview</h1>
+                <h1 className="text-2xl font-black text-[#002B40]">Atletas e clientes</h1>
                 <p className="text-sm text-[#002B40]/60 mt-1">
                     Selecione uma barra para visualizar os clientes de cada grupo.
                 </p>
