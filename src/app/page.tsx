@@ -32,6 +32,8 @@ import Link from 'next/link';
 import { HeroAnimation } from '@/components/layout/HeroAnimation';
 
 export default function LandingPage() {
+  const showAppDownloadSection = false;
+
   return (
     <div className="min-h-screen bg-[var(--arena-soft)] font-sans text-[var(--arena-navy-800)] selection:bg-[#F97415]/20">
       <Navbar />
@@ -379,44 +381,45 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* App Download Section */}
-      <section className="bg-[#F6F3EE] py-24">
-        <div className="container mx-auto max-w-4xl px-4 text-center">
-          <span className="mb-3 block text-xs font-extrabold uppercase tracking-wider text-[var(--arena-cyan)]">
-            Para Atletas
-          </span>
-          <h2 className="font-heading text-4xl font-extrabold leading-tight text-[var(--arena-navy-800)] md:text-5xl">
-            Disponível para{' '}
-            <span className="bg-gradient-to-r from-[#F97415] to-[#F9A91F] bg-clip-text text-transparent">
-              Android e iOS
+      {showAppDownloadSection && (
+        <section className="bg-[#F6F3EE] py-24">
+          <div className="container mx-auto max-w-4xl px-4 text-center">
+            <span className="mb-3 block text-xs font-extrabold uppercase tracking-wider text-[var(--arena-cyan)]">
+              Para Atletas
             </span>
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#62656c]">
-            Escaneie o QR Code e baixe o aplicativo para encontrar jogos,
-            acompanhar seu nível e jogar mais.
-          </p>
+            <h2 className="font-heading text-4xl font-extrabold leading-tight text-[var(--arena-navy-800)] md:text-5xl">
+              Disponível para{' '}
+              <span className="bg-gradient-to-r from-[#F97415] to-[#F9A91F] bg-clip-text text-transparent">
+                Android e iOS
+              </span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#62656c]">
+              Escaneie o QR Code e baixe o aplicativo para encontrar jogos,
+              acompanhar seu nível e jogar mais.
+            </p>
 
-          <div className="mt-12 flex gap-6 justify-center sm:grid-cols-2">
-            {[
-              { label: 'Baixar na App Store', icon: Apple },
-              { label: 'Baixar no Google Play', icon: Play },
-            ].map((store) => (
-              <div
-                key={store.label}
-                className="rounded-xl border w-[327px] aspect-square border-slate-100 bg-white p-14 shadow-[0_18px_34px_-28px_rgba(0,21,36,0.45)]"
-              >
-                <div className="mx-auto flex aspect-square w-28 items-center justify-center rounded-lg border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] text-[var(--arena-navy-800)]">
-                  <QrCode className="h-28 w-28" strokeWidth={1.4} />
+            <div className="mt-12 flex gap-6 justify-center sm:grid-cols-2">
+              {[
+                { label: 'Baixar na App Store', icon: Apple },
+                { label: 'Baixar no Google Play', icon: Play },
+              ].map((store) => (
+                <div
+                  key={store.label}
+                  className="rounded-xl border w-[327px] aspect-square border-slate-100 bg-white p-14 shadow-[0_18px_34px_-28px_rgba(0,21,36,0.45)]"
+                >
+                  <div className="mx-auto flex aspect-square w-28 items-center justify-center rounded-lg border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] text-[var(--arena-navy-800)]">
+                    <QrCode className="h-28 w-28" strokeWidth={1.4} />
+                  </div>
+                  <Button className="mt-5 h-11 rounded-lg bg-[var(--arena-navy-900)] px-5 text-sm font-extrabold text-white hover:bg-[var(--arena-navy-800)]">
+                    <store.icon className="mr-2 h-4 w-4" />
+                    {store.label}
+                  </Button>
                 </div>
-                <Button className="mt-5 h-11 rounded-lg bg-[var(--arena-navy-900)] px-5 text-sm font-extrabold text-white hover:bg-[var(--arena-navy-800)]">
-                  <store.icon className="mr-2 h-4 w-4" />
-                  {store.label}
-                </Button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Como funciona Section */}
       <section id="howitworks" className="bg-[#F6F7F9] py-28">
