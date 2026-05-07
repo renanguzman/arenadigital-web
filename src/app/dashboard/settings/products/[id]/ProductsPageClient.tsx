@@ -37,7 +37,7 @@ const searchInputClass =
     "h-10 w-full rounded-md border-slate-300 pl-3 pr-10 text-sm text-arena-navy-800 shadow-none placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#20B2AA] sm:max-w-[280px] sm:w-[280px]"
 
 const statusSelectTriggerClass =
-    "h-10 min-w-[180px] border-slate-300 text-sm text-arena-navy-800 shadow-none focus-visible:ring-1 focus-visible:ring-[#20B2AA] data-[placeholder]:text-arena-navy-800/60"
+    "h-10 w-fit min-w-[180px] border-slate-300 text-sm text-arena-navy-800 shadow-none focus-visible:ring-1 focus-visible:ring-[#20B2AA] data-[placeholder]:text-arena-navy-800/60"
 
 type CatalogStatusFilter = "all" | "Em estoque" | "Em falta"
 

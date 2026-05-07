@@ -701,6 +701,48 @@ export type Database = {
           },
         ]
       }
+      booking_services: {
+        Row: {
+          booking_id: string
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity?: number
+          unit_price: number
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_services_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_services_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           arena_id: string

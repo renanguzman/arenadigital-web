@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IBookingRepository } from './IBookingRepository';
 import type { Booking, CreateBookingDTO, UpdateBookingDTO } from '../types/booking.types';
 
-const WITH_RELATIONS = '*, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil, telefone)' as const;
+const WITH_RELATIONS =
+    '*, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil, telefone), booking_services(id, booking_id, product_id, quantity, unit_price, products(id, name))' as const;
 
 export class SupabaseBookingRepository implements IBookingRepository {
   constructor(private readonly client: SupabaseClient) {}

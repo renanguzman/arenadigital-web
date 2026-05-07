@@ -68,7 +68,7 @@ const inputFieldClass =
     "h-10 bg-white border-slate-300 text-slate-800 shadow-none placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-slate-400"
 
 const selectTriggerClass =
-    "h-10 w-full bg-white border-slate-300 text-slate-800 shadow-none focus-visible:ring-1 focus-visible:ring-slate-400"
+    "h-10 w-full bg-white border-slate-300 text-sm text-arena-navy-800 shadow-none focus-visible:ring-1 focus-visible:ring-slate-400"
 
 const selectContentClass = "rounded-xl border border-slate-200 bg-white text-slate-800 shadow-lg"
 

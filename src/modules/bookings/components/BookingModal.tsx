@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Search, Save, X, Loader2, Check, Calendar as CalendarIcon, Clock, Users, UserPlus, AlertTriangle } from "lucide-react"
 import {
     Dialog,
@@ -22,7 +22,15 @@ import { searchAthletesAction } from "@/modules/loyalty/actions/loyaltyActions"
 import { getArenaByIdAction } from "@/modules/arenas/actions/arenaActions"
 import { createBookingAction, createRecurringBookingsAction, checkBookingConflictsAction, updateBookingAction } from "@/modules/bookings/actions/bookingActions"
 import type { BookingConflict } from "@/modules/bookings/actions/bookingActions"
+import { replaceBookingServicesAction } from "@/modules/bookings/actions/bookingServiceActions"
 import type { Booking } from "@/modules/bookings/types/booking.types"
+import { getProductsByArenaAction } from "@/modules/products/actions/stockActions"
+import { isCatalogService, type Product } from "@/modules/products/types/product.types"
+import {
+    BookingServicesSection,
+    sumBookingServiceLines,
+    type BookingServiceLineLocal,
+} from "@/modules/bookings/components/BookingServicesSection"
 import { createPlanoMensalistaAction } from "@/modules/bookings/actions/mensalistaActions"
 import { AthleteRegistrationModal } from "@/modules/athletes/components/AthleteRegistrationModal"
 import { toast } from "sonner"
@@ -176,7 +184,10 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
     // Avulso
     const [startTime, setStartTime] = useState("")
     const [endTime, setEndTime] = useState("")
-    const [price, setPrice] = useState(defaultPrice.toString())
+    /** Valor da locação (quadra), sem serviços — o total enviado ao servidor inclui serviços. */
+    const [courtPrice, setCourtPrice] = useState(defaultPrice.toString())
+    const [serviceLines, setServiceLines] = useState<BookingServiceLineLocal[]>([])
+    const [catalogServiceProducts, setCatalogServiceProducts] = useState<Product[]>([])
     const [isRecurring, setIsRecurring] = useState(false)
     const [recurrenceWeeks, setRecurrenceWeeks] = useState(2)
 
@@ -217,7 +228,6 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
             const end = parseISO(existingBooking.end_time)
             setStartTime(format(start, "HH:mm"))
             setEndTime(format(end, "HH:mm"))
-            setPrice(String(existingBooking.price ?? 0))
             setBookingType("avulso")
             setIsRecurring(false)
             setConflicts([])
@@ -233,6 +243,16 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                 setSearch(existingBooking.athlete_name ?? "")
             }
             void loadArenaSports(existingBooking.sport_id ?? null)
+            const raw = existingBooking.booking_services
+            const mapped: BookingServiceLineLocal[] = (raw ?? []).map((s) => ({
+                productId: s.product_id,
+                quantity: s.quantity,
+                unitPrice: Number(s.unit_price),
+                name: s.products?.name ?? "Serviço",
+            }))
+            setServiceLines(mapped)
+            const svcSum = mapped.reduce((a, l) => a + l.quantity * l.unitPrice, 0)
+            setCourtPrice(String(Math.max(0, (existingBooking.price ?? 0) - svcSum)))
             return
         }
 
@@ -246,7 +266,8 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
         setEndTime(endStr)
         setHorarioInicio(startStr)
         setHorarioFim(endStr)
-        setPrice(defaultPrice.toString())
+        setCourtPrice(defaultPrice.toString())
+        setServiceLines([])
         setDiaSemana(String(selectedDate.getDay()))
         void loadArenaSports()
     }, [isOpen, existingBooking, selectedDate, selectedHour, selectedMinute, defaultPrice, arenaId])
@@ -255,6 +276,17 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
     useEffect(() => {
         setConflicts([])
     }, [startTime, endTime, horarioInicio, horarioFim, diaSemana, isRecurring, recurrenceWeeks, bookingType])
+
+    useEffect(() => {
+        if (!isOpen) return
+        getProductsByArenaAction(arenaId).then((r) => {
+            if (r.success && r.data) {
+                setCatalogServiceProducts((r.data as Product[]).filter((p) => isCatalogService(p)))
+            } else {
+                setCatalogServiceProducts([])
+            }
+        })
+    }, [isOpen, arenaId])
 
 
     const handleSearch = (value: string) => {
@@ -289,13 +321,21 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
             toast.error("Informe o nome do responsável")
             return
         }
+        const court = Number(courtPrice)
+        if (Number.isNaN(court) || court < 0) {
+            toast.error("Informe um valor válido para a locação")
+            return
+        }
+        const totalPrice = court + sumBookingServiceLines(serviceLines)
+        const servicePayload = serviceLines.map((l) => ({ product_id: l.productId, quantity: l.quantity }))
+
         try {
             setIsSaving(true)
             const startDateTime = new Date(selectedDate)
-            const [sH, sM] = startTime.split(':').map(Number)
+            const [sH, sM] = startTime.split(":").map(Number)
             startDateTime.setHours(sH, sM, 0, 0)
             const endDateTime = new Date(selectedDate)
-            const [eH, eM] = endTime.split(':').map(Number)
+            const [eH, eM] = endTime.split(":").map(Number)
             endDateTime.setHours(eH, eM, 0, 0)
 
             if (existingBooking) {
@@ -305,10 +345,15 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                     sport_id: selectedSport || null,
                     start_time: startDateTime.toISOString(),
                     end_time: endDateTime.toISOString(),
-                    price: Number(price),
+                    price: totalPrice,
                 })
                 if (!result.success) {
                     toast.error(result.error ?? "Erro ao atualizar reserva")
+                    return
+                }
+                const sRes = await replaceBookingServicesAction(arenaId, existingBooking.id, servicePayload)
+                if (!sRes.success) {
+                    toast.error(sRes.error ?? "Erro ao salvar serviços da reserva")
                     return
                 }
                 toast.success("Reserva atualizada com sucesso!")
@@ -330,14 +375,27 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                         sport_id: selectedSport || undefined,
                         start_time: addWeeks(startDateTime, i).toISOString(),
                         end_time: addWeeks(endDateTime, i).toISOString(),
-                        status: 'confirmed' as const,
-                        price: Number(price),
+                        status: "confirmed" as const,
+                        price: totalPrice,
                         recurrence_id: recurrenceId,
                     })
                 }
-                await createRecurringBookingsAction(arenaId, bookingsToCreate)
+                const recRes = await createRecurringBookingsAction(arenaId, bookingsToCreate)
+                if (!recRes.success) {
+                    toast.error(recRes.error ?? "Erro ao criar reservas recorrentes")
+                    return
+                }
+                if (servicePayload.length > 0 && recRes.data?.length) {
+                    for (const b of recRes.data) {
+                        const sRes = await replaceBookingServicesAction(arenaId, b.id, servicePayload)
+                        if (!sRes.success) {
+                            toast.error(sRes.error ?? "Erro ao salvar serviços em uma das reservas")
+                            return
+                        }
+                    }
+                }
             } else {
-                await createBookingAction(arenaId, {
+                const created = await createBookingAction(arenaId, {
                     arena_id: arenaId,
                     court_id: courtId,
                     athlete_name: selectedAthlete ? selectedAthlete.nome_perfil : search,
@@ -345,9 +403,20 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                     sport_id: selectedSport || undefined,
                     start_time: startDateTime.toISOString(),
                     end_time: endDateTime.toISOString(),
-                    status: 'confirmed',
-                    price: Number(price),
+                    status: "confirmed",
+                    price: totalPrice,
                 })
+                if (!created.success) {
+                    toast.error(created.error ?? "Erro ao criar reserva")
+                    return
+                }
+                if (servicePayload.length > 0 && created.data?.id) {
+                    const sRes = await replaceBookingServicesAction(arenaId, created.data.id, servicePayload)
+                    if (!sRes.success) {
+                        toast.error(sRes.error ?? "Erro ao salvar serviços da reserva")
+                        return
+                    }
+                }
             }
 
             toast.success(isRecurring ? "Agenda recorrente criada com sucesso!" : "Reserva criada com sucesso!")
@@ -416,6 +485,8 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
         setValorMensal("")
         setBookingType("avulso")
         setConflicts([])
+        setCourtPrice(defaultPrice.toString())
+        setServiceLines([])
     }
 
     // ── Helpers para gerar slots a verificar ────────────────────────────────
@@ -547,6 +618,11 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
         onRegisterNew: () => setIsAthleteModalOpen(true),
     }
 
+    const servicesSumDisplay = useMemo(() => sumBookingServiceLines(serviceLines), [serviceLines])
+    const totalDisplay = (Number(courtPrice) || 0) + servicesSumDisplay
+    const fmtBrl = (n: number) =>
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n)
+
     return (
         <>
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -650,13 +726,44 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                                     </Select>
                                 </div>
 
-                                {/* Valor Pago */}
+                                {/* Valor da locação + serviços */}
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase text-arena-navy-800/40 tracking-wider">Valor pago</Label>
+                                    <Label className="text-xs font-bold uppercase text-arena-navy-800/40 tracking-wider">
+                                        Valor da locação
+                                    </Label>
                                     <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-arena-navy-800/40 font-bold">R$</span>
-                                        <Input value={price} onChange={(e) => setPrice(e.target.value)} className="pl-12 h-14 border-arena-navy-800/10 focus:ring-arena-button focus:border-arena-button rounded-xl font-bold text-arena-navy-800" />
+                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-arena-navy-800/40 font-bold">
+                                            R$
+                                        </span>
+                                        <Input
+                                            value={courtPrice}
+                                            onChange={(e) => setCourtPrice(e.target.value)}
+                                            className="pl-12 h-14 border-arena-navy-800/10 focus:ring-arena-button focus:border-arena-button rounded-xl font-bold text-arena-navy-800"
+                                        />
                                     </div>
+                                </div>
+
+                                <BookingServicesSection
+                                    catalogServices={catalogServiceProducts.map((p) => ({
+                                        id: p.id,
+                                        name: p.name,
+                                        price: p.price,
+                                    }))}
+                                    lines={serviceLines}
+                                    onLinesChange={setServiceLines}
+                                />
+
+                                <div className="rounded-2xl border border-arena-button/15 bg-[#FFF5EF] px-4 py-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-arena-button/70">
+                                        Total da reserva
+                                    </p>
+                                    <p className="text-xl font-black text-arena-button">{fmtBrl(totalDisplay)}</p>
+                                    {serviceLines.length > 0 && (
+                                        <p className="mt-1 text-[11px] font-medium text-arena-navy-800/50">
+                                            Locação {fmtBrl(Number(courtPrice) || 0)} + serviços{" "}
+                                            {fmtBrl(servicesSumDisplay)}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Recorrência */}

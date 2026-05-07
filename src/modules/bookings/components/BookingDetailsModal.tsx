@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Calendar as CalendarIcon, Clock, Trash2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Calendar as CalendarIcon, Clock, Trash2, Loader2 } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -10,10 +10,20 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { updateBookingStatusAction } from "@/modules/bookings/actions/bookingActions"
+import { syncBookingServicesAndTotalAction } from "@/modules/bookings/actions/bookingServiceActions"
+import { getProductsByArenaAction } from "@/modules/products/actions/stockActions"
+import { isCatalogService, type Product } from "@/modules/products/types/product.types"
+import {
+    BookingServicesSection,
+    sumBookingServiceLines,
+    type BookingServiceLineLocal,
+} from "@/modules/bookings/components/BookingServicesSection"
 import { toast } from "sonner"
 
 interface BookingDetailsModalProps {
@@ -40,6 +50,42 @@ function statusPresentation(status: string | null | undefined) {
 
 export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, booking, court }: BookingDetailsModalProps) {
     const [isCancelling, setIsCancelling] = useState(false)
+    const [isSavingServices, setIsSavingServices] = useState(false)
+    const [courtPortion, setCourtPortion] = useState("")
+    const [serviceLines, setServiceLines] = useState<BookingServiceLineLocal[]>([])
+    const [catalogServiceProducts, setCatalogServiceProducts] = useState<Product[]>([])
+
+    const arenaId = booking?.arena_id as string | undefined
+
+    useEffect(() => {
+        if (!isOpen || !booking) return
+        const raw = booking.booking_services
+        const mapped: BookingServiceLineLocal[] = (raw ?? []).map((s: any) => ({
+            productId: s.product_id,
+            quantity: s.quantity,
+            unitPrice: Number(s.unit_price),
+            name: s.products?.name ?? "Serviço",
+        }))
+        setServiceLines(mapped)
+        const svcSum = mapped.reduce((a, l) => a + l.quantity * l.unitPrice, 0)
+        setCourtPortion(String(Math.max(0, (booking.price ?? 0) - svcSum)))
+    }, [isOpen, booking?.id, booking?.price, booking?.booking_services])
+
+    useEffect(() => {
+        if (!isOpen || !arenaId) return
+        getProductsByArenaAction(arenaId).then((r) => {
+            if (r.success && r.data) {
+                setCatalogServiceProducts((r.data as Product[]).filter((p) => isCatalogService(p)))
+            } else {
+                setCatalogServiceProducts([])
+            }
+        })
+    }, [isOpen, arenaId])
+
+    const servicesSum = useMemo(() => sumBookingServiceLines(serviceLines), [serviceLines])
+    const totalDisplay = (Number(courtPortion) || 0) + servicesSum
+    const fmtBrl = (n: number) =>
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n)
 
     if (!booking || !court) return null
 
@@ -67,6 +113,34 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
         }
     }
 
+    const handleSaveServices = async () => {
+        if (!arenaId) return
+        const courtAmount = Number(courtPortion)
+        if (Number.isNaN(courtAmount) || courtAmount < 0) {
+            toast.error("Informe um valor válido para a locação")
+            return
+        }
+        setIsSavingServices(true)
+        try {
+            const payload = serviceLines.map((l) => ({ product_id: l.productId, quantity: l.quantity }))
+            const res = await syncBookingServicesAndTotalAction(
+                arenaId,
+                booking.id,
+                payload,
+                courtAmount + sumBookingServiceLines(serviceLines)
+            )
+            if (!res.success) {
+                toast.error(res.error ?? "Erro ao salvar")
+                return
+            }
+            toast.success("Serviços e valor atualizados!")
+            onSuccess()
+            onClose()
+        } finally {
+            setIsSavingServices(false)
+        }
+    }
+
     const sportName = booking.sports?.name || court.sports?.[0]?.name || "—"
 
     return (
@@ -81,7 +155,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="px-6 py-5">
+                <div className="max-h-[min(70vh,560px)] overflow-y-auto px-6 py-5">
                     <div className="grid grid-cols-2 gap-x-8 gap-y-5">
                         <div>
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -92,9 +166,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                             </p>
                         </div>
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                Status
-                            </p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status</p>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                 <Badge variant="outline" className={cn("text-xs font-medium", status.className)}>
                                     {status.label}
@@ -110,15 +182,11 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                             </div>
                         </div>
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                Esporte
-                            </p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Esporte</p>
                             <p className="mt-1 text-sm font-semibold text-arena-navy-800">{sportName}</p>
                         </div>
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                Espaço
-                            </p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Espaço</p>
                             <p className="mt-1 text-sm font-semibold text-arena-navy-800">{court.name}</p>
                         </div>
                     </div>
@@ -143,14 +211,75 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
 
                     <div className="my-5 border-t border-slate-100" />
 
-                    <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Valor</p>
-                        <p className="mt-1 text-2xl font-bold text-arena-button">
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-                                booking.price ?? 0
+                    {canEdit ? (
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                    Valor da locação
+                                </Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-arena-navy-800/40">
+                                        R$
+                                    </span>
+                                    <Input
+                                        value={courtPortion}
+                                        onChange={(e) => setCourtPortion(e.target.value)}
+                                        className="h-11 pl-10 border-slate-200 font-semibold text-arena-navy-800"
+                                    />
+                                </div>
+                            </div>
+                            <BookingServicesSection
+                                catalogServices={catalogServiceProducts.map((p) => ({
+                                    id: p.id,
+                                    name: p.name,
+                                    price: p.price,
+                                }))}
+                                lines={serviceLines}
+                                onLinesChange={setServiceLines}
+                                disabled={isSavingServices}
+                            />
+                            <div className="rounded-xl border border-arena-button/15 bg-[#FFF5EF] px-3 py-2.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-arena-button/70">
+                                    Total da reserva
+                                </p>
+                                <p className="text-lg font-black text-arena-button">{fmtBrl(totalDisplay)}</p>
+                            </div>
+                            <Button
+                                type="button"
+                                onClick={handleSaveServices}
+                                disabled={isSavingServices}
+                                className="w-full bg-arena-button font-semibold text-white hover:bg-arena-button-hover"
+                            >
+                                {isSavingServices ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Salvando…
+                                    </>
+                                ) : (
+                                    "Salvar serviços e valor"
+                                )}
+                            </Button>
+                        </div>
+                    ) : (
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Valor</p>
+                            <p className="mt-1 text-2xl font-bold text-arena-button">{fmtBrl(booking.price ?? 0)}</p>
+                            {booking.booking_services?.length > 0 && (
+                                <ul className="mt-3 space-y-1.5 text-sm text-arena-navy-800/80">
+                                    {(booking.booking_services as any[]).map((s: any) => (
+                                        <li key={s.id} className="flex justify-between gap-2">
+                                            <span>
+                                                {s.quantity}× {s.products?.name ?? "Serviço"}
+                                            </span>
+                                            <span className="font-semibold">
+                                                {fmtBrl(s.quantity * Number(s.unit_price))}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
                             )}
-                        </p>
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex w-full flex-row items-stretch gap-3 border-t border-slate-100 px-6 py-4">
