@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Loader2, X, Printer, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react"
+import Image from "next/image"
+import { Loader2, Download, ChevronLeft, ChevronRight } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -9,7 +10,6 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { getCourtsByArenaAction } from "@/modules/courts/actions/courtActions"
 import { getBookingsByArenaAction } from "@/modules/bookings/actions/bookingActions"
 import {
@@ -35,11 +35,36 @@ interface CourtSlot {
     status: SlotStatus
 }
 
-const STATUS_STYLES: Record<SlotStatus, { dot: string; text: string; row: string }> = {
-    available:          { dot: 'bg-emerald-500',  text: 'text-emerald-700',     row: '' },
-    'booked-avulso':    { dot: 'bg-arena-button',    text: 'text-arena-button/80',    row: 'opacity-70' },
-    'booked-mensalista':{ dot: 'bg-amber-400',     text: 'text-amber-700/80',    row: 'opacity-70' },
-    closed:             { dot: 'bg-slate-200',     text: 'text-slate-300',       row: 'opacity-40' },
+const formatCourtNames = (names: string[]) => {
+    const items = names.map(name => name.trim()).filter(Boolean)
+    if (items.length <= 1) return items[0] ?? ''
+
+    const groups = new Map<string, string[]>()
+    const standalone: string[] = []
+
+    items.forEach((name) => {
+        const match = name.match(/^(.+?)\s+(\d+)$/)
+
+        if (!match) {
+            standalone.push(name)
+            return
+        }
+
+        const [, prefix, number] = match
+        groups.set(prefix, [...(groups.get(prefix) ?? []), number])
+    })
+
+    const compactGroups = Array.from(groups.entries()).map(([prefix, numbers]) => (
+        `${prefix} ${joinPt(numbers)}`
+    ))
+    const compactItems = [...standalone, ...compactGroups]
+
+    return joinPt(compactItems)
+}
+
+const joinPt = (items: string[]) => {
+    if (items.length <= 1) return items[0] ?? ''
+    return `${items.slice(0, -1).join(', ')} e ${items[items.length - 1]}`
 }
 
 export function AvailableTimesModal({ isOpen, onClose, arenaId, currentDate }: AvailableTimesModalProps) {
@@ -112,35 +137,24 @@ export function AvailableTimesModal({ isOpen, onClose, arenaId, currentDate }: A
             .filter(c => getCourtStatusForSlot(c, date, hour) !== 'closed')
             .map(c => ({ id: c.id, name: c.name, status: getCourtStatusForSlot(c, date, hour) }))
 
-    const isThisWeek = format(weekStart, 'yyyy-ww') === format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-ww')
+    const getAvailableSlotsForCell = (date: Date, hour: number): CourtSlot[] =>
+        getSlotsForCell(date, hour).filter(slot => slot.status === 'available')
 
     // ── Print ────────────────────────────────────────────────────────────────
     const handlePrint = () => {
         const printWindow = window.open('', '_blank', 'width=1400,height=900')
         if (!printWindow) { alert('Habilite pop-ups para imprimir.'); return }
-
-        const dotColor = (s: SlotStatus) => ({
-            available:            '#10b981',
-            'booked-avulso':      ARENA_BRAND_HEX.button,
-            'booked-mensalista':  '#f59e0b',
-            closed:               '#e2e8f0',
-        }[s])
-
-        const textColor = (s: SlotStatus) => ({
-            available:            '#047857',
-            'booked-avulso':      '#9a3700',
-            'booked-mensalista':  '#92400e',
-            closed:               '#cbd5e1',
-        }[s])
+        const logoUrl = `${window.location.origin}/logo_arena_front_bgbranco.png`
 
         const cellHtml = (day: Date, hour: number) => {
-            const slots = getSlotsForCell(day, hour)
-            if (slots.length === 0) return `<div style="color:#e2e8f0;font-size:8px;font-weight:700;text-align:center">—</div>`
-            return slots.map(s => `
-                <div style="display:flex;align-items:center;gap:3px;margin:1px 0">
-                    <span style="width:5px;height:5px;border-radius:50%;background:${dotColor(s.status)};flex-shrink:0"></span>
-                    <span style="font-size:8px;font-weight:700;color:${textColor(s.status)};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</span>
-                </div>`).join('')
+            const slots = getAvailableSlotsForCell(day, hour)
+            if (slots.length === 0) return `<div class="cell unavailable">Indisponível</div>`
+
+            return `
+                <div class="cell">
+                    <strong>Disponível</strong>
+                    <span>${formatCourtNames(slots.map(slot => slot.name))}</span>
+                </div>`
         }
 
         printWindow.document.write(`
@@ -149,34 +163,33 @@ export function AvailableTimesModal({ isOpen, onClose, arenaId, currentDate }: A
 <style>
   @page { size: landscape; margin: 6mm; }
   * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; box-sizing:border-box; }
-  body { font-family: ui-sans-serif,system-ui,sans-serif; color:${ARENA_BRAND_HEX.navy800}; background:#fff; padding:8px; }
-  h1  { font-size:1.2rem; font-weight:900; letter-spacing:-.02em; margin:0 }
-  .meta { color:#64748b; font-size:.65rem; font-weight:600; text-align:right }
-  table { width:100%; border-collapse:collapse; margin-top:10px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden }
-  th,td { border:1px solid #f1f5f9; padding:3px 4px; vertical-align:top }
-  .th-time { width:52px; background:#f8fafc; font-size:.6rem; font-weight:800; color:#64748b; text-align:center }
-  .th-day  { background:${ARENA_BRAND_HEX.soft}; font-size:.65rem; font-weight:800; text-align:center; color:${ARENA_BRAND_HEX.navy800}; text-transform:capitalize }
-  .th-date { font-weight:500; color:#94a3b8; font-size:.55rem }
-  .td-time { text-align:center; font-size:.6rem; font-weight:800; color:#94a3b8; background:#fafafa }
-  .td-cell { min-width:80px; padding:3px 5px }
-  .legend  { margin-top:10px; display:flex; gap:16px; font-size:.65rem; font-weight:700; align-items:center }
-  .dot     { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:3px }
+  body { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; color:${ARENA_BRAND_HEX.navy800}; background:#fff; padding:8px; }
+  h1  { font-family: Exo, Manrope, sans-serif; font-size:1rem; font-weight:800; letter-spacing:0; margin:0 }
+  .meta { color:${ARENA_BRAND_HEX.navy800}; font-size:.62rem; font-weight:700; text-align:right }
+  table { width:100%; border-collapse:collapse; margin-top:12px; border-top:1px solid #cbd5e1; }
+  th,td { border-bottom:1px solid #cbd5e1; padding:0; vertical-align:middle }
+  .th-time { width:64px; font-size:.55rem; font-weight:500; color:#007793; text-align:left; padding:8px 12px }
+  .th-day  { font-size:.55rem; font-weight:500; text-align:center; color:#007793; text-transform:capitalize; padding:8px 10px }
+  .td-time { text-align:left; font-size:.6rem; font-weight:700; color:${ARENA_BRAND_HEX.navy800}; padding:12px }
+  .td-cell { min-width:86px; height:36px; padding:0 }
+  .cell { min-height:36px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:${ARENA_BRAND_HEX.navy800}; font-size:.56rem; line-height:1.25; text-align:center }
+  .cell strong { font-size:.6rem; font-weight:500 }
+  .cell span { font-size:.53rem; font-weight:700 }
+  .cell.unavailable { background:#f2f4f7; font-weight:500 }
   footer   { margin-top:8px; font-size:.6rem; color:#94a3b8; text-align:right }
 </style>
 </head><body>
-<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #f1f5f9;padding-bottom:8px;margin-bottom:4px">
+<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding-bottom:8px;margin-bottom:4px">
   <div>
-    <h1>Grade de Horários Disponíveis</h1>
-    <div style="font-size:.65rem;color:#64748b;font-weight:600">
-      Semana: ${format(weekDays[0], "dd/MM")} a ${format(weekDays[6], "dd/MM/yyyy")}
-    </div>
+    <h1>Grade de horários disponíveis</h1>
   </div>
-  <div class="meta"><div>Arena Digital</div><div>Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</div></div>
+  <img src="${logoUrl}" style="width:118px;height:auto" alt="Arena Digital" />
+  <div class="meta"><div>${format(weekDays[0], "dd/MM")} - ${format(weekDays[6], "dd/MM")}</div><div>Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</div></div>
 </div>
 <table>
   <thead><tr>
     <th class="th-time">Horário</th>
-    ${weekDays.map(d => `<th class="th-day"><div>${format(d,'EEEE',{locale:ptBR})}</div><div class="th-date">${format(d,'dd/MM')}</div></th>`).join('')}
+    ${weekDays.map(d => `<th class="th-day">${format(d,'EEEE',{locale:ptBR})} (${format(d,'dd/MM')})</th>`).join('')}
   </tr></thead>
   <tbody>
     ${hours.map(h => `
@@ -186,14 +199,9 @@ export function AvailableTimesModal({ isOpen, onClose, arenaId, currentDate }: A
     </tr>`).join('')}
   </tbody>
 </table>
-<div class="legend">
-  <span><span class="dot" style="background:#10b981"></span>Disponível</span>
-  <span><span class="dot" style="background:${ARENA_BRAND_HEX.button}"></span>Reservado (Avulso)</span>
-  <span><span class="dot" style="background:#f59e0b"></span>Reservado (Mensalista)</span>
-</div>
 ${courts.length > 0 ? `
 <div style="margin-top:8px;font-size:.65rem;">
-  <strong style="color:${ARENA_BRAND_HEX.navy800};text-transform:uppercase;font-size:.55rem;letter-spacing:.06em">Esportes por espaço: </strong>
+  <strong style="color:${ARENA_BRAND_HEX.navy800};text-transform:uppercase;font-size:.55rem;letter-spacing:.06em">Esportes por quadra: </strong>
   ${courts.map(c => `<span style="margin-right:12px"><b>${c.name}</b> — ${c.sports?.map((s:any)=>s.name).join(', ')||'—'}</span>`).join('')}
 </div>` : ''}
 <footer>Arena Digital · Relatório gerado automaticamente</footer>
@@ -205,171 +213,162 @@ ${courts.length > 0 ? `
     // ── Render ───────────────────────────────────────────────────────────────
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-[95vw] w-[98vw] max-h-[95vh] overflow-auto p-0 border-none shadow-2xl rounded-3xl bg-arena-soft">
-
-                {/* ── Header ── */}
-                <DialogHeader className="p-6 pb-4 bg-white sticky top-0 z-20 border-b border-arena-navy-800/5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <DialogTitle className="text-xl font-black text-arena-navy-800 tracking-tight">
-                            Grade de horários disponíveis
-                        </DialogTitle>
-
-                        {/* Week navigation */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <div className="flex items-center bg-[#F1F5F9] rounded-xl p-1 gap-1">
-                                <Button
-                                    variant="ghost" size="icon"
-                                    onClick={() => setWeekStart(w => subWeeks(w, 1))}
-                                    className="h-8 w-8 hover:bg-white rounded-lg"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </Button>
-                                <span className="px-3 text-sm font-bold text-arena-navy-800 min-w-[160px] text-center">
-                                    {format(weekDays[0], "dd/MM")} – {format(weekDays[6], "dd/MM/yyyy")}
-                                </span>
-                                <Button
-                                    variant="ghost" size="icon"
-                                    onClick={() => setWeekStart(w => addWeeks(w, 1))}
-                                    className="h-8 w-8 hover:bg-white rounded-lg"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </Button>
-                            </div>
-                            {!isThisWeek && (
-                                <Button
-                                    variant="outline" size="sm"
-                                    onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-                                    className="h-9 font-bold gap-1.5 border-arena-navy-800/10 text-arena-navy-800/60 hover:text-arena-navy-800"
-                                >
-                                    <CalendarDays className="h-4 w-4" />
-                                    Hoje
-                                </Button>
-                            )}
-                            <Button
-                                variant="outline" size="sm"
-                                onClick={handlePrint}
-                                className="h-9 font-bold gap-2 border-arena-navy-800/10 text-arena-navy-800/60 hover:text-arena-navy-800"
-                            >
-                                <Printer className="h-4 w-4" />
-                                Imprimir
-                            </Button>
-                            <Button
-                                variant="ghost" size="icon"
-                                onClick={onClose}
-                                className="rounded-full hover:bg-gray-100 h-9 w-9"
-                            >
-                                <X className="h-5 w-5" />
-                            </Button>
-                        </div>
-                    </div>
-                </DialogHeader>
-
+            <DialogContent
+                showCloseButton={false}
+                className="sm:max-w-[96vw] w-[98vw] h-[95vh] overflow-hidden gap-0 p-5 border border-slate-200 shadow-xl rounded-lg bg-white text-arena-navy-800 flex flex-col"
+            >
                 {/* ── Content ── */}
-                <div className="p-6 space-y-5">
+                <div className="min-h-0 flex-1 overflow-hidden">
                     {isLoading ? (
-                        <div className="h-96 flex flex-col items-center justify-center gap-4 text-arena-navy-800/40 font-bold">
+                        <div className="h-96 flex flex-col items-center justify-center gap-4 text-arena-navy-800/50 font-semibold">
                             <Loader2 className="h-8 w-8 animate-spin text-arena-button" />
                             Carregando horários…
                         </div>
                     ) : (
-                        <>
-                            {/* Legend */}
-                            <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-arena-navy-800/60">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                                    Disponível
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="w-2.5 h-2.5 rounded-full bg-arena-button inline-block" />
-                                    Reservado — Avulso
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
-                                    Reservado — Mensalista
-                                </div>
-                            </div>
+                        <div className="flex h-full min-h-0 flex-col gap-5">
+                            <section className="flex min-h-0 flex-1 flex-col rounded-lg border border-slate-200 bg-white px-6 py-5 shadow-sm">
+                                <DialogHeader className="shrink-0 pb-5">
+                                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+                                        <DialogTitle className="font-heading text-2xl font-bold leading-none tracking-normal text-arena-navy-800 lg:justify-self-start">
+                                            Grade de horários disponíveis
+                                        </DialogTitle>
 
-                            {/* Grid */}
-                            <Card className="border-none shadow-sm bg-white overflow-hidden overflow-x-auto">
-                                <div className="w-full min-w-[900px]">
-
-                                    {/* Header row */}
-                                    <div className="grid grid-cols-[72px_repeat(7,1fr)] border-b border-arena-navy-800/5 bg-arena-soft">
-                                        <div className="p-3 border-r border-arena-navy-800/5 font-bold text-arena-navy-800/40 text-[10px] text-center flex items-center justify-center">
-                                            Horário
+                                        <div className="flex justify-start lg:justify-center">
+                                            <Image
+                                                src="/logo_arena_front_bgbranco.png"
+                                                alt="Arena Digital"
+                                                width={124}
+                                                height={42}
+                                                className="h-auto w-[124px]"
+                                                priority={false}
+                                            />
                                         </div>
-                                        {weekDays.map((day, i) => (
-                                            <div key={i} className={cn(
-                                                "p-3 font-bold text-arena-navy-800 text-xs text-center border-r border-arena-navy-800/5 last:border-none",
-                                                format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') && "bg-[#FFF5EF]"
-                                            )}>
-                                                <div className="capitalize font-black">{format(day, "EEEE", { locale: ptBR })}</div>
-                                                <div className="text-arena-navy-800/40 text-[10px] font-medium">{format(day, "dd/MM")}</div>
+
+                                        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                            <Button
+                                                variant="outline" size="icon-sm"
+                                                aria-label="Semana anterior"
+                                                onClick={() => setWeekStart(w => subWeeks(w, 1))}
+                                                className="size-9 rounded-md border-slate-200 bg-white text-arena-navy-800 shadow-none hover:bg-slate-50"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </Button>
+
+                                            <span className="flex h-9 min-w-[106px] items-center justify-center text-sm font-semibold text-arena-navy-800">
+                                                {format(weekDays[0], "dd/MM")} - {format(weekDays[6], "dd/MM")}
+                                            </span>
+
+                                            <Button
+                                                variant="outline" size="icon-sm"
+                                                aria-label="Próxima semana"
+                                                onClick={() => setWeekStart(w => addWeeks(w, 1))}
+                                                className="size-9 rounded-md border-slate-200 bg-white text-arena-navy-800 shadow-none hover:bg-slate-50"
+                                            >
+                                                <ChevronRight className="w-4 h-4" />
+                                            </Button>
+
+                                            <Button
+                                                variant="outline" size="sm"
+                                                onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+                                                className="h-9 rounded-md border-slate-200 px-4 text-sm font-semibold text-arena-navy-800 shadow-none hover:bg-slate-50"
+                                            >
+                                                Hoje
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                onClick={handlePrint}
+                                                className="h-9 rounded-md bg-arena-navy-800 px-4 text-sm font-bold text-white shadow-none hover:bg-arena-navy-900"
+                                            >
+                                                Download
+                                                <Download className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </DialogHeader>
+
+                                <div className="min-h-0 flex-1 overflow-auto">
+                                    <div className="min-w-[980px]">
+                                        <div className="grid grid-cols-[120px_repeat(7,minmax(124px,1fr))] border-b border-t border-slate-300">
+                                            <div className="flex h-14 items-center px-3 text-sm font-medium text-[#007793]">
+                                                Horário
+                                            </div>
+                                            {weekDays.map((day, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="flex h-14 items-center justify-center px-3 text-center text-sm font-medium capitalize text-[#007793]"
+                                                >
+                                                    {format(day, "EEEE", { locale: ptBR })} ({format(day, "dd/MM")})
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {hours.map((hour) => (
+                                            <div
+                                                key={hour}
+                                                className="grid grid-cols-[120px_repeat(7,minmax(124px,1fr))] border-b border-slate-300"
+                                            >
+                                                <div className="flex min-h-14 items-center px-3 text-sm font-bold text-arena-navy-800">
+                                                    {String(hour).padStart(2, '0')}h00
+                                                </div>
+                                                {weekDays.map((day, i) => {
+                                                    const availableSlots = getAvailableSlotsForCell(day, hour)
+                                                    const isUnavailable = availableSlots.length === 0
+
+                                                    return (
+                                                        <div
+                                                            key={i}
+                                                            className={cn(
+                                                                "flex min-h-14 items-center justify-center px-2 py-2 text-center",
+                                                                isUnavailable && "bg-[#f3f5f8]"
+                                                            )}
+                                                        >
+                                                            {isUnavailable ? (
+                                                                <span className="text-sm font-medium text-arena-navy-800">
+                                                                    Indisponível
+                                                                </span>
+                                                            ) : (
+                                                                <div className="flex flex-col items-center justify-center leading-tight text-arena-navy-800">
+                                                                    <span className="text-sm font-medium">
+                                                                        Disponível
+                                                                    </span>
+                                                                    <span className="mt-0.5 max-w-full text-xs font-bold">
+                                                                        {formatCourtNames(availableSlots.map(slot => slot.name))}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
                                             </div>
                                         ))}
                                     </div>
-
-                                    {/* Hour rows */}
-                                    {hours.map((hour) => (
-                                        <div key={hour} className="grid grid-cols-[72px_repeat(7,1fr)] border-b border-arena-navy-800/5 last:border-none">
-                                            <div className="p-2 border-r border-arena-navy-800/5 font-bold text-arena-navy-800/50 text-[10px] text-center flex items-center justify-center bg-white">
-                                                {String(hour).padStart(2, '0')}h00
-                                            </div>
-                                            {weekDays.map((day, i) => {
-                                                const slots = getSlotsForCell(day, hour)
-                                                const hasAvailable = slots.some(s => s.status === 'available')
-
-                                                return (
-                                                    <div key={i} className={cn(
-                                                        "p-1.5 border-r border-arena-navy-800/5 last:border-none min-h-[52px]",
-                                                        slots.length === 0 && "bg-slate-50/60",
-                                                        hasAvailable && "bg-white",
-                                                        format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') && "bg-[#FFFBF8]"
-                                                    )}>
-                                                        {slots.length === 0 ? (
-                                                            <span className="text-[9px] text-slate-200 font-bold flex items-center justify-center h-full">—</span>
-                                                        ) : (
-                                                            <div className="space-y-0.5">
-                                                                {slots.map(slot => {
-                                                                    const st = STATUS_STYLES[slot.status]
-                                                                    return (
-                                                                        <div key={slot.id} className={cn("flex items-center gap-1", st.row)}>
-                                                                            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", st.dot)} />
-                                                                            <span className={cn("text-[9px] font-bold leading-tight truncate", st.text)}>
-                                                                                {slot.name}
-                                                                            </span>
-                                                                        </div>
-                                                                    )
-                                                                })}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    ))}
                                 </div>
-                            </Card>
+                            </section>
 
-                            {/* Footer — sports per court */}
                             {courts.length > 0 && (
-                                <div className="bg-white rounded-2xl border border-arena-navy-800/5 p-5 shadow-sm">
-                                    <h3 className="text-[10px] font-black text-arena-navy-800/40 uppercase tracking-wider mb-3">
-                                        Esportes por espaço
+                                <section className="flex max-h-[180px] shrink-0 flex-col rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                                    <h3 className="font-heading text-base font-bold text-arena-navy-800">
+                                        Esportes por quadra
                                     </h3>
-                                    <div className="flex flex-wrap gap-x-8 gap-y-1.5">
-                                        {courts.map(c => (
-                                            <div key={c.id} className="flex items-center gap-2 text-xs">
-                                                <span className="font-black text-arena-navy-800">{c.name}</span>
-                                                <span className="text-arena-navy-800/40 font-medium">
-                                                    {c.sports?.map((s: any) => s.name).join(', ') || '—'}
+
+                                    <div className="mt-3 min-h-0 overflow-auto border-b border-slate-200">
+                                        {courts.map(court => (
+                                            <div
+                                                key={court.id}
+                                                className="grid grid-cols-[160px_1fr] items-center border-t border-slate-200 px-4 py-2 text-sm text-arena-navy-800"
+                                            >
+                                                <span className="font-bold">
+                                                    {court.name}
+                                                </span>
+                                                <span className="font-medium">
+                                                    {court.sports?.map((sport: any) => sport.name).join(', ') || '—'}
                                                 </span>
                                             </div>
                                         ))}
                                     </div>
-                                </div>
+                                </section>
                             )}
-                        </>
+                        </div>
                     )}
                 </div>
             </DialogContent>
