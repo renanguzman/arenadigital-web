@@ -206,8 +206,15 @@ export function AthleteRegistrationModal({
         }
     }
 
-    const labelCls = "text-[#007BFF] font-medium text-sm"
-    const inputCls = "h-11 border-arena-navy-800/15 rounded-lg"
+    const labelCls = "text-sm font-semibold text-arena-navy-800"
+    /** Base alinhada ao Input (altura, borda, largura total na grid). */
+    const controlCls =
+        "h-11 w-full min-w-0 rounded-lg border border-arena-navy-800/15 bg-transparent px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+    const inputCls = controlCls
+    const selectTriggerCls = cn(
+        controlCls,
+        "flex items-center justify-between gap-2 font-normal text-left data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground"
+    )
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -228,9 +235,9 @@ export function AthleteRegistrationModal({
                                 <div className="px-8 py-6 space-y-5">
 
                                     {/* Row 1: Nome | CPF */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <FormField control={form.control} name="name" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Nome</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Informe o nome do atleta" {...field} className={inputCls} />
@@ -239,7 +246,7 @@ export function AthleteRegistrationModal({
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="cpf" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>CPF</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="000.000.000-00"
@@ -253,9 +260,9 @@ export function AthleteRegistrationModal({
                                     </div>
 
                                     {/* Row 2: Telefone | E-mail */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <FormField control={form.control} name="phone" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Telefone</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="(00) 00000-0000"
@@ -267,7 +274,7 @@ export function AthleteRegistrationModal({
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="email" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>E-mail</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Informe o e-mail para contato" {...field} className={inputCls} />
@@ -278,9 +285,9 @@ export function AthleteRegistrationModal({
                                     </div>
 
                                     {/* Row 3: Data de nascimento | Esporte | Nível */}
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                         <FormField control={form.control} name="birthDate" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Data de nascimento</FormLabel>
                                                 <FormControl>
                                                     <Input type="date" {...field} className={inputCls} />
@@ -289,15 +296,15 @@ export function AthleteRegistrationModal({
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="sport" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Esporte</FormLabel>
                                                 <Select value={field.value} onValueChange={v => handleSportChange(v, field.onChange)}>
                                                     <FormControl>
-                                                        <SelectTrigger className={inputCls}>
+                                                        <SelectTrigger className={selectTriggerCls}>
                                                             <SelectValue placeholder="Selecione o esporte" />
                                                         </SelectTrigger>
                                                     </FormControl>
-                                                    <SelectContent>
+                                                    <SelectContent className="rounded-lg border-border">
                                                         {sports.map(s => (
                                                             <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                                                         ))}
@@ -307,18 +314,18 @@ export function AthleteRegistrationModal({
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="nivelHabilidade" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Nível de habilidade</FormLabel>
                                                 <Select value={field.value ?? ""} onValueChange={field.onChange}
                                                     disabled={niveis.length === 0}>
                                                     <FormControl>
-                                                        <SelectTrigger className={cn(inputCls, niveis.length === 0 && "opacity-50")}>
+                                                        <SelectTrigger className={cn(selectTriggerCls, niveis.length === 0 && "opacity-50")}>
                                                             {isLoadingNiveis
-                                                                ? <span className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Carregando...</span>
+                                                                ? <span className="flex min-w-0 flex-1 items-center gap-2 truncate text-muted-foreground"><Loader2 className="h-3 w-3 shrink-0 animate-spin" />Carregando...</span>
                                                                 : <SelectValue placeholder="Selecione o nível" />}
                                                         </SelectTrigger>
                                                     </FormControl>
-                                                    <SelectContent>
+                                                    <SelectContent className="rounded-lg border-border">
                                                         {niveis.map(n => (
                                                             <SelectItem key={n.id} value={n.id}>{n.nivel}</SelectItem>
                                                         ))}
@@ -330,9 +337,9 @@ export function AthleteRegistrationModal({
                                     </div>
 
                                     {/* Row 4: CEP | Endereço */}
-                                    <div className="grid grid-cols-[180px_1fr] gap-4">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,11rem)_1fr]">
                                         <FormField control={form.control} name="cep" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>CEP</FormLabel>
                                                 <FormControl>
                                                     <div className="relative">
@@ -350,7 +357,7 @@ export function AthleteRegistrationModal({
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="endereco" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Endereço</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Informe o endereço" {...field} className={inputCls} />
@@ -361,9 +368,9 @@ export function AthleteRegistrationModal({
                                     </div>
 
                                     {/* Row 5: Número | Bairro */}
-                                    <div className="grid grid-cols-[180px_1fr] gap-4">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,11rem)_1fr]">
                                         <FormField control={form.control} name="enderecoNumero" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Número</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Informe o número" {...field} className={inputCls} />
@@ -372,7 +379,7 @@ export function AthleteRegistrationModal({
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="bairro" render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Bairro</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Informe o bairro" {...field} className={inputCls} />
@@ -383,17 +390,22 @@ export function AthleteRegistrationModal({
                                     </div>
 
                                     {/* Row 6: Estado | Cidade (Popover+Command — same as sign-up) */}
-                                    <div className="grid grid-cols-[200px_1fr] gap-4">
-                                        <FormItem>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,12rem)_1fr]">
+                                        <FormItem className="min-w-0">
                                             <FormLabel className={labelCls}>Estado</FormLabel>
                                             <Popover open={isEstadoOpen} onOpenChange={setIsEstadoOpen}>
                                                 <PopoverTrigger asChild>
-                                                    <Button variant="outline" role="combobox"
-                                                        className={cn("w-full justify-between h-11 border-arena-navy-800/15 rounded-lg font-normal",
-                                                            !selectedEstadoId && "text-muted-foreground")}>
-                                                        {selectedEstadoId
-                                                            ? estados.find(e => e.codigo_uf === selectedEstadoId)?.uf
-                                                            : "Selecione"}
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className={cn(selectTriggerCls, "hover:bg-muted/50", !selectedEstadoId && "text-muted-foreground")}
+                                                    >
+                                                        <span className="min-w-0 flex-1 truncate text-left font-normal">
+                                                            {selectedEstadoId
+                                                                ? estados.find(e => e.codigo_uf === selectedEstadoId)?.uf
+                                                                : "Selecione"}
+                                                        </span>
                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                     </Button>
                                                 </PopoverTrigger>
@@ -423,19 +435,28 @@ export function AthleteRegistrationModal({
                                             </Popover>
                                         </FormItem>
 
-                                        <FormItem>
+                                        <FormItem className="min-w-0">
                                             <FormLabel className={labelCls}>Cidade</FormLabel>
                                             <Popover open={isMunicipioOpen} onOpenChange={setIsMunicipioOpen}>
-                                                <PopoverTrigger asChild>
-                                                    <Button variant="outline" role="combobox"
-                                                        disabled={!selectedEstadoId}
-                                                        className={cn("w-full justify-between h-11 border-arena-navy-800/15 rounded-lg font-normal",
-                                                            !municipioId && "text-muted-foreground")}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    disabled={!selectedEstadoId}
+                                                    className={cn(
+                                                        selectTriggerCls,
+                                                        "hover:bg-muted/50",
+                                                        !municipioId && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <span className="min-w-0 flex-1 truncate text-left font-normal">
                                                         {municipioId
                                                             ? municipios.find(m => m.codigo_ibge === municipioId)?.nome
                                                             : "Selecione a cidade"}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
+                                                    </span>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-[340px] p-0" align="start">
                                                     <Command>
