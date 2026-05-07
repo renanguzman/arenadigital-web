@@ -31,6 +31,7 @@ import { UploadCloud, X, Image as ImageIcon } from "lucide-react"
 import Image from "next/image"
 import { DayScheduleConfig, DayConfig } from "./DayScheduleConfig"
 import { courtSchema, type CourtFormValues } from "@/modules/courts/schemas/court.schema"
+import { arenaDashboardPath, type ArenaDashboardTab } from "@/lib/arena-dashboard-navigation"
 
 const courtFormSchema = courtSchema
 
@@ -38,6 +39,8 @@ interface CourtFormProps {
     initialData?: any
     arenaId: string
     onSuccess?: () => void
+    /** Aba da arena para onde redirecionar após salvar com sucesso. */
+    returnTab?: ArenaDashboardTab
 }
 
 const DAYS_OF_WEEK = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"]
@@ -51,7 +54,7 @@ const DEFAULT_DAY_CONFIG: DayConfig = {
     customPrices: []
 }
 
-export function CourtForm({ initialData, arenaId, onSuccess }: CourtFormProps) {
+export function CourtForm({ initialData, arenaId, onSuccess, returnTab = "espacos" }: CourtFormProps) {
     const router = useRouter()
     const [sports, setSports] = useState<any[]>([])
     const [imageFile, setImageFile] = useState<File | null>(null)
@@ -216,7 +219,7 @@ export function CourtForm({ initialData, arenaId, onSuccess }: CourtFormProps) {
             }
 
             if (onSuccess) onSuccess()
-            router.refresh()
+            router.push(arenaDashboardPath(arenaId, returnTab))
         } catch (error) {
             console.error("Error saving space:", error)
             toast.error("Ocorreu um erro ao salvar o espaço.")

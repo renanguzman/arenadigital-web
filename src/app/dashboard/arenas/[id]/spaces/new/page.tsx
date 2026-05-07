@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { arenaDashboardPath } from '@/lib/arena-dashboard-navigation'
 
 export default async function NewSpacePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -19,7 +20,7 @@ export default async function NewSpacePage({ params }: { params: Promise<{ id: s
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
                 <Button variant="ghost" asChild className="h-auto w-fit justify-start gap-1.5 rounded-md px-0 py-0 text-sm font-medium text-arena-navy-800/70 hover:bg-transparent hover:text-arena-navy-800">
-                    <Link href={`/dashboard/arenas/${id}`} className="inline-flex items-center gap-1.5">
+                    <Link href={arenaDashboardPath(id, 'cadastro')} className="inline-flex items-center gap-1.5">
                         <ArrowLeft className="size-4 shrink-0 text-arena-navy-800" aria-hidden />
                         Voltar
                     </Link>
@@ -28,7 +29,7 @@ export default async function NewSpacePage({ params }: { params: Promise<{ id: s
             </div>
 
             <Card className="p-8 border-none shadow-lg rounded-xl bg-white">
-                <CourtForm arenaId={id} />
+                <CourtForm arenaId={id} returnTab="cadastro" />
             </Card>
         </div>
     )

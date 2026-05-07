@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,12 +44,19 @@ import { DayOperationModal } from '@/modules/bookings/components/DayOperationMod
 import { AvailableTimesModal } from '@/modules/bookings/components/AvailableTimesModal';
 import { deleteCourtAction } from '@/modules/courts/actions/courtActions';
 import type { Booking } from '@/modules/bookings/types/booking.types';
+import {
+  arenaDashboardPath,
+  spaceEditPath,
+  spaceNewPath,
+  type ArenaDashboardTab,
+} from '@/lib/arena-dashboard-navigation';
 
 interface Props {
   arenaId: string;
   arenaName: string;
   initialCourts: any[];
   initialBookings: Booking[];
+  initialTab: ArenaDashboardTab;
 }
 
 function getCurrentDayName() {
@@ -87,16 +95,23 @@ export function ArenaDetailPageClient({
   arenaName,
   initialCourts,
   initialBookings,
+  initialTab,
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [courts, setCourts] = useState<any[]>(initialCourts);
   const [bookings] = useState<Booking[]>(initialBookings);
   const [selectedSpace, setSelectedSpace] = useState<any>(null);
   const [spaceToDelete, setSpaceToDelete] = useState<any>(null);
   const [isDeletingSpace, setIsDeletingSpace] = useState(false);
-  const [activeTab, setActiveTab] = useState<'espacos' | 'cadastro'>('espacos');
+  const [activeTab, setActiveTab] = useState<ArenaDashboardTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDayOperationOpen, setIsDayOperationOpen] = useState(false);
   const [isAvailableTimesOpen, setIsAvailableTimesOpen] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const handleDeleteCourt = async () => {
     if (!spaceToDelete) return;
@@ -112,6 +127,11 @@ export function ArenaDetailPageClient({
     } else {
       toast.error(res.error ?? 'Erro ao excluir espaço.');
     }
+  };
+
+  const handleTabChange = (tab: ArenaDashboardTab) => {
+    setActiveTab(tab);
+    router.replace(tab === 'cadastro' ? `${pathname}?tab=cadastro` : pathname);
   };
 
   const getCourtStatus = (court: any) => {
@@ -163,7 +183,7 @@ export function ArenaDetailPageClient({
 
         <DashboardTabs
           value={activeTab}
-          onChange={setActiveTab}
+          onChange={handleTabChange}
           tabs={[
             { label: 'Espaços', value: 'espacos' },
             { label: 'Cadastros', value: 'cadastro' },
@@ -226,7 +246,7 @@ export function ArenaDetailPageClient({
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
                               <Link
-                                href={`/dashboard/arenas/${arenaId}/spaces/${court.id}/edit`}
+                                href={spaceEditPath(arenaId, court.id, 'espacos')}
                                 className="flex w-full cursor-pointer items-center"
                               >
                                 <Edit className="mr-2 h-4 w-4" /> Editar
@@ -309,7 +329,7 @@ export function ArenaDetailPageClient({
                     className="h-10 rounded-md bg-arena-button px-4 text-sm font-bold text-white shadow-none hover:bg-arena-button-hover"
                     asChild
                   >
-                    <Link href={`/dashboard/arenas/${arenaId}/spaces/new`}>
+                    <Link href={spaceNewPath(arenaId)}>
                       Cadastrar Espaço +
                     </Link>
                   </Button>
@@ -386,7 +406,7 @@ export function ArenaDetailPageClient({
                                 className="h-8 w-8 text-arena-navy-800/60 bg-[#F1F5F9] hover:bg-[#E2E8F0]"
                               >
                                 <Link
-                                  href={`/dashboard/arenas/${arenaId}/spaces/${court.id}/edit`}
+                                  href={spaceEditPath(arenaId, court.id, 'cadastro')}
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Link>
@@ -535,7 +555,7 @@ export function ArenaDetailPageClient({
                     asChild
                   >
                     <Link
-                      href={`/dashboard/arenas/${arenaId}/spaces/${selectedSpace.id}/edit`}
+                      href={spaceEditPath(arenaId, selectedSpace.id, activeTab)}
                     >
                       Editar
                     </Link>

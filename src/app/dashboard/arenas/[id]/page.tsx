@@ -3,9 +3,17 @@ import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseArenaRepository } from '@/modules/arenas/repositories/SupabaseArenaRepository'
 import { SupabaseBookingRepository } from '@/modules/bookings/repositories/SupabaseBookingRepository'
 import { ArenaDetailPageClient } from './ArenaDetailPageClient'
+import { parseArenaDashboardTab } from '@/lib/arena-dashboard-navigation'
 import { redirect } from 'next/navigation'
-export default async function ArenaDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ArenaDetailPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ id: string }>
+    searchParams: Promise<{ tab?: string }>
+}) {
     const { id } = await params
+    const { tab } = await searchParams
 
     try {
         await assertArenaBackofficeAccess(id)
@@ -35,12 +43,15 @@ export default async function ArenaDetailPage({ params }: { params: Promise<{ id
         sports: (court.sports as any[]).map(s => s.sport)
     }))
 
+    const initialTab = parseArenaDashboardTab(tab)
+
     return (
         <ArenaDetailPageClient
             arenaId={id}
             arenaName={arena.name}
             initialCourts={courts}
             initialBookings={bookings}
+            initialTab={initialTab}
         />
     )
 }

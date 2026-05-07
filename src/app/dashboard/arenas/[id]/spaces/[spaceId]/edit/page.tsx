@@ -6,9 +6,18 @@ import { Card } from '@/components/ui/card'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { arenaDashboardPath, parseReturnTabParam } from '@/lib/arena-dashboard-navigation'
 
-export default async function EditSpacePage({ params }: { params: Promise<{ id: string; spaceId: string }> }) {
+export default async function EditSpacePage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ id: string; spaceId: string }>
+    searchParams: Promise<{ returnTab?: string }>
+}) {
     const { id, spaceId } = await params
+    const { returnTab: returnTabRaw } = await searchParams
+    const returnTab = parseReturnTabParam(returnTabRaw)
 
     try {
         await assertArenaBackofficeAccess(id)
@@ -32,7 +41,7 @@ export default async function EditSpacePage({ params }: { params: Promise<{ id: 
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
                 <Button variant="ghost" asChild className="h-auto w-fit justify-start gap-1.5 rounded-md px-0 py-0 text-sm font-medium text-arena-navy-800/70 hover:bg-transparent hover:text-arena-navy-800">
-                    <Link href={`/dashboard/arenas/${id}`} className="inline-flex items-center gap-1.5">
+                    <Link href={arenaDashboardPath(id, returnTab)} className="inline-flex items-center gap-1.5">
                         <ArrowLeft className="size-4 shrink-0 text-arena-navy-800" aria-hidden />
                         Voltar
                     </Link>
@@ -41,7 +50,7 @@ export default async function EditSpacePage({ params }: { params: Promise<{ id: 
             </div>
 
             <Card className="p-8 border-none shadow-lg rounded-xl bg-white">
-                <CourtForm initialData={court} arenaId={id} />
+                <CourtForm initialData={court} arenaId={id} returnTab={returnTab} />
             </Card>
         </div>
     )
