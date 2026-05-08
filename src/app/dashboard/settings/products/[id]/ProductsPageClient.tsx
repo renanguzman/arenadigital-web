@@ -67,6 +67,7 @@ interface Props {
     arenaId: string
     arenaName: string
     initialProducts: Product[]
+    initialStationTypes: { id: string; name: string }[]
 }
 
 function CatalogListToolbar({
@@ -129,7 +130,7 @@ function CatalogListToolbar({
     )
 }
 
-export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Props) {
+export function ProductsPageClient({ arenaId, arenaName, initialProducts, initialStationTypes }: Props) {
     const [products, setProducts] = useState<Product[]>(initialProducts)
     const [searchProducts, setSearchProducts] = useState("")
     const [searchServices, setSearchServices] = useState("")
@@ -261,7 +262,7 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                     <tr className={arenaDataTable.theadRow}>
                                         <th className={arenaDataTable.th}>Nome</th>
                                         <th className={arenaDataTable.th}>Tipo de item</th>
-                                        <th className={arenaDataTable.th}>Estação</th>
+                                        <th className={arenaDataTable.th}>Tipo de estação</th>
                                         <th className={arenaDataTable.th}>Valor</th>
                                         <th className={arenaDataTable.th}>Estoque</th>
                                         <th className={arenaDataTable.th}>Status</th>
@@ -285,7 +286,7 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                                     <td className={arenaDataTable.td}>{product.item_type}</td>
                                                     <td className={arenaDataTable.td}>
                                                         <Badge variant="outline">
-                                                            {product.station?.name ?? "—"}
+                                                            {product.station_type?.name ?? "—"}
                                                         </Badge>
                                                     </td>
                                                     <td className={arenaDataTable.td}>
@@ -551,9 +552,9 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                                 </p>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className={detailLabelClass}>Estação</p>
+                                                <p className={detailLabelClass}>Tipo de estação</p>
                                                 <p className="text-base font-semibold text-arena-navy-800">
-                                                    {detailProduct.station?.name ?? "—"}
+                                                    {detailProduct.station_type?.name ?? "—"}
                                                 </p>
                                             </div>
                                         </>
@@ -642,6 +643,7 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                 onOpenChange={handleModalOpenChange}
                 product={editingProduct}
                 catalogKind={modalCatalogKind}
+                stationTypes={initialStationTypes}
                 onSuccess={refreshProducts}
             />
 

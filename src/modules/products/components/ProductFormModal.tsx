@@ -29,7 +29,6 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { createProductAction, updateProductAction } from "@/modules/products/actions/stockActions"
-import { getArenaStationsForCatalogAction } from "@/modules/stations/actions/stationActions"
 import { isCatalogService, normalizeCatalogStatus, type Product } from "@/modules/products/types/product.types"
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
@@ -37,7 +36,7 @@ import { Loader2 } from "lucide-react"
 const productFormSchema = z.object({
     name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
     item_type: z.enum(["Alimentação", "Bebida", "Vestimenta", "Acessório"]),
-    station_id: z.string().min(1, "Selecione uma estação"),
+    station_type_id: z.string().min(1, "Selecione o tipo de estação"),
     price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
         message: "Preço deve ser um número válido e positivo",
     }),
@@ -90,12 +89,7 @@ function coerceProductCatalogStatus(product: Product | null | undefined): "Ativo
     return normalizeCatalogStatus(product.status)
 }
 
-type ArenaCatalogStation = {
-    id: string
-    name: string
-    station_type_id: string | null
-    station_type: { id: string; name: string } | null
-}
+type StationTypeOption = { id: string; name: string }
 
 const dialogContentClass =
     "max-w-[calc(100%-2rem)] gap-0 rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-xl sm:max-w-[560px] sm:p-7 [&_[data-slot=dialog-close]]:text-[#0D3B45] [&_[data-slot=dialog-close]]:opacity-100"
@@ -138,6 +132,8 @@ export interface ProductFormModalProps {
     onOpenChange: (open: boolean) => void
     product?: Product | null
     onSuccess: () => void
+    /** Tipos de estação (carregados na página); usados no cadastro/edição de produto. */
+    stationTypes: StationTypeOption[]
     /** Modo ao criar novo registro (sem `product`). Com edição, o tipo vem do próprio registro. */
     catalogKind?: "product" | "service"
 }
@@ -153,16 +149,17 @@ function effectiveCatalogKind(
 const EMPTY_PRODUCT_FORM: ProductFormValues = {
     name: "",
     item_type: "Alimentação",
-    station_id: "",
+    station_type_id: "",
     price: "",
     status: "Inativo",
 }
 
 function productToFormValues(p: Product): ProductFormValues {
+    const typeId = (p.station_type_id ?? p.station_type?.id ?? "") as string
     return {
         name: p.name || "",
         item_type: coerceProductItemType(p.item_type),
-        station_id: p.station_id ?? "",
+        station_type_id: typeId,
         price: p.price != null ? String(p.price) : "",
         status: coerceProductCatalogStatus(p),
     }
@@ -174,15 +171,15 @@ function ProductFormInner({
     onSuccess,
     onOpenChange,
     kind,
+    stationTypes,
 }: {
     arenaId: string
     product: Product | null | undefined
     onSuccess: () => void
     onOpenChange: (open: boolean) => void
     kind: "product" | "service"
+    stationTypes: StationTypeOption[]
 }) {
-    const [arenaStations, setArenaStations] = useState<ArenaCatalogStation[]>([])
-    const [stationsLoaded, setStationsLoaded] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     const productForm = useForm<ProductFormValues>({
@@ -190,7 +187,7 @@ function ProductFormInner({
         defaultValues: {
             name: "",
             item_type: "Alimentação",
-            station_id: "",
+            station_type_id: "",
             price: "",
             status: "Inativo",
         },
@@ -225,52 +222,21 @@ function ProductFormInner({
             return
         }
 
-        const values = productToFormValues(product)
-
-        if (!stationsLoaded) {
-            productForm.setValue("name", values.name, { shouldDirty: false, shouldValidate: false })
-            productForm.setValue("item_type", values.item_type, { shouldDirty: false, shouldValidate: false })
-            productForm.setValue("price", values.price, { shouldDirty: false, shouldValidate: false })
-            productForm.setValue("status", values.status, { shouldDirty: false, shouldValidate: false })
-            return
-        }
-
-        productForm.reset(values)
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- stationsLoaded gates Radix Select options for station_id
-    }, [kind, product, product?.id, stationsLoaded])
-
-    useEffect(() => {
-        if (kind !== "product") {
-            setArenaStations([])
-            setStationsLoaded(true)
-            return
-        }
-        setStationsLoaded(false)
-        getArenaStationsForCatalogAction(arenaId)
-            .then((res) => {
-                if (res.success) setArenaStations((res.data as ArenaCatalogStation[]) ?? [])
-                else setArenaStations([])
-            })
-            .catch((error) => {
-                console.error("Failed to load arena stations", error)
-                setArenaStations([])
-                toast.error("Erro ao carregar estações da arena")
-            })
-            .finally(() => setStationsLoaded(true))
-    }, [arenaId, kind])
-
+        productForm.reset(productToFormValues(product))
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- stationTypes vem da página; incluir para o Select ter opções ao editar
+    }, [kind, product, product?.id, stationTypes])
     async function submitProduct(data: ProductFormValues) {
-        const selected = arenaStations.find((s) => s.id === data.station_id)
-        if (!selected?.station_type_id) {
-            toast.error("Estação inválida ou sem tipo configurado.")
+        const selectedType = stationTypes.find((t) => t.id === data.station_type_id)
+        if (!selectedType) {
+            toast.error("Selecione um tipo de estação válido.")
             return
         }
         if (product) {
             const res = await updateProductAction(arenaId, product.id, {
                 name: data.name,
                 item_type: data.item_type,
-                station_id: data.station_id,
-                station_type_id: selected.station_type_id,
+                station_id: null,
+                station_type_id: data.station_type_id,
                 price: Number(data.price),
                 status: data.status,
             })
@@ -281,8 +247,8 @@ function ProductFormInner({
                 arena_id: arenaId,
                 name: data.name,
                 item_type: data.item_type,
-                station_id: data.station_id,
-                station_type_id: selected.station_type_id,
+                station_id: null,
+                station_type_id: data.station_type_id,
                 price: Number(data.price),
                 catalog_kind: "product",
                 status: data.status,
@@ -519,24 +485,23 @@ function ProductFormInner({
 
                 <FormField
                     control={productForm.control}
-                    name="station_id"
+                    name="station_type_id"
                     render={({ field }) => (
                         <FormItem className="space-y-1.5">
-                            <FormLabel className={formLabelClass}>Estação</FormLabel>
+                            <FormLabel className={formLabelClass}>Tipo de estação</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                     <SelectTrigger
                                         className={selectTriggerClass}
-                                        disabled={!stationsLoaded || arenaStations.length === 0}
+                                        disabled={stationTypes.length === 0}
                                     >
-                                        <SelectValue placeholder="Selecione uma estação..." />
+                                        <SelectValue placeholder="Selecione o tipo de estação..." />
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent className={selectContentClass}>
-                                    {arenaStations.map((s) => (
-                                        <SelectItem key={s.id} value={s.id} className={selectItemClass}>
-                                            {s.name}
-                                            {s.station_type?.name ? ` · ${s.station_type.name}` : ""}
+                                    {stationTypes.map((t) => (
+                                        <SelectItem key={t.id} value={t.id} className={selectItemClass}>
+                                            {t.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -592,10 +557,10 @@ function ProductFormInner({
                     )}
                 />
 
-                {stationsLoaded && arenaStations.length === 0 && (
+                {stationTypes.length === 0 && (
                     <p className="text-sm leading-relaxed text-amber-800">
-                        Não há estações com tipo configurado nesta arena. Cadastre uma estação em Estações antes de
-                        incluir produtos no catálogo.
+                        Não há tipos de estação cadastrados no sistema. Cadastre tipos em Estações antes de incluir
+                        produtos no catálogo.
                     </p>
                 )}
 
@@ -612,7 +577,7 @@ function ProductFormInner({
                     <Button
                         type="submit"
                         className={footerButtonPrimaryClass}
-                        disabled={isSubmitting || !stationsLoaded || arenaStations.length === 0}
+                        disabled={isSubmitting || stationTypes.length === 0}
                     >
                         {isSubmitting ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -634,6 +599,7 @@ export function ProductFormModal({
     onOpenChange,
     product,
     onSuccess,
+    stationTypes,
     catalogKind = "product",
 }: ProductFormModalProps) {
     const kind = effectiveCatalogKind(product ?? null, catalogKind)
@@ -648,7 +614,7 @@ export function ProductFormModal({
               : "Novo produto"
 
     const productDescription =
-        "Informe nome, tipo de item, estação, valor e status de catálogo (Ativo ou Inativo), independente do estoque. O estoque é atualizado apenas por lançamentos de entrada."
+        "Informe nome, tipo de item, tipo de estação, valor e status de catálogo (Ativo ou Inativo), independente do estoque. O estoque é atualizado apenas por lançamentos de entrada."
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -669,6 +635,7 @@ export function ProductFormModal({
                         onSuccess={onSuccess}
                         onOpenChange={onOpenChange}
                         kind={kind}
+                        stationTypes={stationTypes}
                     />
                 )}
             </DialogContent>
