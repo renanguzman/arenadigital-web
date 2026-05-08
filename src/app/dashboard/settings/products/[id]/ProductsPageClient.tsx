@@ -24,7 +24,12 @@ import { Badge } from "@/components/ui/badge"
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs"
 import { toast } from "sonner"
 import { getProductsByArenaAction, deleteProductAction } from "@/modules/products/actions/stockActions"
-import { isCatalogService, type Product } from "@/modules/products/types/product.types"
+import {
+    isCatalogService,
+    normalizeCatalogStatus,
+    type CatalogAvailabilityStatus,
+    type Product,
+} from "@/modules/products/types/product.types"
 import { ProductFormModal } from "@/modules/products/components/ProductFormModal"
 import { StockEntryModal } from "@/modules/products/components/StockEntryModal"
 import { StockHistoryModal } from "@/modules/products/components/StockHistoryModal"
@@ -46,19 +51,7 @@ const searchInputClass =
 const statusSelectTriggerClass =
     "h-10 w-fit min-w-[180px] border-slate-300 text-sm text-arena-navy-800 shadow-none focus-visible:ring-1 focus-visible:ring-[#20B2AA] data-[placeholder]:text-arena-navy-800/60"
 
-type CatalogStatusFilter = "all" | "Em estoque" | "Em falta"
-
-function getStockStatus(qty: number) {
-    return qty <= 0 ? "Em falta" : "Em estoque"
-}
-
-function getListStatusLabel(p: Product): "Em estoque" | "Em falta" {
-    if (isCatalogService(p)) {
-        if (p.status === "Em estoque" || p.status === "Em falta") return p.status
-        return getStockStatus(p.stock_quantity) as "Em estoque" | "Em falta"
-    }
-    return getStockStatus(p.stock_quantity) as "Em estoque" | "Em falta"
-}
+type CatalogStatusFilter = "all" | CatalogAvailabilityStatus
 
 const primaryCtaClass =
     "h-10 shrink-0 rounded-md bg-arena-button px-4 text-sm font-bold text-white shadow-none hover:bg-arena-button-hover"
@@ -123,8 +116,8 @@ function CatalogListToolbar({
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todos os status</SelectItem>
-                        <SelectItem value="Em estoque">Em estoque</SelectItem>
-                        <SelectItem value="Em falta">Em falta</SelectItem>
+                        <SelectItem value="Ativo">Ativo</SelectItem>
+                        <SelectItem value="Inativo">Inativo</SelectItem>
                     </SelectContent>
                 </Select>
                 <Button type="button" onClick={onCta} className={primaryCtaClass}>
@@ -210,7 +203,7 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                 p.item_type.toLowerCase().includes(searchProducts.toLowerCase())
             if (!matchesSearch) return false
             if (productStatusFilter === "all") return true
-            return getListStatusLabel(p) === productStatusFilter
+            return normalizeCatalogStatus(p.status) === productStatusFilter
         })
     }, [stockProducts, searchProducts, productStatusFilter])
 
@@ -218,7 +211,7 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
         return serviceProducts.filter((p) => {
             if (!p.name.toLowerCase().includes(searchServices.toLowerCase())) return false
             if (serviceStatusFilter === "all") return true
-            return getListStatusLabel(p) === serviceStatusFilter
+            return normalizeCatalogStatus(p.status) === serviceStatusFilter
         })
     }, [serviceProducts, searchServices, serviceStatusFilter])
 
@@ -268,7 +261,7 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                     <tr className={arenaDataTable.theadRow}>
                                         <th className={arenaDataTable.th}>Nome</th>
                                         <th className={arenaDataTable.th}>Tipo de item</th>
-                                        <th className={arenaDataTable.th}>Tipo de estação</th>
+                                        <th className={arenaDataTable.th}>Estação</th>
                                         <th className={arenaDataTable.th}>Valor</th>
                                         <th className={arenaDataTable.th}>Estoque</th>
                                         <th className={arenaDataTable.th}>Status</th>
@@ -285,14 +278,14 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                         </tr>
                                     ) : (
                                         filteredStock.map((product) => {
-                                            const stockStatus = getStockStatus(product.stock_quantity)
+                                            const listStatus = normalizeCatalogStatus(product.status)
                                             return (
                                                 <tr key={product.id} className={arenaDataTable.tbodyRow}>
                                                     <td className={arenaDataTable.tdBold}>{product.name}</td>
                                                     <td className={arenaDataTable.td}>{product.item_type}</td>
                                                     <td className={arenaDataTable.td}>
                                                         <Badge variant="outline">
-                                                            {product.station?.name ?? product.station_type?.name ?? "N/A"}
+                                                            {product.station?.name ?? "—"}
                                                         </Badge>
                                                     </td>
                                                     <td className={arenaDataTable.td}>
@@ -317,15 +310,15 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                                     <td className={arenaDataTable.td}>
                                                         <Badge
                                                             variant={
-                                                                stockStatus === "Em estoque" ? "default" : "destructive"
+                                                                listStatus === "Ativo" ? "default" : "destructive"
                                                             }
                                                             className={
-                                                                stockStatus === "Em estoque"
+                                                                listStatus === "Ativo"
                                                                     ? "bg-emerald-500 hover:bg-emerald-600"
                                                                     : ""
                                                             }
                                                         >
-                                                            {stockStatus}
+                                                            {listStatus}
                                                         </Badge>
                                                     </td>
                                                     <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>
@@ -416,8 +409,8 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                     <tr className={arenaDataTable.theadRow}>
                                         <th className={arenaDataTable.th}>Nome</th>
                                         <th className={arenaDataTable.th}>Tipo</th>
-                                        <th className={arenaDataTable.th}>Estação</th>
                                         <th className={arenaDataTable.th}>Valor</th>
+                                        <th className={arenaDataTable.th}>Status</th>
                                         <th className={arenaDataTable.th}>Criado em</th>
                                         <th className={arenaDataTable.thRight}>Ações</th>
                                     </tr>
@@ -431,20 +424,31 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                             </td>
                                         </tr>
                                     ) : (
-                                        filteredServices.map((product) => (
+                                        filteredServices.map((product) => {
+                                            const listStatus = normalizeCatalogStatus(product.status)
+                                            return (
                                             <tr key={product.id} className={arenaDataTable.tbodyRow}>
                                                 <td className={arenaDataTable.tdBold}>{product.name}</td>
                                                 <td className={arenaDataTable.td}>{product.item_type}</td>
-                                                <td className={arenaDataTable.td}>
-                                                    <Badge variant="outline">
-                                                        {product.station?.name ?? product.station_type?.name ?? "N/A"}
-                                                    </Badge>
-                                                </td>
                                                 <td className={arenaDataTable.td}>
                                                     {new Intl.NumberFormat("pt-BR", {
                                                         style: "currency",
                                                         currency: "BRL",
                                                     }).format(product.price)}
+                                                </td>
+                                                <td className={arenaDataTable.td}>
+                                                    <Badge
+                                                        variant={
+                                                            listStatus === "Ativo" ? "default" : "destructive"
+                                                        }
+                                                        className={
+                                                            listStatus === "Ativo"
+                                                                ? "bg-emerald-500 hover:bg-emerald-600"
+                                                                : ""
+                                                        }
+                                                    >
+                                                        {listStatus}
+                                                    </Badge>
                                                 </td>
                                                 <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>
                                                     {format(new Date(product.created_at), "dd/MM/yyyy HH:mm", {
@@ -489,7 +493,8 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                                     </div>
                                                 </td>
                                             </tr>
-                                        ))
+                                            )
+                                        })
                                     )}
                                 </tbody>
                             </table>
@@ -527,13 +532,13 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                     </div>
                                     <div className="space-y-1">
                                         <p className={detailLabelClass}>Status</p>
-                                        {getListStatusLabel(detailProduct) === "Em estoque" ? (
+                                        {normalizeCatalogStatus(detailProduct.status) === "Ativo" ? (
                                             <Badge className="bg-emerald-500 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white hover:bg-emerald-600">
                                                 Ativo
                                             </Badge>
                                         ) : (
                                             <Badge className="bg-red-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white hover:bg-red-700">
-                                                Em falta
+                                                Inativo
                                             </Badge>
                                         )}
                                     </div>
@@ -548,7 +553,7 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                             <div className="space-y-1">
                                                 <p className={detailLabelClass}>Estação</p>
                                                 <p className="text-base font-semibold text-arena-navy-800">
-                                                    {detailProduct.station?.name ?? detailProduct.station_type?.name ?? "—"}
+                                                    {detailProduct.station?.name ?? "—"}
                                                 </p>
                                             </div>
                                         </>
@@ -558,14 +563,6 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts }: Prop
                                                 <p className={detailLabelClass}>Tipo</p>
                                                 <p className="text-base font-semibold text-arena-navy-800">
                                                     {detailProduct.item_type}
-                                                </p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className={detailLabelClass}>Estação</p>
-                                                <p className="text-base font-semibold text-arena-navy-800">
-                                                    {detailProduct.station?.name ??
-                                                        detailProduct.station_type?.name ??
-                                                        "—"}
                                                 </p>
                                             </div>
                                         </>

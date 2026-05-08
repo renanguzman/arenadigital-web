@@ -25,7 +25,7 @@ import { toast } from "sonner"
 import type { StationOrder } from "@/modules/stations/types/station.types"
 import { addOrderItemsAction } from "@/modules/stations/actions/orderActions"
 import { getProductsByArenaAction } from "@/modules/products/actions/stockActions"
-import { isCatalogService, type Product } from "@/modules/products/types/product.types"
+import { isCatalogService, normalizeCatalogStatus, type Product } from "@/modules/products/types/product.types"
 import { Search, Check, X, Loader2, Plus, Minus, Trash2 } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { cn, normalizeString } from "@/lib/utils"
@@ -95,6 +95,12 @@ export function LaunchItemModal({
     const filteredProducts = allProducts.filter(p => {
         const matchesSearch = normalizeString(p.name).includes(normalizeString(productSearch))
         if (!matchesSearch) return false
+        if (!isCatalogService(p) && normalizeCatalogStatus(p.status) === "Inativo") {
+            return false
+        }
+        if (isCatalogService(p) && !p.station_id) {
+            return true
+        }
         if (p.station_id) {
             return Boolean(stationId && p.station_id === stationId)
         }

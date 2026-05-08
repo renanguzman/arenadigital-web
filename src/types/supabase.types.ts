@@ -1184,7 +1184,7 @@ export type Database = {
           name: string
           price: number
           station_id: string | null
-          station_type_id: string
+          station_type_id: string | null
           status: string | null
           stock_quantity: number
           updated_at: string
@@ -1200,7 +1200,7 @@ export type Database = {
           name: string
           price: number
           station_id?: string | null
-          station_type_id: string
+          station_type_id?: string | null
           status?: string | null
           stock_quantity?: number
           updated_at?: string
@@ -1216,7 +1216,7 @@ export type Database = {
           name?: string
           price?: number
           station_id?: string | null
-          station_type_id?: string
+          station_type_id?: string | null
           status?: string | null
           stock_quantity?: number
           updated_at?: string

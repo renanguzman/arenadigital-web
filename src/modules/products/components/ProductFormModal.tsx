@@ -30,7 +30,7 @@ import {
 import { toast } from "sonner"
 import { createProductAction, updateProductAction } from "@/modules/products/actions/stockActions"
 import { getArenaStationsForCatalogAction } from "@/modules/stations/actions/stationActions"
-import { isCatalogService, type Product } from "@/modules/products/types/product.types"
+import { isCatalogService, normalizeCatalogStatus, type Product } from "@/modules/products/types/product.types"
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 
@@ -41,32 +41,53 @@ const productFormSchema = z.object({
     price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
         message: "Preço deve ser um número válido e positivo",
     }),
+    status: z.enum(["Ativo", "Inativo"]),
 })
+
+const SERVICE_ITEM_TYPES = [
+    "Aluguel",
+    "Saúde e bem-estar",
+    "Educação e evolução técnica",
+    "Entretenimento",
+    "Conveniência",
+    "Outro",
+] as const
 
 const serviceFormSchema = z.object({
     name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-    item_type: z.enum(["Aluguel", "Aula", "Taxa", "Outro", "Serviço"]),
+    item_type: z.enum(SERVICE_ITEM_TYPES),
     price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
         message: "Preço deve ser um número válido e positivo",
     }),
-    status: z.enum(["Em estoque", "Em falta"]),
-    station_id: z.string().min(1, "Selecione uma estação"),
+    status: z.enum(["Ativo", "Inativo"]),
 })
 
 type ProductFormValues = z.infer<typeof productFormSchema>
 type ServiceFormValues = z.infer<typeof serviceFormSchema>
 
-const SERVICE_ITEM_TYPES = ["Aluguel", "Aula", "Taxa", "Outro", "Serviço"] as const
+const PRODUCT_ITEM_TYPES = ["Alimentação", "Bebida", "Vestimenta", "Acessório"] as const
+
+function coerceProductItemType(raw: string | null | undefined): ProductFormValues["item_type"] {
+    const t = (raw ?? "").trim()
+    if ((PRODUCT_ITEM_TYPES as readonly string[]).includes(t)) {
+        return t as ProductFormValues["item_type"]
+    }
+    return "Alimentação"
+}
 
 function coerceServiceItemType(raw: string | null | undefined): (typeof SERVICE_ITEM_TYPES)[number] {
     if (raw && (SERVICE_ITEM_TYPES as readonly string[]).includes(raw)) {
         return raw as (typeof SERVICE_ITEM_TYPES)[number]
     }
+    if (raw === "Aula") return "Educação e evolução técnica"
+    if (raw === "Taxa") return "Conveniência"
+    if (raw === "Serviço") return "Outro"
     return "Aluguel"
 }
 
-function coerceServiceStatus(raw: string | null | undefined): "Em estoque" | "Em falta" {
-    return raw === "Em falta" ? "Em falta" : "Em estoque"
+function coerceProductCatalogStatus(product: Product | null | undefined): "Ativo" | "Inativo" {
+    if (!product) return "Inativo"
+    return normalizeCatalogStatus(product.status)
 }
 
 type ArenaCatalogStation = {
@@ -129,6 +150,24 @@ function effectiveCatalogKind(
     return catalogKind
 }
 
+const EMPTY_PRODUCT_FORM: ProductFormValues = {
+    name: "",
+    item_type: "Alimentação",
+    station_id: "",
+    price: "",
+    status: "Inativo",
+}
+
+function productToFormValues(p: Product): ProductFormValues {
+    return {
+        name: p.name || "",
+        item_type: coerceProductItemType(p.item_type),
+        station_id: p.station_id ?? "",
+        price: p.price != null ? String(p.price) : "",
+        status: coerceProductCatalogStatus(p),
+    }
+}
+
 function ProductFormInner({
     arenaId,
     product,
@@ -153,6 +192,7 @@ function ProductFormInner({
             item_type: "Alimentação",
             station_id: "",
             price: "",
+            status: "Inativo",
         },
     })
 
@@ -162,33 +202,49 @@ function ProductFormInner({
             name: "",
             item_type: "Aluguel",
             price: "",
-            status: "Em estoque",
-            station_id: "",
+            status: "Ativo",
         },
     })
 
     useEffect(() => {
-        if (kind === "product") {
-            productForm.reset({
-                name: product?.name || "",
-                item_type:
-                    (product?.item_type as ProductFormValues["item_type"]) || "Alimentação",
-                station_id: product?.station_id || "",
-                price: product?.price?.toString() || "",
-            })
-        } else {
-            serviceForm.reset({
-                name: product?.name || "",
-                item_type: coerceServiceItemType(product?.item_type),
-                price: product?.price?.toString() || "",
-                status: coerceServiceStatus(product?.status),
-                station_id: product?.station_id || "",
-            })
-        }
+        if (kind !== "service") return
+        serviceForm.reset({
+            name: product?.name || "",
+            item_type: coerceServiceItemType(product?.item_type),
+            price: product?.price?.toString() || "",
+            status: normalizeCatalogStatus(product?.status),
+        })
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when product/kind identity changes only
-    }, [product, kind])
+    }, [kind, product])
 
     useEffect(() => {
+        if (kind !== "product") return
+
+        if (!product) {
+            productForm.reset(EMPTY_PRODUCT_FORM)
+            return
+        }
+
+        const values = productToFormValues(product)
+
+        if (!stationsLoaded) {
+            productForm.setValue("name", values.name, { shouldDirty: false, shouldValidate: false })
+            productForm.setValue("item_type", values.item_type, { shouldDirty: false, shouldValidate: false })
+            productForm.setValue("price", values.price, { shouldDirty: false, shouldValidate: false })
+            productForm.setValue("status", values.status, { shouldDirty: false, shouldValidate: false })
+            return
+        }
+
+        productForm.reset(values)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- stationsLoaded gates Radix Select options for station_id
+    }, [kind, product, product?.id, stationsLoaded])
+
+    useEffect(() => {
+        if (kind !== "product") {
+            setArenaStations([])
+            setStationsLoaded(true)
+            return
+        }
         setStationsLoaded(false)
         getArenaStationsForCatalogAction(arenaId)
             .then((res) => {
@@ -201,7 +257,7 @@ function ProductFormInner({
                 toast.error("Erro ao carregar estações da arena")
             })
             .finally(() => setStationsLoaded(true))
-    }, [arenaId])
+    }, [arenaId, kind])
 
     async function submitProduct(data: ProductFormValues) {
         const selected = arenaStations.find((s) => s.id === data.station_id)
@@ -216,6 +272,7 @@ function ProductFormInner({
                 station_id: data.station_id,
                 station_type_id: selected.station_type_id,
                 price: Number(data.price),
+                status: data.status,
             })
             if (!res.success) throw new Error(res.error)
             toast.success("Produto atualizado com sucesso!")
@@ -228,7 +285,7 @@ function ProductFormInner({
                 station_type_id: selected.station_type_id,
                 price: Number(data.price),
                 catalog_kind: "product",
-                status: "Em falta",
+                status: data.status,
             })
             if (!res.success) throw new Error(res.error)
             toast.success("Produto criado com sucesso!")
@@ -236,17 +293,12 @@ function ProductFormInner({
     }
 
     async function submitService(data: ServiceFormValues) {
-        const selected = arenaStations.find((s) => s.id === data.station_id)
-        if (!selected?.station_type_id) {
-            toast.error("Estação inválida ou sem tipo configurado.")
-            return
-        }
         const baseInput = {
             arena_id: arenaId,
             name: data.name,
             item_type: data.item_type,
-            station_id: data.station_id,
-            station_type_id: selected.station_type_id,
+            station_id: null,
+            station_type_id: null,
             price: Number(data.price),
             catalog_kind: "service" as const,
             status: data.status,
@@ -328,13 +380,11 @@ function ProductFormInner({
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent className={selectContentClass}>
-                                        {SERVICE_ITEM_TYPES.filter((t) => t !== "Serviço" || field.value === "Serviço").map(
-                                            (t) => (
-                                                <SelectItem key={t} value={t} className={selectItemClass}>
-                                                    {t === "Serviço" ? "Serviço (legado)" : t}
-                                                </SelectItem>
-                                            )
-                                        )}
+                                        {SERVICE_ITEM_TYPES.map((t) => (
+                                            <SelectItem key={t} value={t} className={selectItemClass}>
+                                                {t}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -376,10 +426,10 @@ function ProductFormInner({
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent className={selectContentClass}>
-                                        <SelectItem value="Em estoque" className={selectItemClass}>
+                                        <SelectItem value="Ativo" className={selectItemClass}>
                                             Ativo
                                         </SelectItem>
-                                        <SelectItem value="Em falta" className={selectItemClass}>
+                                        <SelectItem value="Inativo" className={selectItemClass}>
                                             Inativo
                                         </SelectItem>
                                     </SelectContent>
@@ -388,42 +438,6 @@ function ProductFormInner({
                             </FormItem>
                         )}
                     />
-
-                    <FormField
-                        control={serviceForm.control}
-                        name="station_id"
-                        render={({ field }) => (
-                            <FormItem className="space-y-2">
-                                <FormLabel className={serviceLabelClass}>Estação</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger
-                                            className={serviceSelectTriggerClass}
-                                            disabled={!stationsLoaded || arenaStations.length === 0}
-                                        >
-                                            <SelectValue placeholder="Selecione a estação" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent className={selectContentClass}>
-                                        {arenaStations.map((s) => (
-                                            <SelectItem key={s.id} value={s.id} className={selectItemClass}>
-                                                {s.name}
-                                                {s.station_type?.name ? ` · ${s.station_type.name}` : ""}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {stationsLoaded && arenaStations.length === 0 && (
-                        <p className="text-sm leading-relaxed text-amber-800">
-                            Não há estações com tipo configurado nesta arena. Cadastre uma estação em Estações antes de
-                            incluir serviços no catálogo.
-                        </p>
-                    )}
 
                     <div className="flex w-full flex-row gap-3 pt-2">
                         <Button
@@ -438,7 +452,7 @@ function ProductFormInner({
                         <Button
                             type="submit"
                             className={footerButtonPrimaryClass}
-                            disabled={isSubmitting || !stationsLoaded || arenaStations.length === 0}
+                            disabled={isSubmitting}
                         >
                             {isSubmitting ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -552,6 +566,32 @@ function ProductFormInner({
                     )}
                 />
 
+                <FormField
+                    control={productForm.control}
+                    name="status"
+                    render={({ field }) => (
+                        <FormItem className="space-y-1.5">
+                            <FormLabel className={formLabelClass}>Status</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className={selectTriggerClass}>
+                                        <SelectValue placeholder="Selecione o status" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className={selectContentClass}>
+                                    <SelectItem value="Ativo" className={selectItemClass}>
+                                        Ativo
+                                    </SelectItem>
+                                    <SelectItem value="Inativo" className={selectItemClass}>
+                                        Inativo
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
                 {stationsLoaded && arenaStations.length === 0 && (
                     <p className="text-sm leading-relaxed text-amber-800">
                         Não há estações com tipo configurado nesta arena. Cadastre uma estação em Estações antes de
@@ -608,7 +648,7 @@ export function ProductFormModal({
               : "Novo produto"
 
     const productDescription =
-        "Informe nome, tipo de item, estação e preço. O estoque é atualizado apenas por lançamentos de entrada."
+        "Informe nome, tipo de item, estação, valor e status de catálogo (Ativo ou Inativo), independente do estoque. O estoque é atualizado apenas por lançamentos de entrada."
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
