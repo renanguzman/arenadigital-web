@@ -149,18 +149,22 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
                 showCloseButton
-                className="max-w-[calc(100%-2rem)] sm:max-w-[440px] gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-xl"
+                className={cn(
+                    "!flex max-h-[90vh] min-h-0 w-full max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-3xl border-none bg-white p-0 shadow-2xl",
+                    "sm:max-w-[min(995px,calc(100vw-2rem))] sm:w-full"
+                )}
             >
-                <DialogHeader className="border-b border-slate-100 px-6 pb-4 pt-6 text-left">
-                    <DialogTitle className="text-lg font-bold tracking-tight text-arena-navy-800">
+                <DialogHeader className="shrink-0 space-y-0 px-6 pb-4 pt-6 text-left sm:px-10 sm:pb-5 sm:pt-8">
+                    <DialogTitle className="text-2xl font-black tracking-tight text-arena-navy-800">
                         Detalhes da reserva
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="max-h-[min(70vh,560px)] overflow-y-auto px-6 py-5">
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 sm:px-10">
+                    <div className="space-y-6 pb-6 sm:space-y-8 sm:pb-8">
+                        <div className="grid grid-cols-2 gap-4 gap-y-5 sm:gap-x-8 lg:grid-cols-4 lg:gap-5">
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
                                 Responsável
                             </p>
                             <p className="mt-1 text-sm font-semibold text-arena-navy-800">
@@ -168,7 +172,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                             </p>
                         </div>
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status</p>
+                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Status</p>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                 <Badge variant="outline" className={cn("text-xs font-medium", status.className)}>
                                     {status.label}
@@ -184,19 +188,19 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                             </div>
                         </div>
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Esporte</p>
+                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Esporte</p>
                             <p className="mt-1 text-sm font-semibold text-arena-navy-800">{sportName}</p>
                         </div>
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Espaço</p>
+                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Espaço</p>
                             <p className="mt-1 text-sm font-semibold text-arena-navy-800">{court.name}</p>
                         </div>
                     </div>
 
-                    <div className="my-5 border-t border-slate-100" />
+                    <div className="border-t border-slate-200 pt-6" />
 
                     <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Período</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Período</p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                             <div className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-arena-navy-800">
                                 <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />
@@ -211,26 +215,26 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                         </div>
                     </div>
 
-                    <div className="my-5 border-t border-slate-100" />
+                    <div className="border-t border-slate-200 pt-6" />
 
                     {canEdit ? (
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             <div className="space-y-2">
-                                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
                                     Valor pago
                                 </Label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-arena-navy-800/40">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-arena-navy-800/40">
                                         R$
                                     </span>
                                     <Input
                                         value={courtPortion}
                                         onChange={(e) => setCourtPortion(e.target.value)}
-                                        className="h-11 pl-10 border-slate-200 font-semibold text-arena-navy-800"
+                                        className="h-14 rounded-xl border-arena-navy-800/10 pl-12 font-bold text-arena-navy-800 focus:border-arena-button focus:ring-arena-button"
                                     />
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-4 border-t border-slate-200 pt-4">
+                            <div className="flex flex-col gap-4 border-t border-slate-200 pt-6">
                                 <div className="flex items-start gap-3 border-b border-slate-200 pb-4">
                                     <button
                                         type="button"
@@ -270,7 +274,6 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                                                 id: p.id,
                                                 name: p.name,
                                                 price: p.price,
-                                                stockQuantity: p.stock_quantity,
                                             }))}
                                             lines={serviceLines}
                                             onLinesChange={setServiceLines}
@@ -280,15 +283,15 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                                 )}
                             </div>
 
-                            <div className="border-t border-slate-200 pt-4">
+                            <div className="border-t border-slate-200 pt-6">
                                 <div className="flex flex-wrap items-baseline justify-between gap-3">
                                     <span className="text-sm font-medium text-arena-navy-800/70">Total da reserva</span>
-                                    <span className="text-xl font-black tracking-tight text-arena-button">
+                                    <span className="text-2xl font-black tracking-tight text-arena-button">
                                         {fmtBrl(totalDisplay)}
                                     </span>
                                 </div>
                                 {serviceLines.length > 0 && (
-                                    <p className="mt-2 text-[10px] font-medium text-arena-navy-800/45">
+                                    <p className="mt-2 text-[11px] font-medium text-arena-navy-800/45">
                                         Locação {fmtBrl(Number(courtPortion) || 0)} + serviços {fmtBrl(servicesSum)}
                                     </p>
                                 )}
@@ -297,7 +300,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                                 type="button"
                                 onClick={handleSaveServices}
                                 disabled={isSavingServices}
-                                className="w-full bg-arena-button font-semibold text-white hover:bg-arena-button-hover"
+                                className="h-11 w-full rounded-xl bg-arena-button font-semibold text-white shadow-sm hover:bg-arena-button-hover sm:mx-auto sm:max-w-md"
                             >
                                 {isSavingServices ? (
                                     <>
@@ -311,8 +314,8 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                         </div>
                     ) : (
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Valor</p>
-                            <p className="mt-1 text-2xl font-bold text-arena-button">{fmtBrl(booking.price ?? 0)}</p>
+                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Valor</p>
+                            <p className="mt-1 text-2xl font-black text-arena-button">{fmtBrl(booking.price ?? 0)}</p>
                             {booking.booking_services?.length > 0 && (
                                 <ul className="mt-3 space-y-1.5 text-sm text-arena-navy-800/80">
                                     {(booking.booking_services as any[]).map((s: any) => (
@@ -329,14 +332,15 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                             )}
                         </div>
                     )}
+                    </div>
                 </div>
 
-                <div className="flex w-full flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-6 py-4 sm:gap-4 sm:px-8 sm:py-5">
+                <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-6 py-4 sm:gap-4 sm:px-10 sm:py-5">
                     <Button
                         type="button"
                         variant="outline"
                         onClick={onClose}
-                        className="h-11 w-full rounded-xl border-arena-navy-800/25 font-semibold text-arena-navy-800 hover:bg-slate-50 sm:w-auto sm:min-w-[160px]"
+                        className="h-11 w-full rounded-xl border-arena-navy-800/25 font-semibold text-arena-navy-800 hover:bg-slate-50 sm:w-auto sm:min-w-[200px]"
                     >
                         Voltar
                     </Button>
@@ -344,7 +348,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                         <Button
                             type="button"
                             onClick={onEdit}
-                            className="h-11 w-full rounded-xl bg-arena-button font-semibold text-white shadow-sm hover:bg-arena-button-hover sm:w-auto sm:min-w-[160px]"
+                            className="h-11 w-full rounded-xl bg-arena-button font-semibold text-white shadow-sm hover:bg-arena-button-hover sm:w-auto sm:min-w-[200px]"
                         >
                             Editar
                         </Button>

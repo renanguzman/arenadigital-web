@@ -25,8 +25,6 @@ export type CatalogServiceOption = {
     id: string
     name: string
     price: number
-    /** Quando informado, exibe “N em estoque” e limita quantidade ao estoque. */
-    stockQuantity?: number
 }
 
 interface BookingServicesSectionProps {
@@ -99,16 +97,10 @@ function CompactCatalogPanel({
 
     const qtyFor = (id: string) => lines.find((l) => l.productId === id)?.quantity ?? 0
 
-    const maxQtyFor = (p: CatalogServiceOption) => {
-        if (typeof p.stockQuantity === "number" && p.stockQuantity >= 0) {
-            return p.stockQuantity
-        }
-        return 999
-    }
+    const MAX_QTY = 999
 
     const setQtyFor = (p: CatalogServiceOption, nextQty: number) => {
-        const cap = maxQtyFor(p)
-        const q = Math.max(0, Math.min(Math.floor(nextQty), cap))
+        const q = Math.max(0, Math.min(Math.floor(nextQty), MAX_QTY))
         if (q === 0) {
             onLinesChange(lines.filter((l) => l.productId !== p.id))
             return
@@ -158,9 +150,6 @@ function CompactCatalogPanel({
                 ) : (
                     filtered.map((p) => {
                         const qty = qtyFor(p.id)
-                        const maxQ = maxQtyFor(p)
-                        const stock = p.stockQuantity
-                        const showStock = typeof stock === "number" && stock >= 0
                         return (
                             <li
                                 key={p.id}
@@ -169,21 +158,11 @@ function CompactCatalogPanel({
                                 <div className="min-w-0 flex-1 space-y-0.5">
                                     <p className="text-sm font-bold leading-tight text-arena-navy-800">{p.name}</p>
                                     <p className="text-xs font-semibold text-arena-navy-800/50">{fmtBrl(p.price)}</p>
-                                    {showStock && (
-                                        <p
-                                            className={cn(
-                                                "text-xs font-bold",
-                                                stock > 0 ? "text-emerald-600" : "text-red-600"
-                                            )}
-                                        >
-                                            {stock} em estoque
-                                        </p>
-                                    )}
                                 </div>
                                 <QtyStepper
                                     value={qty}
                                     min={0}
-                                    max={maxQ}
+                                    max={MAX_QTY}
                                     disabled={disabled}
                                     onChange={(v) => setQtyFor(p, v)}
                                 />

@@ -648,7 +648,7 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
                 className={cn(
-                    "!flex max-h-[90vh] min-h-0 w-full max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-3xl border-none p-0 shadow-2xl",
+                    "!flex max-h-[90vh] min-h-0 w-full max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-3xl border-none bg-white p-0 shadow-2xl",
                     "sm:max-w-[min(995px,calc(100vw-2rem))] sm:w-full"
                 )}
             >
@@ -663,12 +663,12 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
 
                         {/* Tipo de reserva */}
                         {!existingBooking && (
-                        <div className="flex items-center gap-1 p-1 bg-[#F1F5F9] rounded-xl">
+                        <div className="flex items-center gap-1 rounded-xl bg-[#F1F5F9] p-1">
                             <button
                                 type="button"
                                 onClick={() => setBookingType("avulso")}
                                 className={cn(
-                                    "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                    "flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-all",
                                     bookingType === "avulso"
                                         ? "bg-white text-arena-button shadow-sm"
                                         : "text-arena-navy-800/50 hover:text-arena-navy-800"
@@ -681,7 +681,7 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                                 type="button"
                                 onClick={() => setBookingType("mensal")}
                                 className={cn(
-                                    "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                    "flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-all",
                                     bookingType === "mensal"
                                         ? "bg-white text-arena-button shadow-sm"
                                         : "text-arena-navy-800/50 hover:text-arena-navy-800"
@@ -691,6 +691,24 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                                 Mensal
                             </button>
                         </div>
+                        )}
+                        {existingBooking && bookingType === "avulso" && (
+                            <div
+                                className="flex items-center gap-1 rounded-xl bg-[#F1F5F9] p-1"
+                                aria-label="Tipo de reserva: avulsa"
+                            >
+                                <div className="pointer-events-none flex flex-1 items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-sm font-bold text-arena-button shadow-sm">
+                                    <CalendarIcon className="h-4 w-4 shrink-0" />
+                                    Avulso
+                                </div>
+                                <div
+                                    className="flex flex-1 cursor-not-allowed select-none items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold text-arena-navy-800/35"
+                                    title="Alterar para mensal não está disponível ao editar esta reserva"
+                                >
+                                    <Users className="h-4 w-4 shrink-0" />
+                                    Mensal
+                                </div>
+                            </div>
                         )}
 
                         {/* ── AVULSO ── */}
@@ -789,13 +807,8 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                                     </div>
                                 </div>
 
-                                <div
-                                    className={cn(
-                                        "grid gap-8 border-t border-slate-200 pt-6",
-                                        existingBooking ? "grid-cols-1" : "md:grid-cols-2 md:gap-0"
-                                    )}
-                                >
-                                    {!existingBooking && (
+                                <div className="grid grid-cols-1 gap-8 border-t border-slate-200 pt-6 md:grid-cols-2 md:gap-0">
+                                    {!existingBooking ? (
                                         <div className="flex min-w-0 flex-col md:border-r md:border-slate-200 md:pr-8">
                                             <div className="flex items-start gap-3 border-b border-slate-200 pb-4">
                                                 <button
@@ -879,14 +892,14 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                                                 </div>
                                             )}
                                         </div>
+                                    ) : (
+                                        <div
+                                            className="hidden min-h-0 md:block md:border-r md:border-slate-200 md:pr-8"
+                                            aria-hidden
+                                        />
                                     )}
 
-                                    <div
-                                        className={cn(
-                                            "flex min-w-0 flex-col",
-                                            !existingBooking && "md:pl-8"
-                                        )}
-                                    >
+                                    <div className="flex min-w-0 flex-col md:pl-8">
                                         <div className="flex items-start gap-3 border-b border-slate-200 pb-4">
                                             <button
                                                 type="button"
@@ -926,7 +939,6 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                                                         id: p.id,
                                                         name: p.name,
                                                         price: p.price,
-                                                        stockQuantity: p.stock_quantity,
                                                     }))}
                                                     lines={serviceLines}
                                                     onLinesChange={setServiceLines}
