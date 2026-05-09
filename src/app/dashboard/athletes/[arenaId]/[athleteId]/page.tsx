@@ -4,12 +4,13 @@ import { use, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
     ArrowLeft, Wallet, CalendarDays, Trophy, RefreshCw,
-    ShoppingCart, Receipt, CheckCircle2, XCircle, Clock,
-    Activity, ChevronRight, Loader2, Star, X,
+    Activity, Loader2, X,
     ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { cn } from "@/lib/utils"
+import { arenaDataTable } from "@/lib/arena-data-table"
 import { getAthleteDetailsAction, type AthleteDetailData } from "@/modules/athletes/actions/athleteDetailsActions"
 
 // ─────────────────────────────────────────────
@@ -50,14 +51,16 @@ function MetricCard({ title, value, icon, valueColor = "text-gray-900" }: { titl
 
 function SectionCard({ title, action, children }: { title: string, action?: React.ReactNode, children: React.ReactNode }) {
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-            <div className="px-6 py-5 border-b border-gray-50 flex justify-between items-center">
-                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-                {action && <div className="text-sm font-medium text-arena-button hover:text-arena-button-hover cursor-pointer">{action}</div>}
+        <div className="mb-6 overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                <h3 className="font-heading text-xl font-bold text-[#5F636E]">{title}</h3>
+                {action && (
+                    <div className="cursor-pointer text-sm font-medium text-arena-button hover:text-arena-button-hover">
+                        {action}
+                    </div>
+                )}
             </div>
-            <div className="p-6">
-                {children}
-            </div>
+            <div className="px-6 py-6">{children}</div>
         </div>
     )
 }
@@ -119,62 +122,81 @@ function ReservasTable({ reservas, limit, showTime }: { reservas: any[], limit?:
     })
 
     const items = limit ? sorted.slice(0, limit) : sorted
+    const colCount = showTime ? 7 : 5
 
-    if (reservas.length === 0) return <p className="text-gray-400 text-sm text-center py-4">Nenhuma reserva encontrada.</p>
+    const thSort = (field: ReservasSortField) =>
+        cn(arenaDataTable.th, "cursor-pointer select-none whitespace-nowrap hover:text-arena-button")
 
-    const thCls = "pb-3 font-bold cursor-pointer select-none hover:text-arena-button transition-colors whitespace-nowrap"
+    if (reservas.length === 0) {
+        return (
+            <div className="overflow-x-auto">
+                <table className={arenaDataTable.table}>
+                    <tbody>
+                        <tr>
+                            <td colSpan={colCount} className={arenaDataTable.emptyCell}>
+                                Nenhuma reserva encontrada.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        )
+    }
 
     return (
         <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left relative min-w-[600px]">
-                <thead className="text-[11px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-100 sticky top-0 bg-white z-10">
-                    <tr>
-                        <th className="pb-3 font-bold w-10 pl-2">#</th>
-                        <th className={thCls} onClick={() => handleSort('date')}>
+            <table className={cn(arenaDataTable.table, "min-w-[600px]")}>
+                <thead>
+                    <tr className={arenaDataTable.theadRow}>
+                        <th className={cn(arenaDataTable.th, "w-10")}>#</th>
+                        <th className={thSort('date')} onClick={() => handleSort('date')}>
                             Data <SortIcon field="date" active={sortField === 'date'} dir={sortDir} />
                         </th>
                         {showTime && (
-                            <th className={thCls} onClick={() => handleSort('time')}>
+                            <th className={thSort('time')} onClick={() => handleSort('time')}>
                                 Horário <SortIcon field="time" active={sortField === 'time'} dir={sortDir} />
                             </th>
                         )}
-                        <th className={thCls} onClick={() => handleSort('sport')}>
+                        <th className={thSort('sport')} onClick={() => handleSort('sport')}>
                             Esporte <SortIcon field="sport" active={sortField === 'sport'} dir={sortDir} />
                         </th>
-                        <th className={thCls} onClick={() => handleSort('court')}>
+                        <th className={thSort('court')} onClick={() => handleSort('court')}>
                             Quadra <SortIcon field="court" active={sortField === 'court'} dir={sortDir} />
                         </th>
-                        <th className={`${thCls} text-right pr-2`} onClick={() => handleSort('duration')}>
+                        <th
+                            className={cn(arenaDataTable.thRight, "cursor-pointer select-none whitespace-nowrap hover:text-arena-button")}
+                            onClick={() => handleSort('duration')}
+                        >
                             Duração <SortIcon field="duration" active={sortField === 'duration'} dir={sortDir} />
                         </th>
                         {showTime && (
-                            <th className={`${thCls} pr-2`} onClick={() => handleSort('status')}>
+                            <th className={thSort('status')} onClick={() => handleSort('status')}>
                                 Status <SortIcon field="status" active={sortField === 'status'} dir={sortDir} />
                             </th>
                         )}
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody>
                     {items.map((r, index) => (
-                        <tr key={r.id} className="hover:bg-gray-50/60 transition-colors">
-                            <td className="py-4 text-gray-400 font-medium pl-2">{index + 1}</td>
-                            <td className="py-4 text-gray-900 whitespace-nowrap">{fmt(r.start_time)}</td>
+                        <tr key={r.id} className={arenaDataTable.tbodyRow}>
+                            <td className={cn(arenaDataTable.td, "text-arena-navy-800/40")}>{index + 1}</td>
+                            <td className={arenaDataTable.tdBold}>{fmt(r.start_time)}</td>
                             {showTime && (
-                                <td className="py-4 text-gray-900 whitespace-nowrap font-medium">
+                                <td className={arenaDataTable.tdBold}>
                                     {new Date(r.start_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                                 </td>
                             )}
-                            <td className="py-4 text-gray-900 whitespace-nowrap">
-                                <span className="flex items-center gap-2">
-                                    <Activity className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                            <td className={arenaDataTable.td}>
+                                <span className="flex items-center gap-2 whitespace-nowrap">
+                                    <Activity className="h-3.5 w-3.5 shrink-0 text-arena-navy-800/30" />
                                     {r.sport_name || "—"}
                                 </span>
                             </td>
-                            <td className="py-4 text-gray-900 whitespace-nowrap">{r.court_name || "—"}</td>
-                            <td className="py-4 text-gray-900 text-right pr-2 whitespace-nowrap">{duration(r.start_time, r.end_time)}</td>
+                            <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>{r.court_name || "—"}</td>
+                            <td className={cn(arenaDataTable.tdRight, "text-sm font-medium text-arena-navy-800")}>{duration(r.start_time, r.end_time)}</td>
                             {showTime && (
-                                <td className="py-4 pr-2 whitespace-nowrap">
-                                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${STATUS_CLASS[r.status ?? ''] ?? 'bg-gray-100 text-gray-500'}`}>
+                                <td className={arenaDataTable.td}>
+                                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${STATUS_CLASS[r.status ?? ''] ?? 'bg-gray-100 text-gray-500'}`}>
                                         {STATUS_LABEL[r.status ?? ''] ?? r.status ?? '—'}
                                     </span>
                                 </td>
@@ -189,28 +211,45 @@ function ReservasTable({ reservas, limit, showTime }: { reservas: any[], limit?:
 
 function RotativosTable({ rotativos, limit }: { rotativos: any[], limit?: number }) {
     const items = limit ? rotativos.slice(0, limit) : rotativos
-    if (rotativos.length === 0) return <p className="text-gray-400 text-sm text-center py-4">Nenhum rotativo encontrado.</p>
+
+    if (rotativos.length === 0) {
+        return (
+            <div className="overflow-x-auto">
+                <table className={arenaDataTable.table}>
+                    <tbody>
+                        <tr>
+                            <td colSpan={5} className={arenaDataTable.emptyCell}>
+                                Nenhum rotativo encontrado.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        )
+    }
 
     return (
         <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left relative min-w-[600px]">
-                <thead className="text-[11px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-100 sticky top-0 bg-white z-10">
-                    <tr>
-                        <th className="pb-3 font-bold w-10 pl-2">#</th>
-                        <th className="pb-3 font-bold">Data</th>
-                        <th className="pb-3 font-bold">Esporte</th>
-                        <th className="pb-3 font-bold">Horário</th>
-                        <th className="pb-3 font-bold text-right pr-2">Pago</th>
+            <table className={cn(arenaDataTable.table, "min-w-[600px]")}>
+                <thead>
+                    <tr className={arenaDataTable.theadRow}>
+                        <th className={cn(arenaDataTable.th, "w-10")}>#</th>
+                        <th className={arenaDataTable.th}>Data</th>
+                        <th className={arenaDataTable.th}>Esporte</th>
+                        <th className={arenaDataTable.th}>Horário</th>
+                        <th className={arenaDataTable.thRight}>Pago</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody>
                     {items.map((r, index) => (
-                        <tr key={r.id}>
-                            <td className="py-4 text-gray-400 font-medium pl-2">{index + 1}</td>
-                            <td className="py-4 text-gray-900 whitespace-nowrap">{fmt(r.data)}</td>
-                            <td className="py-4 text-gray-900 whitespace-nowrap">{r.sport_name || "Esporte"}</td>
-                            <td className="py-4 text-gray-900 whitespace-nowrap">{r.hora_inicio?.slice(0,5)} - {r.hora_fim?.slice(0,5)}</td>
-                            <td className="py-4 text-gray-900 text-right font-medium pr-2 whitespace-nowrap">
+                        <tr key={r.id} className={arenaDataTable.tbodyRow}>
+                            <td className={cn(arenaDataTable.td, "text-arena-navy-800/40")}>{index + 1}</td>
+                            <td className={arenaDataTable.tdBold}>{fmt(r.data)}</td>
+                            <td className={arenaDataTable.td}>{r.sport_name || "Esporte"}</td>
+                            <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>
+                                {r.hora_inicio?.slice(0, 5)} - {r.hora_fim?.slice(0, 5)}
+                            </td>
+                            <td className={cn(arenaDataTable.tdRight, "text-sm font-semibold text-arena-navy-800")}>
                                 {r.valor_pago ? fmtCurrency(r.valor_pago) : "---"}
                             </td>
                         </tr>
@@ -223,32 +262,49 @@ function RotativosTable({ rotativos, limit }: { rotativos: any[], limit?: number
 
 function ComandasTable({ comandas, limit }: { comandas: any[], limit?: number }) {
     const items = limit ? comandas.slice(0, limit) : comandas
-    if (comandas.length === 0) return <p className="text-gray-400 text-sm text-center py-4">Nenhuma comanda vinculada.</p>
+
+    if (comandas.length === 0) {
+        return (
+            <div className="overflow-x-auto">
+                <table className={arenaDataTable.table}>
+                    <tbody>
+                        <tr>
+                            <td colSpan={5} className={arenaDataTable.emptyCell}>
+                                Nenhuma comanda vinculada.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        )
+    }
 
     return (
         <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left relative min-w-[600px]">
-                <thead className="text-[11px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-100 sticky top-0 bg-white z-10">
-                    <tr>
-                        <th className="pb-3 font-bold w-10 pl-2">#</th>
-                        <th className="pb-3 font-bold">Pedido #</th>
-                        <th className="pb-3 font-bold">Data</th>
-                        <th className="pb-3 font-bold">Status</th>
-                        <th className="pb-3 font-bold text-right pr-2">Total</th>
+            <table className={cn(arenaDataTable.table, "min-w-[600px]")}>
+                <thead>
+                    <tr className={arenaDataTable.theadRow}>
+                        <th className={cn(arenaDataTable.th, "w-10")}>#</th>
+                        <th className={arenaDataTable.th}>Pedido #</th>
+                        <th className={arenaDataTable.th}>Data</th>
+                        <th className={arenaDataTable.th}>Status</th>
+                        <th className={arenaDataTable.thRight}>Total</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody>
                     {items.map((c, index) => (
-                        <tr key={c.id}>
-                            <td className="py-4 text-gray-400 font-medium pl-2">{index + 1}</td>
-                            <td className="py-4 text-gray-900 font-medium whitespace-nowrap">#{String(c.order_number).padStart(4, '0')}</td>
-                            <td className="py-4 text-gray-900 whitespace-nowrap">{fmt(c.created_at)}</td>
-                            <td className="py-4 whitespace-nowrap">
-                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${c.status === 'open' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                        <tr key={c.id} className={arenaDataTable.tbodyRow}>
+                            <td className={cn(arenaDataTable.td, "text-arena-navy-800/40")}>{index + 1}</td>
+                            <td className={arenaDataTable.tdBold}>#{String(c.order_number).padStart(4, "0")}</td>
+                            <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>{fmt(c.created_at)}</td>
+                            <td className={arenaDataTable.td}>
+                                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${c.status === "open" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
                                     {c.status}
                                 </span>
                             </td>
-                            <td className="py-4 text-gray-900 text-right font-medium pr-2 whitespace-nowrap">{fmtCurrency(c.total_value)}</td>
+                            <td className={cn(arenaDataTable.tdRight, "text-sm font-semibold text-arena-navy-800")}>
+                                {fmtCurrency(c.total_value)}
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -259,28 +315,45 @@ function ComandasTable({ comandas, limit }: { comandas: any[], limit?: number })
 
 function PagamentosTable({ pagamentos, limit }: { pagamentos: any[], limit?: number }) {
     const items = limit ? pagamentos.slice(0, limit) : pagamentos
-    if (pagamentos.length === 0) return <p className="text-gray-400 text-sm text-center py-4">Nenhum pagamento registrado.</p>
+
+    if (pagamentos.length === 0) {
+        return (
+            <div className="overflow-x-auto">
+                <table className={arenaDataTable.table}>
+                    <tbody>
+                        <tr>
+                            <td colSpan={5} className={arenaDataTable.emptyCell}>
+                                Nenhum pagamento registrado.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        )
+    }
 
     return (
         <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left relative min-w-[600px]">
-                <thead className="text-[11px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-100 sticky top-0 bg-white z-10">
-                    <tr>
-                        <th className="pb-3 font-bold w-10 pl-2">#</th>
-                        <th className="pb-3 font-bold">Data</th>
-                        <th className="pb-3 font-bold">Descrição</th>
-                        <th className="pb-3 font-bold">Método</th>
-                        <th className="pb-3 font-bold text-right pr-2">Valor</th>
+            <table className={cn(arenaDataTable.table, "min-w-[600px]")}>
+                <thead>
+                    <tr className={arenaDataTable.theadRow}>
+                        <th className={cn(arenaDataTable.th, "w-10")}>#</th>
+                        <th className={arenaDataTable.th}>Data</th>
+                        <th className={arenaDataTable.th}>Descrição</th>
+                        <th className={arenaDataTable.th}>Método</th>
+                        <th className={arenaDataTable.thRight}>Valor</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody>
                     {items.map((p, index) => (
-                        <tr key={p.id}>
-                            <td className="py-4 text-gray-400 font-medium pl-2">{index + 1}</td>
-                            <td className="py-4 text-gray-900 whitespace-nowrap">{fmt(p.registration_date)}</td>
-                            <td className="py-4 text-gray-900 whitespace-nowrap">{p.description || p.category || "Entrada"}</td>
-                            <td className="py-4 text-gray-500 whitespace-nowrap">{p.modo_pagamento || "---"}</td>
-                            <td className="py-4 text-emerald-600 text-right font-semibold pr-2 whitespace-nowrap">+{fmtCurrency(p.total_value)}</td>
+                        <tr key={p.id} className={arenaDataTable.tbodyRow}>
+                            <td className={cn(arenaDataTable.td, "text-arena-navy-800/40")}>{index + 1}</td>
+                            <td className={arenaDataTable.tdBold}>{fmt(p.registration_date)}</td>
+                            <td className={arenaDataTable.td}>{p.description || p.category || "Entrada"}</td>
+                            <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>{p.modo_pagamento || "---"}</td>
+                            <td className={cn(arenaDataTable.tdRight, "text-sm font-semibold text-emerald-600")}>
+                                +{fmtCurrency(p.total_value)}
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -335,14 +408,14 @@ export default function AthleteDetailPage({
     const totalSpent = data.total_pago_arena + data.total_gasto_comandas + data.valor_total_rotativos;
 
     return (
-        <div className="min-h-screen bg-arena-app-surface">
-            <div className="max-w-6xl mx-auto">
+        <div className="min-h-screen w-full bg-arena-app-surface">
+            <div className="w-full">
                 
                 {/* ── HEADER ── */}
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
                         <h1 className="text-3xl font-bold text-gray-900">{data.nome_perfil}</h1>
-                        <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">
+                        <span className="inline-flex items-center rounded-full bg-[linear-gradient(90deg,#F97415_0%,#F9A91F_100%)] px-3 py-1 text-xs font-semibold text-white shadow-sm shadow-[#F97415]/25">
                             Membro Ativo
                         </span>
                     </div>
@@ -356,8 +429,8 @@ export default function AthleteDetailPage({
                 </div>
 
                 {/* ── PROFILE INFO CARD ── */}
-                <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 flex items-center gap-10 mb-6">
-                    <div className="flex-shrink-0">
+                <div className="mb-6 flex items-center gap-10 rounded-lg border border-slate-100 bg-white p-8 shadow-sm">
+                    <div className="shrink-0">
                         {data.foto_url ? (
                             <img
                                 src={data.foto_url}
@@ -427,100 +500,34 @@ export default function AthleteDetailPage({
                     />
                 </div>
 
-                {/* ── TWO COLUMNS LAYOUT ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    
-                    {/* LEFT COLUMN (2/3) */}
-                    <div className="lg:col-span-2">
-                        
-                        <SectionCard 
-                            title="Histórico de Reservas (Jogos)" 
-                            action={data.reservas.length > 0 ? <button onClick={() => setActiveModal('reservas')}>Ver Todos</button> : null}
-                        >
-                            <ReservasTable reservas={data.reservas} limit={5} />
-                        </SectionCard>
+                {/* ── TABLE SECTIONS ── */}
+                <SectionCard
+                    title="Histórico de Reservas (Jogos)"
+                    action={data.reservas.length > 0 ? <button type="button" onClick={() => setActiveModal('reservas')}>Ver Todos</button> : null}
+                >
+                    <ReservasTable reservas={data.reservas} limit={5} />
+                </SectionCard>
 
-                        <SectionCard 
-                            title="Histórico de Rotativos"
-                            action={data.rotativos.length > 0 ? <button onClick={() => setActiveModal('rotativos')}>Ver Todos</button> : null}
-                        >
-                            <RotativosTable rotativos={data.rotativos} limit={5} />
-                        </SectionCard>
+                <SectionCard
+                    title="Histórico de Rotativos"
+                    action={data.rotativos.length > 0 ? <button type="button" onClick={() => setActiveModal('rotativos')}>Ver Todos</button> : null}
+                >
+                    <RotativosTable rotativos={data.rotativos} limit={5} />
+                </SectionCard>
 
-                        <SectionCard 
-                            title="Comandas"
-                            action={data.comandas.length > 0 ? <button onClick={() => setActiveModal('comandas')}>Ver Todos</button> : null}
-                        >
-                            <ComandasTable comandas={data.comandas} limit={5} />
-                        </SectionCard>
+                <SectionCard
+                    title="Comandas"
+                    action={data.comandas.length > 0 ? <button type="button" onClick={() => setActiveModal('comandas')}>Ver Todos</button> : null}
+                >
+                    <ComandasTable comandas={data.comandas} limit={5} />
+                </SectionCard>
 
-                        <SectionCard 
-                            title="Financeiro (Entradas)"
-                            action={data.pagamentos.length > 0 ? <button onClick={() => setActiveModal('pagamentos')}>Ver Todos</button> : null}
-                        >
-                            <PagamentosTable pagamentos={data.pagamentos} limit={5} />
-                        </SectionCard>
-
-                    </div>
-
-                    {/* RIGHT COLUMN (1/3) */}
-                    <div className="space-y-6">
-                        
-                        <SectionCard title="Esportes">
-                            {data.esportes.length === 0 ? (
-                                <p className="text-gray-400 text-sm text-center py-4">Nenhum esporte vinculado.</p>
-                            ) : (
-                                <div className="space-y-5">
-                                    {data.esportes.map((e, i) => {
-                                        const widthMap = ['w-full', 'w-[75%]', 'w-[50%]', 'w-[25%]'];
-                                        const widthClass = widthMap[i % widthMap.length];
-                                        const isPrimary = i === 0;
-
-                                        return (
-                                            <div key={i}>
-                                                <div className="flex justify-between items-end mb-2">
-                                                    <span className="text-sm font-medium text-gray-900">{e.nome}</span>
-                                                    <span className="text-xs text-gray-500 font-medium">{e.nivel || "N/A"}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-100 rounded-full h-2">
-                                                    <div className={`h-2 rounded-full ${isPrimary ? 'bg-arena-button' : 'bg-arena-navy-800'} ${widthClass}`}></div>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                    
-                                    <div className="mt-8 pt-5 border-t border-gray-100 flex items-center gap-2 text-sm text-gray-600">
-                                        <div className="bg-orange-100 p-1.5 rounded-full">
-                                            <Star className="h-4 w-4 text-arena-button fill-arena-button"/>
-                                        </div>
-                                        <span>Atleta frequente na arena.</span>
-                                    </div>
-                                </div>
-                            )}
-                        </SectionCard>
-
-                        <SectionCard title="Extrato Fidelidade">
-                            {data.historico_fidelidade.length === 0 ? (
-                                <p className="text-gray-400 text-sm text-center py-4">Sem histórico de fidelidade.</p>
-                            ) : (
-                                <div className="space-y-0 divide-y divide-gray-50">
-                                    {data.historico_fidelidade.map((h) => (
-                                        <div key={h.id} className="py-3 flex justify-between items-center">
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900">{h.descricao || h.tipo}</p>
-                                                <p className="text-[11px] text-gray-400">{fmt(h.data_registro)}</p>
-                                            </div>
-                                            <span className={`font-semibold text-sm ${h.tipo === 'crédito' ? 'text-emerald-600' : 'text-red-500'}`}>
-                                                {h.tipo === 'crédito' ? '+' : '-'}${h.valor.toFixed(2)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </SectionCard>
-                        
-                    </div>
-                </div>
+                <SectionCard
+                    title="Financeiro (Entradas)"
+                    action={data.pagamentos.length > 0 ? <button type="button" onClick={() => setActiveModal('pagamentos')}>Ver Todos</button> : null}
+                >
+                    <PagamentosTable pagamentos={data.pagamentos} limit={5} />
+                </SectionCard>
 
                 {/* ── MODALS FOR "VER TODOS" ── */}
                 <Dialog open={activeModal !== null} onOpenChange={(open) => !open && setActiveModal(null)}>
@@ -538,7 +545,7 @@ export default function AthleteDetailPage({
                         </DialogHeader>
                         
                         <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                            <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
                                 {activeModal === 'reservas' && <ReservasTable reservas={data.reservas} showTime />}
                                 {activeModal === 'rotativos' && <RotativosTable rotativos={data.rotativos} />}
                                 {activeModal === 'comandas' && <ComandasTable comandas={data.comandas} />}

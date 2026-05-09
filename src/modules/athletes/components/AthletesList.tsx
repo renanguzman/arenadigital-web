@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { normalizeString } from '@/lib/utils';
 import { getAthletesByArenaAction } from '@/modules/athletes/actions/athleteActions';
 import { AthletesTable, type Athlete } from './AthletesTable';
 
@@ -21,21 +22,24 @@ export function AthletesList({ arenaId }: AthletesListProps) {
     if (!arenaId) return;
     try {
       setIsLoading(true);
-      const res = await getAthletesByArenaAction(arenaId, searchTerm);
+      const res = await getAthletesByArenaAction(arenaId);
       setAthletes(res.data as Athlete[]);
     } catch (error) {
       console.error('Error loading athletes:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [arenaId, searchTerm]);
+  }, [arenaId]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadAthletes();
-    }, 300);
-    return () => clearTimeout(timer);
+    loadAthletes();
   }, [loadAthletes]);
+
+  const filteredAthletes = useMemo(() => {
+    const q = normalizeString(searchTerm.trim());
+    if (!q) return athletes;
+    return athletes.filter((a) => normalizeString(a.name).includes(q));
+  }, [athletes, searchTerm]);
 
   if (!arenaId) {
     return (
@@ -48,16 +52,14 @@ export function AthletesList({ arenaId }: AthletesListProps) {
   return (
     <TooltipProvider>
       <Card className="rounded-lg border border-slate-100 bg-white px-6 py-6 shadow-sm">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="font-heading text-xl font-bold text-[#5F636E]">
-              Atletas vinculados
-            </h3>
-          </div>
-          <div className="relative w-full sm:w-auto">
+        <div className="mb-8 flex flex-col items-start gap-3">
+          <h3 className="font-heading text-xl font-bold text-arena-navy-800">
+            Atletas vinculados
+          </h3>
+          <div className="relative w-full max-w-sm">
             <Input
               placeholder="Buscar por atleta"
-              className="h-10 w-full rounded-md border-slate-300 pl-3 pr-10 text-sm text-arena-navy-800 shadow-none placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#20B2AA] sm:w-[178px]"
+              className="h-10 w-full rounded-md border-slate-300 pl-3 pr-10 text-sm text-arena-navy-800 shadow-none placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#20B2AA]"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -65,7 +67,7 @@ export function AthletesList({ arenaId }: AthletesListProps) {
           </div>
         </div>
 
-        <AthletesTable athletes={athletes} isLoading={isLoading} arenaId={arenaId} />
+        <AthletesTable athletes={filteredAthletes} isLoading={isLoading} arenaId={arenaId} />
       </Card>
     </TooltipProvider>
   );
