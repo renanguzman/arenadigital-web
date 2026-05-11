@@ -1,2 +1,2 @@
 # arenadigital-web
-Arena Digital Web - Frontend - commit 09/05/2026
+Arena Digital Web - Frontend - commit 11/05/2026
