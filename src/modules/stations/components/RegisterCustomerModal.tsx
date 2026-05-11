@@ -4,13 +4,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog"
+import { StandardModal } from "@/components/ui/standard-modal"
 import {
     Form,
     FormControl,
@@ -71,93 +65,93 @@ export function RegisterCustomerModal({ isOpen, onClose, arenaId, onSuccess }: R
         }
     }
 
+    const formId = "register-customer-form"
+
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle className="text-2xl font-black text-arena-navy-800">
-                        Cadastro novo cliente
-                    </DialogTitle>
-                </DialogHeader>
+        <StandardModal
+            open={isOpen}
+            onOpenChange={(open) => !open && onClose()}
+            title="Cadastro novo cliente"
+            footer={
+                <div className="flex items-center gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
+                        className="w-full font-semibold rounded-lg text-arena-navy-800/60"
+                    >
+                        Voltar
+                    </Button>
+                    <Button
+                        type="submit"
+                        form={formId}
+                        disabled={isSubmitting}
+                        className="w-full bg-arena-button hover:bg-arena-button-hover text-white font-semibold shadow-sm rounded-lg"
+                    >
+                        {isSubmitting ? "Salvando..." : "Salvar"}
+                    </Button>
+                </div>
+            }
+        >
+            <Form {...form}>
+                <form id={formId} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-arena-navy-800 font-bold">Nome</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Informe o nome do cliente" {...field} className="h-11 rounded-xl" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-arena-navy-800 font-bold">Nome</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Informe o nome do cliente" {...field} className="h-11 rounded-xl" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                    <FormField
+                        control={form.control}
+                        name="cpf"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-arena-navy-800 font-bold">CPF</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Informe o CPF do cliente" {...field} className="h-11 rounded-xl" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
-                        <FormField
-                            control={form.control}
-                            name="cpf"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-arena-navy-800 font-bold">CPF</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Informe o CPF do cliente" {...field} className="h-11 rounded-xl" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                    <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-arena-navy-800 font-bold">Telefone (Opcional)</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Informe o telefone de contato" {...field} className="h-11 rounded-xl" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
-                        <FormField
-                            control={form.control}
-                            name="phone"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-arena-navy-800 font-bold">Telefone (Opcional)</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Informe o telefone de contato" {...field} className="h-11 rounded-xl" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-arena-navy-800 font-bold">E-mail (Opcional)</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Informe o e-mail do cliente" {...field} className="h-11 rounded-xl" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <DialogFooter className="pt-4 flex !justify-between">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={onClose}
-                                className="w-full font-semibold rounded-lg text-arena-navy-800/60"
-                            >
-                                Voltar
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="w-full bg-arena-button hover:bg-arena-button-hover text-white font-semibold shadow-sm rounded-lg"
-                            >
-                                {isSubmitting ? "Salvando..." : "Salvar"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
+                    <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-arena-navy-800 font-bold">E-mail (Opcional)</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Informe o e-mail do cliente" {...field} className="h-11 rounded-xl" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </form>
+            </Form>
+        </StandardModal>
     )
 }

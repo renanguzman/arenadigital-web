@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ChevronLeft, Loader2, Plus } from 'lucide-react';
+import { ChevronLeft, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { StationOrder } from '@/modules/stations/types/station.types';
@@ -135,16 +135,26 @@ export default function OrderDetailsPage() {
           </div>
           <div
             className={cn(
-              'p-4 rounded-xl flex items-center gap-4 shadow-lg',
+              'rounded-xl p-4 shadow-lg flex items-center gap-4',
               balance > 0
-                ? 'bg-gradient-to-r from-[#FFB01F] to-[#FFD043] shadow-orange-200/50'
-                : 'bg-[#E6F8F7] shadow-[#20B2AA]/10'
+                ? 'bg-[linear-gradient(90deg,#F97415_0%,#F9A91F_100%)] text-white shadow-[#F97415]/25'
+                : 'bg-[#E6F8F7] text-arena-navy-800 shadow-[#20B2AA]/10'
             )}
           >
-            <span className="text-arena-navy-800/60 font-bold uppercase text-xs">
+            <span
+              className={cn(
+                'font-bold uppercase text-xs',
+                balance > 0 ? 'text-white/85' : 'text-arena-navy-800/60'
+              )}
+            >
               Saldo:
             </span>
-            <span className="text-2xl font-black text-arena-navy-800">
+            <span
+              className={cn(
+                'text-2xl font-black tabular-nums',
+                balance > 0 ? 'text-white' : 'text-arena-navy-800'
+              )}
+            >
               R$ {balance.toFixed(2).replace('.', ',')}
             </span>
           </div>
@@ -159,30 +169,34 @@ export default function OrderDetailsPage() {
               Itens pedidos
             </h2>
             {order.status === 'open' && (
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={handleCancelOrder}
-                  variant="outline"
-                  disabled={isCancelling}
-                  className="text-red-500 border-red-100 hover:bg-red-50 hover:text-red-600 rounded-xl"
-                >
-                  {isCancelling ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    'Cancelar comanda'
-                  )}
-                </Button>
+              <div className="flex flex-wrap items-center justify-end gap-3">
                 <Button
                   onClick={() => setIsLaunchModalOpen(true)}
-                  className="bg-arena-button hover:bg-arena-button-hover text-white font-semibold shadow-sm"
+                  className="rounded-xl bg-arena-button font-semibold text-white shadow-sm hover:bg-arena-button-hover"
                 >
                   Lançar item
                 </Button>
                 <Button
                   onClick={() => setIsPaymentModalOpen(true)}
-                  className="bg-arena-navy-800 hover:bg-arena-navy-900 text-white font-semibold shadow-sm"
+                  className="rounded-xl bg-arena-navy-800 font-semibold text-white shadow-sm hover:bg-arena-navy-900"
                 >
                   Registrar pagamento
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCancelOrder}
+                  disabled={isCancelling}
+                  title="Cancelar comanda"
+                  aria-label="Cancelar comanda"
+                  className="h-10 w-10 shrink-0 rounded-xl border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
+                >
+                  {isCancelling ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             )}
@@ -239,7 +253,7 @@ export default function OrderDetailsPage() {
                     Total:
                   </td>
                   <td className="pt-8 text-right">
-                    <span className="bg-[#FFF5EF] text-arena-button px-4 py-2 rounded-lg font-black text-sm">
+                    <span className="rounded-lg bg-[linear-gradient(90deg,#F97415_0%,#F9A91F_100%)] px-4 py-2 text-sm font-black text-white shadow-sm shadow-[#F97415]/20">
                       R$ {order.total_value.toFixed(2).replace('.', ',')}
                     </span>
                   </td>

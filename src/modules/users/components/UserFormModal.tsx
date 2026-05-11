@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { StandardModal } from "@/components/ui/standard-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,17 +70,37 @@ export function UserFormModal({ isOpen, onClose, user, stations, onSave }: UserF
         }
     };
 
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px] bg-white border-slate-200 text-slate-800 p-6 rounded-3xl shadow-xl">
-                <DialogHeader className="mb-2">
-                    <DialogTitle className="text-arena-navy-800 text-2xl font-semibold">
-                        {isEditMode ? "Editar usuário" : "Novo usuário"}
-                    </DialogTitle>
-                </DialogHeader>
+    const formId = "user-form";
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    <div className="space-y-4">
+    return (
+        <StandardModal
+            open={isOpen}
+            onOpenChange={(open) => !open && onClose()}
+            title={isEditMode ? "Editar usuário" : "Novo usuário"}
+            footer={
+                <div className="flex justify-end gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
+                        className="bg-white border-arena-navy-800 text-arena-navy-800 hover:bg-slate-50 font-semibold px-8 rounded-lg"
+                        disabled={isLoading}
+                    >
+                        Fechar
+                    </Button>
+                    <Button
+                        type="submit"
+                        form={formId}
+                        className="bg-arena-button hover:bg-arena-button-hover text-white font-semibold px-8 rounded-lg border-0"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditMode ? "Salvar" : "Cadastrar")}
+                    </Button>
+                </div>
+            }
+        >
+            <form id={formId} onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-4">
                         <div className="space-y-1.5">
                             <Label htmlFor="name" className="text-sm font-medium text-arena-navy-800">Nome</Label>
                             <Input
@@ -165,29 +185,9 @@ export function UserFormModal({ isOpen, onClose, user, stations, onSave }: UserF
                                     </SelectContent>
                                 </Select>
                             </div>
-                        )}
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-6">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={onClose}
-                            className="bg-white border-arena-navy-800 text-arena-navy-800 hover:bg-slate-50 font-semibold px-8 rounded-lg"
-                            disabled={isLoading}
-                        >
-                            Fechar
-                        </Button>
-                        <Button
-                            type="submit"
-                            className="bg-arena-button hover:bg-arena-button-hover text-white font-semibold px-8 rounded-lg border-0"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditMode ? "Salvar" : "Cadastrar")}
-                        </Button>
-                    </div>
-                </form>
-            </DialogContent>
-        </Dialog>
+                    )}
+                </div>
+            </form>
+        </StandardModal>
     );
 }

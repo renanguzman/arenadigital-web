@@ -144,6 +144,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
     }
 
     const sportName = booking.sports?.name || court.sports?.[0]?.name || "—"
+    const wideLayout = canEdit
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -151,18 +152,40 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                 showCloseButton
                 className={cn(
                     "!flex max-h-[90vh] min-h-0 w-full max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-3xl border-none bg-white p-0 shadow-2xl",
-                    "sm:max-w-[min(995px,calc(100vw-2rem))] sm:w-full"
+                    wideLayout
+                        ? "sm:w-full sm:max-w-[min(995px,calc(100vw-2rem))]"
+                        : "sm:w-full sm:max-w-[min(28rem,calc(100vw-2rem))]"
                 )}
             >
-                <DialogHeader className="shrink-0 space-y-0 px-6 pb-4 pt-6 text-left sm:px-10 sm:pb-5 sm:pt-8">
-                    <DialogTitle className="text-2xl font-black tracking-tight text-arena-navy-800">
+                <DialogHeader
+                    className={cn(
+                        "shrink-0 space-y-0 px-6 pb-4 pt-6 text-left",
+                        wideLayout && "sm:px-10 sm:pb-5 sm:pt-8"
+                    )}
+                >
+                    <DialogTitle
+                        className={cn(
+                            "font-black tracking-tight text-arena-navy-800",
+                            wideLayout ? "text-2xl" : "text-xl"
+                        )}
+                    >
                         Detalhes da reserva
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 sm:px-10">
-                    <div className="space-y-6 pb-6 sm:space-y-8 sm:pb-8">
-                        <div className="grid grid-cols-2 gap-4 gap-y-5 sm:gap-x-8 lg:grid-cols-4 lg:gap-5">
+                <div
+                    className={cn(
+                        "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6",
+                        wideLayout && "sm:px-10"
+                    )}
+                >
+                    <div className={cn("space-y-6 pb-6", wideLayout && "sm:space-y-8 sm:pb-8")}>
+                        <div
+                            className={cn(
+                                "grid grid-cols-2 gap-4 gap-y-5 sm:gap-x-8",
+                                wideLayout ? "lg:grid-cols-4 lg:gap-5" : "sm:gap-x-6"
+                            )}
+                        >
                         <div>
                             <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
                                 Responsável
@@ -335,7 +358,12 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                     </div>
                 </div>
 
-                <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-6 py-4 sm:gap-4 sm:px-10 sm:py-5">
+                <div
+                    className={cn(
+                        "flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-6 py-4 sm:gap-4",
+                        wideLayout && "sm:px-10 sm:py-5"
+                    )}
+                >
                     <Button
                         type="button"
                         variant="outline"

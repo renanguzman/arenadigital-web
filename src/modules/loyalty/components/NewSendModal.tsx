@@ -3,13 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useUser } from "@clerk/nextjs"
 import { Search, Save, X, Loader2, Check } from "lucide-react"
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter
-} from "@/components/ui/dialog"
+import { StandardModal } from "@/components/ui/standard-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -126,13 +120,35 @@ export function NewSendModal({ arenaId, isOpen, onClose, onSuccess }: NewSendMod
     }
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
-                <DialogHeader className="p-6 pb-0">
-                    <DialogTitle className="text-2xl font-bold text-arena-navy-800">Novo envio</DialogTitle>
-                </DialogHeader>
-
-                <div className="p-6 space-y-6">
+        <StandardModal
+            open={isOpen}
+            onOpenChange={(open) => !open && onClose()}
+            title="Novo envio"
+            footer={
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="outline"
+                        onClick={onClose}
+                        className="flex-1 border-arena-navy-800/10 text-arena-navy-800 hover:bg-gray-100 font-semibold rounded-lg"
+                    >
+                        Fechar
+                    </Button>
+                    <Button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="flex-1 bg-arena-button hover:bg-arena-button-hover text-white font-semibold shadow-sm rounded-lg disabled:opacity-50"
+                    >
+                        {isSaving ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Save className="mr-2 h-4 w-4" />
+                        )}
+                        Enviar
+                    </Button>
+                </div>
+            }
+        >
+            <div className="space-y-6">
                     {/* Atleta Search */}
                     <div className="space-y-2 relative">
                         <Label className="text-sm font-semibold text-arena-navy-800/70">Selecione o atleta</Label>
@@ -237,30 +253,7 @@ export function NewSendModal({ arenaId, isOpen, onClose, onSuccess }: NewSendMod
                             className="h-12 border-arena-navy-800/10 focus:ring-arena-button focus:border-arena-button rounded-lg"
                         />
                     </div>
-                </div>
-
-                <DialogFooter className="p-6 bg-gray-50 flex gap-3 sm:gap-0 sm:justify-between items-center rounded-b-2xl">
-                    <Button
-                        variant="outline"
-                        onClick={onClose}
-                        className="flex-1 border-arena-navy-800/10 text-arena-navy-800 hover:bg-gray-100 font-semibold rounded-lg"
-                    >
-                        Fechar
-                    </Button>
-                    <Button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="flex-1 bg-arena-button hover:bg-arena-button-hover text-white font-semibold shadow-sm rounded-lg disabled:opacity-50"
-                    >
-                        {isSaving ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <Save className="mr-2 h-4 w-4" />
-                        )}
-                        Enviar
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+            </div>
+        </StandardModal>
     )
 }
