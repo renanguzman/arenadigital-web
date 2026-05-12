@@ -32,6 +32,11 @@ export type SubscriptionPlanInfo = {
 
 export type PrepareCardCollectionInput = {
   customerId: string
+  arenaId: string
+  plan: SubscriptionPlanInfo
+  successUrl: string
+  cancelUrl: string
+  expiredUrl: string
   metadata?: Record<string, string>
   idempotencyKey?: string
 }
@@ -47,35 +52,17 @@ export type CardCollectionContext =
       clientSecret: string
     }
   | {
-      provider: 'asaas'
-      /** O frontend coleta cartão num form próprio e envia raw → /api/payments/tokenize-card. */
-      customerId: string
+      provider: 'asaas-checkout'
+      /** ID do checkout criado no Asaas — usado para correlacionar webhook → arena. */
+      checkoutId: string
+      /** URL hospedada do Asaas para onde redirecionar o cliente. */
+      checkoutUrl: string
     }
-
-export type TokenizeCardInput = {
-  customerId: string
-  card: {
-    holderName: string
-    number: string
-    expiryMonth: string
-    expiryYear: string
-    cvv: string
-  }
-  holder: {
-    name: string
-    email: string
-    cpfCnpj: string
-    postalCode: string
-    addressNumber: string
-    phone: string
-  }
-  remoteIp: string
-}
 
 export type CreateSubscriptionInput = {
   customerId: string
   plan: SubscriptionPlanInfo
-  /** Token opaco do método de pagamento. Stripe: pm_xxx. Asaas: creditCardToken. */
+  /** Token opaco do método de pagamento (Stripe: pm_xxx). Não usado no fluxo asaas-checkout. */
   paymentMethodId: string
   /** IP do usuário final usado por gateways antifraude (Asaas exige em cartão). */
   remoteIp?: string
@@ -86,7 +73,8 @@ export type CreateSubscriptionInput = {
 export type ChangeSubscriptionPlanInput = {
   subscriptionId: string
   plan: SubscriptionPlanInfo
-  paymentMethodId: string
+  /** Stripe exige. Asaas pode atualizar plano sem novo cartão. */
+  paymentMethodId?: string
   idempotencyKey?: string
 }
 
@@ -120,29 +108,19 @@ export interface PaymentGateway {
 
   // ===== Card collection =====
   /**
-   * Prepara o frontend para coletar dados do cartão. Retorna contexto
-   * provider-específico (clientSecret pro Stripe, customerId pro Asaas).
+   * Prepara o fluxo de coleta de cartão. Para Stripe retorna clientSecret;
+   * para Asaas retorna URL do checkout hospedado.
    */
   prepareCardCollection(
     input: PrepareCardCollectionInput
   ): Promise<CardCollectionContext>
 
-  /**
-   * Tokeniza dados de cartão recebidos do frontend.
-   * Asaas usa esse fluxo (form próprio). Stripe não suporta — frontend tokeniza via Elements.
-   */
-  tokenizeCard?(input: TokenizeCardInput): Promise<{ token: string }>
-
-  /**
-   * Dados de cobrança já gravados no cliente do provedor (ex.: arena + dono no Asaas),
-   * para não repetir CEP/telefone no formulário de cartão.
-   */
-  resolveBillingHolderForCardTokenize?(
-    customerId: string
-  ): Promise<TokenizeCardInput['holder']>
-
   // ===== Subscription =====
-  createSubscription(input: CreateSubscriptionInput): Promise<DomainSubscription>
+  /**
+   * Cria a subscription diretamente (Stripe). No Asaas a subscription é criada
+   * pelo próprio checkout — esse método não é chamado nesse fluxo.
+   */
+  createSubscription?(input: CreateSubscriptionInput): Promise<DomainSubscription>
 
   retrieveSubscription(subscriptionId: string): Promise<DomainSubscription | null>
 
@@ -171,6 +149,15 @@ export interface PaymentGateway {
   ): Promise<RetryFailedPaymentResult>
 
   listCustomerInvoices(customerId: string, limit?: number): Promise<DomainInvoice[]>
+
+  /**
+   * Após CHECKOUT_PAID: o webhook do Asaas manda `checkout.subscription` como
+   * objeto (ciclo/datas), não o id `sub_...`. Só o Asaas implementa — resolve via API.
+   */
+  findSubscriptionIdAfterCheckoutPaid?(input: {
+    customerId: string
+    arenaId: string
+  }): Promise<string | null>
 
   // ===== Webhook =====
   verifyAndParseWebhook(

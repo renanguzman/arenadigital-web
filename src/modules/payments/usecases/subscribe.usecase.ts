@@ -95,6 +95,13 @@ export async function subscribe(request: SubscribeRequest): Promise<SubscribeRes
   const supabase = getSupabaseAdmin()
   const gateway = getPaymentGateway()
 
+  if (!gateway.createSubscription) {
+    throw new PaymentConfigurationError(
+      `Provedor "${gateway.providerName}" não suporta criação direta de subscription — use o fluxo de checkout hospedado.`
+    )
+  }
+  const createSubscriptionFn = gateway.createSubscription.bind(gateway)
+
   const planKey = resolveCheckoutPlanKey(request.planKey)
   const plan = await fetchPlanByKey(planKey)
   if (!plan) throw new InvalidPlanKeyError()
@@ -279,7 +286,7 @@ export async function subscribe(request: SubscribeRequest): Promise<SubscribeRes
   let subscription: DomainSubscription
   try {
     const idempotencyKey = `subscribe-${request.arenaId}-${plan.key}`
-    subscription = await gateway.createSubscription({
+    subscription = await createSubscriptionFn({
       customerId: record.gateway_customer_id,
       plan: planInfo,
       paymentMethodId: request.paymentMethodId,

@@ -11,15 +11,14 @@ import type {
   CardCollectionContext,
   ChangeSubscriptionPlanInput,
   CreateCustomerInput,
-  CreateSubscriptionInput,
   PaymentGateway,
   PaymentProvider,
   PrepareCardCollectionInput,
   RetryFailedPaymentInput,
   RetryFailedPaymentResult,
-  TokenizeCardInput,
   UpdateSubscriptionPaymentMethodInput,
 } from './payment-gateway.interface';
+import type { SubscriptionBillingSnapshotV1 } from '../domain/billing-snapshot';
 import { PaymentApiError } from '../errors';
 
 // ===== Tipos do Asaas (apenas o que usamos) =====
@@ -51,7 +50,14 @@ type AsaasSubscriptionStatus = 'ACTIVE' | 'INACTIVE' | 'EXPIRED';
 type AsaasSubscription = {
   id: string;
   customer: string;
-  billingType: 'BOLETO' | 'CREDIT_CARD' | 'PIX' | 'UNDEFINED';
+  billingType:
+    | 'BOLETO'
+    | 'CREDIT_CARD'
+    | 'PIX'
+    | 'UNDEFINED'
+    | 'DEBIT_CARD'
+    | 'TRANSFER'
+    | 'DEPOSIT';
   cycle: string;
   value: number;
   nextDueDate: string;
@@ -60,6 +66,7 @@ type AsaasSubscription = {
   description: string | null;
   externalReference: string | null;
   deleted: boolean;
+  dateCreated?: string;
 };
 
 type AsaasPaymentStatus =
@@ -88,10 +95,14 @@ type AsaasPayment = {
   billingType: string;
   dueDate: string;
   dateCreated: string;
+  /** Data de liquidação (doc cobrança GET). */
+  paymentDate?: string | null;
   invoiceNumber: string | null;
   description: string | null;
   creditCard: AsaasCreditCard | null;
   invoiceUrl: string | null;
+  installment?: string | null;
+  installmentNumber?: number | null;
 };
 
 type AsaasListResponse<T> = {
@@ -103,10 +114,27 @@ type AsaasListResponse<T> = {
   data: T[];
 };
 
-type AsaasTokenizeResponse = {
-  creditCardNumber: string;
-  creditCardBrand: string;
-  creditCardToken: string;
+type AsaasCheckoutResponse = {
+  id: string;
+  /** URL hospedada para onde redirecionar o cliente. */
+  link?: string;
+  /** Em algumas versões a API expõe a URL como `url`. */
+  url?: string;
+};
+
+/** No webhook, `checkout.subscription` costuma ser este objeto — não o id da assinatura. */
+type AsaasCheckoutSubscriptionSnapshot = {
+  cycle?: string;
+  nextDueDate?: string;
+  endDate?: string | null;
+};
+
+type AsaasCheckoutPayload = {
+  id?: string;
+  status?: string;
+  subscription?: string | AsaasCheckoutSubscriptionSnapshot | null;
+  customer?: string | null;
+  externalReference?: string | null;
 };
 
 type AsaasWebhookPayload = {
@@ -115,6 +143,7 @@ type AsaasWebhookPayload = {
   dateCreated?: string;
   payment?: AsaasPayment;
   subscription?: AsaasSubscription;
+  checkout?: AsaasCheckoutPayload;
 };
 
 // ===== Helpers =====
@@ -159,6 +188,16 @@ function reaisToCents(value: number): number {
 
 function centsToReais(cents: number): number {
   return Math.round(cents) / 100;
+}
+
+/** Webhook CHECKOUT_PAID: `subscription` pode ser string (id) ou objeto de configuração. */
+function parseAsaasSubscriptionIdFromCheckoutWebhookField(
+  subscription: AsaasCheckoutPayload['subscription']
+): string | null {
+  if (typeof subscription !== 'string') return null;
+  const id = subscription.trim();
+  if (!id || id.startsWith('{')) return null;
+  return id;
 }
 
 function mapSubscriptionStatus(
@@ -354,103 +393,84 @@ export class AsaasGateway implements PaymentGateway {
   async prepareCardCollection(
     input: PrepareCardCollectionInput
   ): Promise<CardCollectionContext> {
-    return { provider: 'asaas', customerId: input.customerId };
-  }
-
-  async resolveBillingHolderForCardTokenize(
-    customerId: string
-  ): Promise<TokenizeCardInput['holder']> {
-    const c = await this.http.request<AsaasCustomer>(
-      'GET',
-      `/v3/customers/${customerId}`
-    );
-
-    const phoneDigits = (c.phone ?? c.mobilePhone ?? '').replace(/\D/g, '');
-    const postalDigits = (c.postalCode ?? '').replace(/\D/g, '');
-    const email = (c.email ?? '').trim();
-    const name = (c.name ?? '').trim();
-    const cpfDigits = (c.cpfCnpj ?? '').replace(/\D/g, '');
-    const addressNumber = (c.addressNumber ?? '').trim() || 'S/N';
-
-    const missing: string[] = [];
-    if (!name) missing.push('nome da arena');
-    if (!email) missing.push('e-mail do titular (conta)');
-    if (cpfDigits.length < 11) missing.push('CPF/CNPJ no cadastro da arena');
-    if (postalDigits.length < 8) missing.push('CEP');
-    if (phoneDigits.length < 8) missing.push('telefone');
-    if (missing.length) {
-      throw new PaymentApiError(
-        400,
-        `Complete no cadastro da arena: ${missing.join(', ')}. Depois tente cadastrar o cartão novamente.`
-      );
-    }
-
-    return {
-      name,
-      email,
-      cpfCnpj: cpfDigits,
-      postalCode: postalDigits,
-      addressNumber,
-      phone: phoneDigits,
-    };
-  }
-
-  async tokenizeCard(input: TokenizeCardInput): Promise<{ token: string }> {
-    const result = await this.http.request<AsaasTokenizeResponse>(
-      'POST',
-      '/v3/creditCard/tokenizeCreditCard',
-      {
-        body: {
-          customer: input.customerId,
-          creditCard: {
-            holderName: input.card.holderName,
-            number: input.card.number,
-            expiryMonth: input.card.expiryMonth,
-            expiryYear: input.card.expiryYear,
-            ccv: input.card.cvv,
-          },
-          creditCardHolderInfo: {
-            name: input.holder.name,
-            email: input.holder.email,
-            cpfCnpj: input.holder.cpfCnpj,
-            postalCode: input.holder.postalCode,
-            addressNumber: input.holder.addressNumber,
-            phone: input.holder.phone,
-          },
-          remoteIp: input.remoteIp,
-        },
-      }
-    );
-    return { token: result.creditCardToken };
-  }
-
-  async createSubscription(
-    input: CreateSubscriptionInput
-  ): Promise<DomainSubscription> {
     const cycle = input.plan.cycle ?? 'MONTHLY';
     const today = todayIsoDate();
-    const requestBody = {
-      customer: input.customerId,
-      billingType: 'CREDIT_CARD',
-      value: centsToReais(input.plan.priceCents),
-      nextDueDate: today,
-      cycle,
-      creditCardToken: input.paymentMethodId,
-      remoteIp: input.remoteIp,
-      description: input.plan.label,
-      externalReference: input.metadata?.arena_id,
-    };
 
-    const sub = await this.http.request<AsaasSubscription>(
+    // O Asaas exige uma data de fim do checkout (não da subscription).
+    // 24h é suficiente — se expirar, geramos outro.
+    const expiresAt = addDays(today, 1);
+
+    const checkout = await this.http.request<AsaasCheckoutResponse>(
       'POST',
-      '/v3/subscriptions',
+      '/v3/checkouts',
       {
-        body: requestBody,
+        body: {
+          billingTypes: ['CREDIT_CARD'],
+          chargeTypes: ['RECURRENT'],
+          minutesToExpire: 60 * 24,
+          callback: {
+            successUrl: input.successUrl,
+            cancelUrl: input.cancelUrl,
+            expiredUrl: input.expiredUrl,
+          },
+          customer: input.customerId,
+          subscription: {
+            cycle,
+            nextDueDate: today,
+          },
+          items: [
+            {
+              name: input.plan.label,
+              description: `Assinatura ${input.plan.label}`,
+              quantity: 1,
+              value: centsToReais(input.plan.priceCents),
+            },
+          ],
+          externalReference: input.arenaId,
+          expiresAt,
+        },
         idempotencyKey: input.idempotencyKey,
       }
     );
 
-    return this.hydrateSubscription(sub, input.paymentMethodId);
+    const checkoutUrl = checkout.link ?? checkout.url;
+    if (!checkoutUrl) {
+      throw new PaymentApiError(
+        500,
+        'Asaas retornou checkout sem URL hospedada.',
+        JSON.stringify(checkout)
+      );
+    }
+
+    return {
+      provider: 'asaas-checkout',
+      checkoutId: checkout.id,
+      checkoutUrl,
+    };
+  }
+
+  async findSubscriptionIdAfterCheckoutPaid(input: {
+    customerId: string;
+    arenaId: string;
+  }): Promise<string | null> {
+    const result = await this.http.request<AsaasListResponse<AsaasSubscription>>(
+      'GET',
+      `/v3/subscriptions?customer=${encodeURIComponent(input.customerId)}&limit=50`
+    );
+
+    const active = result.data.filter((s) => !s.deleted && s.status === 'ACTIVE');
+    const byArenaRef = active.find(
+      (s) => s.externalReference === input.arenaId
+    );
+    if (byArenaRef) return byArenaRef.id;
+
+    active.sort((a, b) => {
+      const ta = a.dateCreated ? new Date(a.dateCreated).getTime() : 0;
+      const tb = b.dateCreated ? new Date(b.dateCreated).getTime() : 0;
+      return tb - ta;
+    });
+
+    return active[0]?.id ?? null;
   }
 
   async retrieveSubscription(
@@ -475,9 +495,31 @@ export class AsaasGateway implements PaymentGateway {
         'GET',
         `/v3/subscriptions/${subscriptionId}`
       );
-      return this.hydrateSubscription(sub, undefined, {
-        fetchPaymentMethod: true,
-      });
+      return this.hydrateSubscription(sub, { fetchPaymentMethod: true });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Monta snapshot persistível (doc Asaas: GET assinatura + cobranças; `creditCard`
+   * na cobrança com últimos 4, bandeira, token — não guardamos token no snapshot).
+   */
+  async buildBillingSnapshotForSubscription(
+    subscriptionId: string
+  ): Promise<SubscriptionBillingSnapshotV1 | null> {
+    try {
+      const sub = await this.http.request<AsaasSubscription>(
+        'GET',
+        `/v3/subscriptions/${encodeURIComponent(subscriptionId)}`
+      );
+      if (sub.deleted) return null;
+      const list = await this.http.request<AsaasListResponse<AsaasPayment>>(
+        'GET',
+        `/v3/subscriptions/${encodeURIComponent(subscriptionId)}/payments?limit=40`
+      );
+      const payment = this.pickLatestPaidCardPayment(list.data);
+      return this.composeBillingSnapshotV1(sub, payment);
     } catch {
       return null;
     }
@@ -502,33 +544,21 @@ export class AsaasGateway implements PaymentGateway {
       }
     );
 
-    if (input.paymentMethodId) {
-      await this.updateSubscriptionPaymentMethod({
-        subscriptionId: input.subscriptionId,
-        paymentMethodId: input.paymentMethodId,
-      });
-    }
-
-    return this.hydrateSubscription(sub, input.paymentMethodId);
+    return this.hydrateSubscription(sub);
   }
 
+  /**
+   * Atualização de método de pagamento no fluxo de Checkout não é suportada
+   * via API direta — o cliente precisa passar por um novo checkout. O caller
+   * deve usar prepareCardCollection para gerar um novo link.
+   */
   async updateSubscriptionPaymentMethod(
-    input: UpdateSubscriptionPaymentMethodInput
+    _input: UpdateSubscriptionPaymentMethodInput
   ): Promise<DomainSubscription> {
-    const sub = await this.http.request<AsaasSubscription>(
-      'PUT',
-      `/v3/subscriptions/${input.subscriptionId}`,
-      {
-        body: {
-          billingType: 'CREDIT_CARD',
-          creditCardToken: input.paymentMethodId,
-          updatePendingPayments: true,
-        },
-        idempotencyKey: input.idempotencyKey,
-      }
+    throw new PaymentApiError(
+      400,
+      'Para alterar o cartão no Asaas Checkout, gere um novo checkout via prepareCardCollection.'
     );
-
-    return this.hydrateSubscription(sub, input.paymentMethodId);
   }
 
   async setSubscriptionCancelAtPeriodEnd(
@@ -566,39 +596,9 @@ export class AsaasGateway implements PaymentGateway {
   }
 
   async retryFailedPayment(
-    input: RetryFailedPaymentInput
+    _input: RetryFailedPaymentInput
   ): Promise<RetryFailedPaymentResult> {
-    await this.updateSubscriptionPaymentMethod({
-      subscriptionId: input.subscriptionId,
-      paymentMethodId: input.paymentMethodId,
-    });
-
-    const pending = await this.findPendingOrOverduePayment(
-      input.subscriptionId
-    );
-    if (!pending) {
-      return { paid: false, status: 'no_pending_payment' };
-    }
-
-    try {
-      const result = await this.http.request<AsaasPayment>(
-        'POST',
-        `/v3/payments/${pending.id}/payWithCreditCard`,
-        {
-          body: { creditCardToken: input.paymentMethodId },
-        }
-      );
-      const paid =
-        result.status === 'CONFIRMED' ||
-        result.status === 'RECEIVED' ||
-        result.status === 'RECEIVED_IN_CASH';
-      return { paid, status: result.status };
-    } catch (error) {
-      return {
-        paid: false,
-        status: error instanceof Error ? error.message : 'failed',
-      };
-    }
+    return { paid: false, status: 'not_supported_use_checkout' };
   }
 
   async listCustomerInvoices(
@@ -626,6 +626,27 @@ export class AsaasGateway implements PaymentGateway {
 
     const payload = JSON.parse(rawBody) as AsaasWebhookPayload;
     const eventId = payload.id ?? `${payload.event}_${Date.now()}`;
+
+    if (payload.checkout) {
+      switch (payload.event) {
+        case 'CHECKOUT_PAID':
+          return {
+            kind: 'checkout.paid',
+            providerEventId: eventId,
+            checkoutId: payload.checkout.id ?? '',
+            subscriptionId: parseAsaasSubscriptionIdFromCheckoutWebhookField(
+              payload.checkout.subscription
+            ),
+            customerId: payload.checkout.customer ?? null,
+          };
+        default:
+          return {
+            kind: 'unhandled',
+            providerEventId: eventId,
+            eventType: payload.event,
+          };
+      }
+    }
 
     if (payload.payment) {
       const subscriptionId = payload.payment.subscription;
@@ -705,6 +726,68 @@ export class AsaasGateway implements PaymentGateway {
 
   // ===== Helpers internos =====
 
+  private pickLatestPaidCardPayment(
+    payments: AsaasPayment[]
+  ): AsaasPayment | null {
+    const paid: AsaasPaymentStatus[] = [
+      'RECEIVED',
+      'CONFIRMED',
+      'RECEIVED_IN_CASH',
+    ];
+    const sorted = [...payments].sort(
+      (a, b) =>
+        new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
+    );
+    const withCard = sorted.find(
+      (p) => paid.includes(p.status) && p.creditCard?.creditCardToken
+    );
+    if (withCard) return withCard;
+    return sorted.find((p) => paid.includes(p.status)) ?? null;
+  }
+
+  private composeBillingSnapshotV1(
+    sub: AsaasSubscription,
+    payment: AsaasPayment | null
+  ): SubscriptionBillingSnapshotV1 {
+    const cc = payment?.creditCard ?? null;
+    const last4 = cc?.creditCardNumber
+      ? cc.creditCardNumber.replace(/\D/g, '').slice(-4)
+      : null;
+    const brandRaw = cc?.creditCardBrand ?? null;
+    const brand = brandRaw ? brandRaw.toLowerCase() : null;
+
+    const confirmedAt = (() => {
+      if (payment?.paymentDate?.trim()) {
+        return payment.paymentDate.trim().slice(0, 10)
+      }
+      if (payment?.dateCreated?.trim()) {
+        const head = payment.dateCreated.trim().slice(0, 10)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(head)) return head
+      }
+      return new Date().toISOString().slice(0, 10)
+    })()
+
+    return {
+      schemaVersion: 1,
+      provider: 'asaas',
+      billingType: sub.billingType ?? null,
+      cycle: sub.cycle ?? null,
+      subscriptionValueReais: typeof sub.value === 'number' ? sub.value : null,
+      cardBrand: brand && brand.length > 0 ? brand : null,
+      cardLast4: last4 && last4.length > 0 ? last4 : null,
+      lastPaymentId: payment?.id ?? null,
+      lastPaymentValueReais: payment ? payment.value : null,
+      lastPaymentStatus: payment?.status ?? null,
+      lastPaymentConfirmedAt: confirmedAt,
+      paymentInstallmentId: payment?.installment ?? null,
+      paymentInstallmentNumber:
+        typeof payment?.installmentNumber === 'number'
+          ? payment.installmentNumber
+          : null,
+      capturedAt: new Date().toISOString(),
+    };
+  }
+
   private async findCustomerByExternalReference(
     externalRef: string
   ): Promise<AsaasCustomer | null> {
@@ -715,25 +798,8 @@ export class AsaasGateway implements PaymentGateway {
     return result.data[0] ?? null;
   }
 
-  private async findPendingOrOverduePayment(
-    subscriptionId: string
-  ): Promise<AsaasPayment | null> {
-    const result = await this.http.request<AsaasListResponse<AsaasPayment>>(
-      'GET',
-      `/v3/subscriptions/${subscriptionId}/payments?status=PENDING&limit=1`
-    );
-    if (result.data[0]) return result.data[0];
-
-    const overdue = await this.http.request<AsaasListResponse<AsaasPayment>>(
-      'GET',
-      `/v3/subscriptions/${subscriptionId}/payments?status=OVERDUE&limit=1`
-    );
-    return overdue.data[0] ?? null;
-  }
-
   private async hydrateSubscription(
     sub: AsaasSubscription,
-    knownPaymentMethodToken?: string,
     options: { fetchPaymentMethod?: boolean } = {}
   ): Promise<DomainSubscription> {
     let paymentMethod: DomainPaymentMethod | null = null;
@@ -742,25 +808,17 @@ export class AsaasGateway implements PaymentGateway {
       sub.status
     );
 
-    if (options.fetchPaymentMethod || knownPaymentMethodToken) {
+    if (options.fetchPaymentMethod) {
       try {
         const list = await this.http.request<AsaasListResponse<AsaasPayment>>(
           'GET',
-          `/v3/subscriptions/${sub.id}/payments?limit=10`
+          `/v3/subscriptions/${sub.id}/payments?limit=40`
         );
-        latestPayment = list.data[0] ?? null;
+        latestPayment = this.pickLatestPaidCardPayment(list.data);
         paymentMethod = mapPaymentMethodFromPayment(latestPayment);
       } catch {
         // tolerable: payment-method enrichment is best-effort
       }
-    }
-
-    if (knownPaymentMethodToken && !paymentMethod) {
-      paymentMethod = {
-        id: knownPaymentMethodToken,
-        type: 'card',
-        card: null,
-      };
     }
 
     if (sub.status === 'ACTIVE' && latestPayment) {
@@ -788,11 +846,13 @@ export class AsaasGateway implements PaymentGateway {
       metadata: sub.externalReference
         ? { arena_id: sub.externalReference }
         : {},
+      gatewayBillingType: sub.billingType ?? null,
       primaryItem: {
         id: sub.id,
         priceId: '',
+        /** `nextDueDate` do Asaas é data de calendário; ancorar ao meio-dia em Brasília via UTC evita cair no dia anterior no fuso BR. */
         currentPeriodEndIso: sub.nextDueDate
-          ? `${sub.nextDueDate}T00:00:00Z`
+          ? `${sub.nextDueDate}T15:00:00.000Z`
           : null,
       },
       paymentMethod,

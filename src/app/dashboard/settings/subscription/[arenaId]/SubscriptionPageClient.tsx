@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, Check, CreditCard } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -64,8 +64,26 @@ function formatPrice(cents: number) {
   }).format(cents / 100);
 }
 
-function formatDate(iso: string) {
-  return new Intl.DateTimeFormat('pt-BR').format(new Date(iso));
+function formatCalendarOrInstant(value: string) {
+  const t = value.trim();
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (dateOnly) {
+    const [, y, mo, d] = dateOnly;
+    return `${d}/${mo}/${y}`;
+  }
+  const ms = Date.parse(t);
+  if (Number.isNaN(ms)) return t;
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(ms));
+}
+
+function formatMaskedCardLine(last4: string) {
+  const digits = last4.replace(/\D/g, '').slice(-4).padStart(4, '0');
+  return `**** **** **** ${digits}`;
 }
 
 function capitalizeFirst(str: string) {
@@ -164,6 +182,11 @@ export function SubscriptionPageClient({
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error ?? 'Erro ao iniciar cadastro do cartao.');
+        return;
+      }
+
+      if (data.cardCollection?.provider === 'asaas-checkout') {
+        window.location.href = data.cardCollection.checkoutUrl;
         return;
       }
 
@@ -341,201 +364,220 @@ export function SubscriptionPageClient({
         </section>
       )}
 
-      {!hasSubscription && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center space-y-4 py-12 text-center">
-            <div className="rounded-full bg-muted p-4">
-              <CreditCard className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <div className="space-y-1">
-              <p className="font-medium">Nenhuma assinatura ativa</p>
-              <p className="text-sm text-muted-foreground">
-                {selectedPlan
-                  ? `Cadastre um cartao para ativar o plano ${selectedPlan.label}.`
-                  : 'Cadastre um cartao para ativar sua assinatura.'}
-              </p>
-            </div>
-            <Button
-              onClick={() => handleOpenCardModal()}
-              disabled={actionLoading || !selectedPlan}
-              className="bg-arena-button text-white hover:bg-arena-button-hover"
-            >
-              {actionLoading ? 'Aguarde...' : 'Cadastrar cartao e ativar'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs defaultValue="dados-basicos">
+        <TabsList variant="line">
+          <TabsTrigger value="dados-basicos">Dados basicos</TabsTrigger>
+          <TabsTrigger value="historico">Historico de pagamentos</TabsTrigger>
+        </TabsList>
 
-      {hasSubscription && (
-        <Tabs defaultValue="dados-basicos">
-          <TabsList variant="line">
-            <TabsTrigger value="dados-basicos">Dados basicos</TabsTrigger>
-            <TabsTrigger value="historico">Historico de pagamentos</TabsTrigger>
-          </TabsList>
+        <TabsContent value="dados-basicos" className="mt-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card>
+              <CardContent className="space-y-5 pt-6">
+                <h3 className="text-lg font-semibold">Plano de assinatura</h3>
 
-          <TabsContent value="dados-basicos" className="mt-6">
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <Card>
-                <CardContent className="space-y-5 pt-6">
-                  <h3 className="text-lg font-semibold">Plano de assinatura</h3>
-
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Plano atual
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {subscription.planLabel ?? '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Valor</p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {subscription.priceCents
-                          ? formatPrice(subscription.priceCents)
-                          : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Renovacao</p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {subscription.currentPeriodEnd
-                          ? formatDate(subscription.currentPeriodEnd)
-                          : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Forma de pagamento
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {subscription.paymentMethod ?? '—'}
-                      </p>
-                    </div>
+                {!hasSubscription && (
+                  <div className="rounded-lg border border-arena-button/20 bg-arena-button/5 px-3 py-2.5 text-sm text-[#0D3B45]">
+                    <p className="font-medium">Nenhuma assinatura ativa</p>
+                    <p className="mt-1 text-muted-foreground">
+                      Cadastre o cartão em &quot;Dados do cartão&quot; nesta
+                      página para ativar
+                      {selectedPlan
+                        ? ` o plano ${selectedPlan.label}`
+                        : ' a assinatura'}
+                      .
+                    </p>
                   </div>
+                )}
 
-                  {subscription.status === 'past_due' && (
-                    <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                      Pagamento em atraso. Atualize o cartao para regularizar a
-                      assinatura.
+                <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Plano atual</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {subscription.planLabel ?? '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Valor</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {subscription.priceCents
+                        ? formatPrice(subscription.priceCents)
+                        : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Renovacao</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {subscription.currentPeriodEnd
+                        ? formatCalendarOrInstant(subscription.currentPeriodEnd)
+                        : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      Forma de pagamento
+                    </p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {subscription.paymentMethod ?? '—'}
+                    </p>
+                  </div>
+                  {subscription.lastPaymentValueCents != null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Valor da ultima cobranca
+                      </p>
+                      <p className="mt-0.5 text-sm font-medium">
+                        {formatPrice(subscription.lastPaymentValueCents)}
+                      </p>
+                    </div>
+                  )}
+                  {subscription.installmentSummary ? (
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Parcelamento
+                      </p>
+                      <p className="mt-0.5 text-sm font-medium">
+                        {subscription.installmentSummary}
+                      </p>
+                    </div>
+                  ) : null}
+                  {subscription.lastPaymentConfirmedAt ? (
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Cobranca liquidada em
+                      </p>
+                      <p className="mt-0.5 text-sm font-medium">
+                        {formatCalendarOrInstant(
+                          subscription.lastPaymentConfirmedAt
+                        )}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                {subscription.status === 'past_due' && (
+                  <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    Pagamento em atraso. Atualize o cartao para regularizar a
+                    assinatura.
+                  </div>
+                )}
+
+                {hasSubscription &&
+                  planSelectionEnabled &&
+                  selectedPlan &&
+                  selectedPlan.key !== subscription.planKey && (
+                    <div className="space-y-3 rounded-lg border border-arena-button/20 bg-arena-button/5 p-4">
+                      <div>
+                        <p className="text-sm font-medium text-[#0D3B45]">
+                          Plano selecionado para troca
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {selectedPlan.label} por{' '}
+                          {formatPrice(selectedPlan.priceCents)} ao mes.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => handleOpenCardModal(selectedPlan.key)}
+                        disabled={actionLoading}
+                        className="bg-arena-button text-white hover:bg-arena-button-hover"
+                      >
+                        {actionLoading
+                          ? 'Processando...'
+                          : `Trocar para ${selectedPlan.label}`}
+                      </Button>
                     </div>
                   )}
 
-                  {planSelectionEnabled &&
-                    selectedPlan &&
-                    selectedPlan.key !== subscription.planKey && (
-                      <div className="space-y-3 rounded-lg border border-arena-button/20 bg-arena-button/5 p-4">
-                        <div>
-                          <p className="text-sm font-medium text-[#0D3B45]">
-                            Plano selecionado para troca
-                          </p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {selectedPlan.label} por{' '}
-                            {formatPrice(selectedPlan.priceCents)} ao mes.
-                          </p>
-                        </div>
-                        <Button
+                {(subscription.cancelAtPeriodEnd ||
+                  subscription.status === 'active') && (
+                  <div className="grid grid-cols-2 gap-x-8 pt-1">
+                    <div />
+                    <div>
+                      {subscription.cancelAtPeriodEnd ? (
+                        <button
                           type="button"
-                          onClick={() => handleOpenCardModal(selectedPlan.key)}
+                          onClick={handleReactivate}
                           disabled={actionLoading}
-                          className="bg-arena-button text-white hover:bg-arena-button-hover"
+                          className="text-sm text-arena-button hover:underline disabled:opacity-50"
                         >
-                          {actionLoading
-                            ? 'Processando...'
-                            : `Trocar para ${selectedPlan.label}`}
-                        </Button>
-                      </div>
-                    )}
+                          Manter assinatura
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setCancelModalOpen(true)}
+                          disabled={actionLoading}
+                          className="text-sm text-[#1B7B8A] hover:underline disabled:opacity-50"
+                        >
+                          Cancelar assinatura
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                  {(subscription.cancelAtPeriodEnd ||
-                    subscription.status === 'active') && (
+            <Card>
+              <CardContent className="space-y-5 pt-6">
+                <h3 className="text-lg font-semibold">Dados do cartao</h3>
+
+                {subscription.card ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Bandeira
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium">
+                          {capitalizeFirst(subscription.card.brand)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Cartão</p>
+                        <p className="mt-0.5 text-sm font-medium tracking-wide">
+                          {formatMaskedCardLine(subscription.card.last4)}
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-x-8 pt-1">
                       <div />
                       <div>
-                        {subscription.cancelAtPeriodEnd ? (
-                          <button
-                            type="button"
-                            onClick={handleReactivate}
-                            disabled={actionLoading}
-                            className="text-sm text-arena-button hover:underline disabled:opacity-50"
-                          >
-                            Manter assinatura
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setCancelModalOpen(true)}
-                            disabled={actionLoading}
-                            className="text-sm text-[#1B7B8A] hover:underline disabled:opacity-50"
-                          >
-                            Cancelar assinatura
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleOpenCardModal(
+                              subscription.planKey ?? selectedPlanKey
+                            )
+                          }
+                          disabled={actionLoading}
+                          className="text-sm text-[#1B7B8A] hover:underline disabled:opacity-50"
+                        >
+                          Alterar cartao
+                        </button>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="space-y-5 pt-6">
-                  <h3 className="text-lg font-semibold">Dados do cartao</h3>
-
-                  {subscription.card ? (
-                    <>
-                      <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            Bandeira
-                          </p>
-                          <p className="mt-0.5 text-sm font-medium">
-                            {capitalizeFirst(subscription.card.brand)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            Terminando em
-                          </p>
-                          <p className="mt-0.5 text-sm font-medium">
-                            {subscription.card.last4}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            Proximo debito
-                          </p>
-                          <p className="mt-0.5 text-sm font-medium">
-                            {subscription.currentPeriodEnd
-                              ? formatDate(subscription.currentPeriodEnd)
-                              : '—'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-x-8 pt-1">
-                        <div />
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleOpenCardModal(
-                                subscription.planKey ?? selectedPlanKey
-                              )
-                            }
-                            disabled={actionLoading}
-                            className="text-sm text-[#1B7B8A] hover:underline disabled:opacity-50"
-                          >
-                            Alterar cartao
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-sm text-muted-foreground">
-                        Nenhum cartao cadastrado.
-                      </p>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum cartao cadastrado.
+                    </p>
+                    {!hasSubscription ? (
+                      <Button
+                        type="button"
+                        onClick={() => handleOpenCardModal(selectedPlanKey)}
+                        disabled={actionLoading || !selectedPlan}
+                        className="bg-arena-button text-white hover:bg-arena-button-hover"
+                      >
+                        {actionLoading
+                          ? 'Aguarde...'
+                          : 'Cadastrar cartao e ativar'}
+                      </Button>
+                    ) : (
                       <div className="grid grid-cols-2 gap-x-8">
                         <div />
                         <div>
@@ -553,130 +595,137 @@ export function SubscriptionPageClient({
                           </button>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="space-y-5 pt-6">
-                  <h3 className="text-lg font-semibold">
-                    Endereço de cobrança
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        CPF / CNPJ
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {billingAddress.cpfCnpj ?? '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Logradouro
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {billingAddress.street ?? '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Bairro</p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {billingAddress.neighborhood ?? '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Cidade</p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {billingAddress.city ?? '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">UF</p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {billingAddress.stateUf ?? '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Número</p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {billingAddress.number ?? '—'}
-                      </p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-xs text-muted-foreground">
-                        Complemento
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium">
-                        {billingAddress.complement ?? '—'}
-                      </p>
-                    </div>
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-2 gap-x-8 pt-1">
-                    <div />
-                    <div>
-                      <Link
-                        href={`/dashboard/arenas/${arenaId}/edit`}
-                        className="text-sm text-[#1B7B8A] hover:underline"
-                      >
-                        Editar
-                      </Link>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="historico" className="mt-6">
-            <Card>
-              <CardContent className="pt-6">
-                <h3 className="mb-4 text-lg font-semibold">Seus pagamentos</h3>
-
-                {initialPaymentHistory.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    Nenhum pagamento registrado.
-                  </p>
-                ) : (
-                  <Table className={arenaDataTable.table}>
-                    <TableHeader>
-                      <TableRow className={arenaDataTable.theadRow}>
-                        <TableHead className={arenaDataTable.th}>Valor</TableHead>
-                        <TableHead className={arenaDataTable.th}>Status</TableHead>
-                        <TableHead className={arenaDataTable.th}>
-                          N do pedido
-                        </TableHead>
-                        <TableHead className={arenaDataTable.th}>Data</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {initialPaymentHistory.map((payment) => (
-                        <TableRow key={payment.id} className={arenaDataTable.tbodyRow}>
-                          <TableCell className={arenaDataTable.tdBold}>
-                            {formatPrice(payment.amountCents)}
-                          </TableCell>
-                          <TableCell className={arenaDataTable.td}>
-                            <PaymentStatusBadge status={payment.status} />
-                          </TableCell>
-                          <TableCell className={cn(arenaDataTable.td, 'text-arena-navy-800/60')}>
-                            {payment.invoiceNumber ?? '—'}
-                          </TableCell>
-                          <TableCell className={cn(arenaDataTable.td, 'text-arena-navy-800/60')}>
-                            {formatDate(payment.createdAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
-      )}
+
+            <Card>
+              <CardContent className="space-y-5 pt-6">
+                <h3 className="text-lg font-semibold">Endereço de cobrança</h3>
+
+                <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                  <div>
+                    <p className="text-xs text-muted-foreground">CPF / CNPJ</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {billingAddress.cpfCnpj ?? '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Logradouro</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {billingAddress.street ?? '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Bairro</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {billingAddress.neighborhood ?? '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Cidade</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {billingAddress.city ?? '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">UF</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {billingAddress.stateUf ?? '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Número</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {billingAddress.number ?? '—'}
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">Complemento</p>
+                    <p className="mt-0.5 text-sm font-medium">
+                      {billingAddress.complement ?? '—'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-8 pt-1">
+                  <div />
+                  <div>
+                    <Link
+                      href={`/dashboard/arenas/${arenaId}/edit`}
+                      className="text-sm text-[#1B7B8A] hover:underline"
+                    >
+                      Editar
+                    </Link>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="historico" className="mt-6">
+          <Card>
+            <CardContent className="pt-6">
+              <h3 className="mb-4 text-lg font-semibold">Seus pagamentos</h3>
+
+              {initialPaymentHistory.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  Nenhum pagamento registrado.
+                </p>
+              ) : (
+                <Table className={arenaDataTable.table}>
+                  <TableHeader>
+                    <TableRow className={arenaDataTable.theadRow}>
+                      <TableHead className={arenaDataTable.th}>Valor</TableHead>
+                      <TableHead className={arenaDataTable.th}>
+                        Status
+                      </TableHead>
+                      <TableHead className={arenaDataTable.th}>
+                        N do pedido
+                      </TableHead>
+                      <TableHead className={arenaDataTable.th}>Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {initialPaymentHistory.map((payment) => (
+                      <TableRow
+                        key={payment.id}
+                        className={arenaDataTable.tbodyRow}
+                      >
+                        <TableCell className={arenaDataTable.tdBold}>
+                          {formatPrice(payment.amountCents)}
+                        </TableCell>
+                        <TableCell className={arenaDataTable.td}>
+                          <PaymentStatusBadge status={payment.status} />
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            arenaDataTable.td,
+                            'text-arena-navy-800/60'
+                          )}
+                        >
+                          {payment.invoiceNumber ?? '—'}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            arenaDataTable.td,
+                            'text-arena-navy-800/60'
+                          )}
+                        >
+                          {formatCalendarOrInstant(payment.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog
         open={cardModalOpen}
@@ -715,7 +764,9 @@ export function SubscriptionPageClient({
                 onSuccess={handlePaymentSuccess}
                 onError={(msg) => toast.error(msg)}
                 onCancel={handleCloseCardModal}
-                submitLabel={modalPlanChange ? 'Salvar e trocar plano' : 'Salvar'}
+                submitLabel={
+                  modalPlanChange ? 'Salvar e trocar plano' : 'Salvar'
+                }
               />
             ) : (
               <div className="flex items-center justify-center py-16">

@@ -32,6 +32,8 @@ export type DomainSubscription = {
   cancelAtPeriodEnd: boolean
   canceledAtIso: string | null
   metadata: Record<string, string>
+  /** Ex.: Asaas `CREDIT_CARD` em GET /v3/subscriptions/{id} — documentação oficial. */
+  gatewayBillingType?: string | null
   primaryItem: DomainSubscriptionItem | null
   paymentMethod: DomainPaymentMethod | null
   latestInvoice: {
@@ -81,5 +83,12 @@ export type DomainWebhookEvent =
       providerEventId: string
       invoice: DomainInvoice
       subscriptionId: string | null
+    }
+  | {
+      kind: 'checkout.paid'
+      providerEventId: string
+      checkoutId: string
+      subscriptionId: string | null
+      customerId: string | null
     }
   | { kind: 'unhandled'; providerEventId: string; eventType: string }

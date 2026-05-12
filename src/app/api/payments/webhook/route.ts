@@ -10,10 +10,21 @@ import {
 } from '@/modules/payments/errors'
 import { getPaymentGateway } from '@/modules/payments/gateway'
 import { fetchPlanByGatewayPriceId } from '@/modules/payments/repositories/subscription-plans.repository'
+import { syncArenaBillingSnapshotFromGateway } from '@/modules/payments/usecases/sync-arena-billing-snapshot.usecase'
 import type { Database } from '@/types/supabase.types'
 import { NextRequest, NextResponse } from 'next/server'
 
 type ArenaSubscriptionTable = Database['public']['Tables']['arena_subscriptions']
+
+/** Evita gravar JSON/objeto serializado em `gateway_subscription_id` (bug CHECKOUT_PAID Asaas). */
+function normalizeGatewaySubscriptionIdFromWebhook(
+  id: string | null | undefined
+): string | null {
+  if (!id || typeof id !== 'string') return null
+  const t = id.trim()
+  if (!t || t.startsWith('{')) return null
+  return t
+}
 
 export async function POST(request: NextRequest) {
   const gateway = getPaymentGateway()
@@ -60,6 +71,15 @@ export async function POST(request: NextRequest) {
         await handleInvoiceActionRequired(
           event.subscriptionId,
           event.invoice.id,
+          event.providerEventId
+        )
+        break
+
+      case 'checkout.paid':
+        await handleCheckoutPaid(
+          event.checkoutId,
+          event.subscriptionId,
+          event.customerId,
           event.providerEventId
         )
         break
@@ -174,6 +194,10 @@ async function handleSubscriptionUpdated(
     },
     metadata: { provider_event_id: eventId, gateway_subscription_id: subscription.id }
   })
+
+  if (resolvedArenaId) {
+    await syncArenaBillingSnapshotFromGateway(resolvedArenaId)
+  }
 }
 
 async function handleSubscriptionDeleted(
@@ -259,6 +283,10 @@ async function handleInvoicePaid(
     arena_id: resolvedArenaId ?? '(no metadata)'
   })
 
+  if (resolvedArenaId) {
+    await syncArenaBillingSnapshotFromGateway(resolvedArenaId)
+  }
+
   await logAuditEvent({
     entityType: 'arena_subscription',
     entityId: resolvedArenaId ?? subscriptionId,
@@ -320,6 +348,97 @@ async function handleInvoicePaymentFailed(
       invoice_id: invoiceId,
       attempt_count: attemptCount
     }
+  })
+}
+
+async function handleCheckoutPaid(
+  checkoutId: string,
+  subscriptionId: string | null,
+  customerId: string | null,
+  eventId: string
+) {
+  if (!checkoutId) return
+
+  const supabase = getSupabaseAdmin()
+
+  const { data: record } = await supabase
+    .from('arena_subscriptions')
+    .select('arena_id, plan_id, plan_key, gateway_customer_id')
+    .eq('gateway_checkout_id', checkoutId)
+    .maybeSingle()
+
+  if (!record) {
+    console.warn('[payments-webhook] CHECKOUT_PAID — checkout não encontrado no banco', {
+      checkout_id: checkoutId,
+      subscription_id: subscriptionId,
+    })
+    return
+  }
+
+  let resolvedSubscriptionId = normalizeGatewaySubscriptionIdFromWebhook(subscriptionId)
+
+  const effectiveCustomerId = customerId ?? record.gateway_customer_id
+  const gateway = getPaymentGateway()
+  if (
+    !resolvedSubscriptionId &&
+    effectiveCustomerId &&
+    gateway.findSubscriptionIdAfterCheckoutPaid
+  ) {
+    resolvedSubscriptionId = await gateway.findSubscriptionIdAfterCheckoutPaid({
+      customerId: effectiveCustomerId,
+      arenaId: record.arena_id,
+    })
+  }
+
+  const fullSubscription = resolvedSubscriptionId
+    ? await gateway.retrieveSubscriptionWithPaymentMethod(resolvedSubscriptionId)
+    : null
+
+  const payload: ArenaSubscriptionTable['Update'] = {
+    status: 'active',
+    gateway_subscription_id: resolvedSubscriptionId ?? null,
+    ...(effectiveCustomerId ? { gateway_customer_id: effectiveCustomerId } : {}),
+    current_period_end:
+      fullSubscription?.primaryItem?.currentPeriodEndIso ?? null,
+    cancel_at_period_end: false,
+    canceled_at: null,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { error } = await supabase
+    .from('arena_subscriptions')
+    .update(payload)
+    .eq('arena_id', record.arena_id)
+
+  if (error) {
+    console.error('[payments-webhook] handleCheckoutPaid — update failed', error)
+    throw error
+  }
+
+  await syncArenaBillingSnapshotFromGateway(record.arena_id)
+
+  console.info('[payments-webhook] Checkout paid — subscription ativada', {
+    checkout_id: checkoutId,
+    subscription_id: resolvedSubscriptionId,
+    arena_id: record.arena_id,
+  })
+
+  await logAuditEvent({
+    entityType: 'arena_subscription',
+    entityId: record.arena_id,
+    action: 'subscription.activated',
+    actorId: eventId,
+    actorType: 'payment_webhook',
+    newValue: {
+      status: 'active',
+      gateway_subscription_id: resolvedSubscriptionId,
+      plan_key: record.plan_key,
+      plan_id: record.plan_id,
+    },
+    metadata: {
+      provider_event_id: eventId,
+      gateway_checkout_id: checkoutId,
+    },
   })
 }
 

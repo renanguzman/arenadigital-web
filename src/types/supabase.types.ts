@@ -77,6 +77,7 @@ export type Database = {
       arena_subscriptions: {
         Row: {
           arena_id: string
+          billing_snapshot: Json | null
           cancel_at_period_end: boolean
           canceled_at: string | null
           created_at: string
@@ -87,10 +88,12 @@ export type Database = {
           status: string
           gateway_customer_id: string
           gateway_subscription_id: string | null
+          gateway_checkout_id: string | null
           updated_at: string
         }
         Insert: {
           arena_id: string
+          billing_snapshot?: Json | null
           cancel_at_period_end?: boolean
           canceled_at?: string | null
           created_at?: string
@@ -101,10 +104,12 @@ export type Database = {
           status?: string
           gateway_customer_id: string
           gateway_subscription_id?: string | null
+          gateway_checkout_id?: string | null
           updated_at?: string
         }
         Update: {
           arena_id?: string
+          billing_snapshot?: Json | null
           cancel_at_period_end?: boolean
           canceled_at?: string | null
           created_at?: string
@@ -115,6 +120,7 @@ export type Database = {
           status?: string
           gateway_customer_id?: string
           gateway_subscription_id?: string | null
+          gateway_checkout_id?: string | null
           updated_at?: string
         }
         Relationships: [

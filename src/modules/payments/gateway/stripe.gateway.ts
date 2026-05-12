@@ -177,9 +177,6 @@ export class StripeGateway implements PaymentGateway {
     return { provider: 'stripe', clientSecret: setupIntent.client_secret }
   }
 
-  /** Stripe não suporta tokenização server-side — frontend usa Stripe Elements. */
-  // tokenizeCard intentionally omitted
-
   async createSubscription(
     input: CreateSubscriptionInput
   ): Promise<DomainSubscription> {
@@ -259,7 +256,9 @@ export class StripeGateway implements PaymentGateway {
       input.subscriptionId,
       {
         items: [{ id: itemId, price: input.plan.gatewayPriceId }],
-        default_payment_method: input.paymentMethodId,
+        ...(input.paymentMethodId
+          ? { default_payment_method: input.paymentMethodId }
+          : {}),
         payment_behavior: 'allow_incomplete',
         proration_behavior: 'create_prorations',
         expand: ['latest_invoice.payment_intent']

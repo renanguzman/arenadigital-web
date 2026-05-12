@@ -2,7 +2,6 @@
 
 import { Elements } from '@stripe/react-stripe-js'
 import { loadStripe, type Stripe } from '@stripe/stripe-js'
-import { AsaasCardForm } from './AsaasCardForm'
 import { PaymentSetupForm } from './PaymentSetupForm'
 import type { CardCollectionContext } from '@/modules/payments/gateway/payment-gateway.interface'
 import type { PlanKey } from '@/modules/payments/plans'
@@ -68,14 +67,8 @@ export function PaymentMethodCollector({
     )
   }
 
-  return (
-    <AsaasCardForm
-      arenaId={arenaId}
-      planKey={planKey}
-      onSuccess={onSuccess}
-      onError={onError}
-      onCancel={onCancel}
-      submitLabel={submitLabel}
-    />
-  )
+  // asaas-checkout: o fluxo é via redirect. Esse componente não deveria
+  // ser renderizado nesse caso — o SubscriptionPageClient deve interceptar
+  // a resposta do setup-intent e redirecionar diretamente.
+  return null
 }

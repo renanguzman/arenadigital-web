@@ -8,13 +8,17 @@ import { getPaymentGateway } from '@/modules/payments/gateway';
 import type {
   CardCollectionContext,
   PaymentProvider,
+  SubscriptionPlanInfo,
 } from '@/modules/payments/gateway/payment-gateway.interface';
 import {
   planKeySchema,
   resolveCheckoutPlanKey,
   type PlanKey,
 } from '@/modules/payments/plans';
-import { fetchPlanByKey } from '@/modules/payments/repositories/subscription-plans.repository';
+import {
+  fetchPlanByKey,
+  type SubscriptionPlanRow,
+} from '@/modules/payments/repositories/subscription-plans.repository';
 
 export type CreateSetupIntentResponse = {
   provider: PaymentProvider;
@@ -32,6 +36,33 @@ type ArenaContact = {
   postalCode?: string | null;
   addressNumber?: string | null;
 };
+
+function toPlanInfo(plan: SubscriptionPlanRow): SubscriptionPlanInfo {
+  return {
+    key: plan.key,
+    label: plan.label,
+    priceCents: plan.price_cents,
+    gatewayPriceId: plan.gateway_price_id,
+  };
+}
+
+function getAppBaseUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL;
+  if (explicit) return explicit.replace(/\/$/, '');
+  return 'http://localhost:3000';
+}
+
+/** URL de retorno após checkout Asaas (rota real do app + query `status`). */
+function buildSubscriptionCheckoutReturnUrl(
+  baseUrl: string,
+  arenaId: string,
+  status: 'success' | 'canceled' | 'expired'
+): string {
+  const path = `/dashboard/settings/subscription/${arenaId}/checkout-return`;
+  const url = new URL(path, `${baseUrl.replace(/\/$/, '')}/`);
+  url.searchParams.set('status', status);
+  return url.toString();
+}
 
 export async function createSetupIntent(
   arenaId: string,
@@ -118,6 +149,43 @@ export async function createSetupIntent(
     throw new PaymentConfigurationError(upsertError.message);
   }
 
+  const baseUrl = getAppBaseUrl();
+
+  if (gateway.providerName === 'asaas' && !baseUrl.toLowerCase().startsWith('https://')) {
+    throw new PaymentConfigurationError(
+      'Asaas exige URLs de callback em HTTPS e no mesmo domínio das informações comerciais da conta. Defina NEXT_PUBLIC_APP_URL (ou APP_URL) com um endereço público https (ex.: URL do cloudflared), não http://localhost.'
+    );
+  }
+
+  const cardCollection = await gateway.prepareCardCollection({
+    customerId: gatewayCustomerId,
+    arenaId,
+    plan: toPlanInfo(plan),
+    successUrl: buildSubscriptionCheckoutReturnUrl(baseUrl, arenaId, 'success'),
+    cancelUrl: buildSubscriptionCheckoutReturnUrl(baseUrl, arenaId, 'canceled'),
+    expiredUrl: buildSubscriptionCheckoutReturnUrl(baseUrl, arenaId, 'expired'),
+    metadata: { arena_id: arenaId, plan_key: planKey },
+    idempotencyKey: `setup-intent-${arenaId}-${planKey}-${Date.now()}`,
+  });
+
+  if (cardCollection.provider === 'asaas-checkout') {
+    const { error: checkoutUpdateError } = await supabase
+      .from('arena_subscriptions')
+      .update({
+        gateway_checkout_id: cardCollection.checkoutId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('arena_id', arenaId);
+
+    if (checkoutUpdateError) {
+      console.error(
+        '[payments] create-setup-intent — failed to persist gateway_checkout_id',
+        { checkoutId: cardCollection.checkoutId, error: checkoutUpdateError }
+      );
+      throw new PaymentConfigurationError(checkoutUpdateError.message);
+    }
+  }
+
   await logAuditEvent({
     entityType: 'arena_subscription',
     entityId: arenaId,
@@ -134,12 +202,6 @@ export async function createSetupIntent(
       arena_id: arenaId,
       reused_customer: Boolean(subscription?.gateway_customer_id),
     },
-  });
-
-  const cardCollection = await gateway.prepareCardCollection({
-    customerId: gatewayCustomerId,
-    metadata: { arena_id: arenaId, plan_key: planKey },
-    idempotencyKey: `setup-intent-${arenaId}-${planKey}`,
   });
 
   return {
