@@ -222,7 +222,7 @@ export function ArenaDetailPageClient({
               </Card>
             ) : (
               <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
-                <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-6 pb-1">
+                <div className="grid w-full grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-6 pb-1">
                   {courts.map((court) => {
                     const statusInfo = getCourtStatus(court);
                     return (
