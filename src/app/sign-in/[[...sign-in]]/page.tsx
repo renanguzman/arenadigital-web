@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -229,13 +228,6 @@ export default function SignInPage() {
               </button>
             </form>
           )}
-
-          <p className="text-center text-xs text-white/70">
-            Não tem uma conta?{' '}
-            <Link href="/sign-up" className="font-semibold text-white underline underline-offset-2 hover:text-zinc-200">
-              Cadastre-se
-            </Link>
-          </p>
         </div>
       </div>
     </div>
