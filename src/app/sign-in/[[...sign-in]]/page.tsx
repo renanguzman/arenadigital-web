@@ -32,7 +32,6 @@ export default function SignInPage() {
   const [mode, setMode] = React.useState<Mode>('password')
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
-  const [otp, setOtp] = React.useState('')
   const [loading, setLoading] = React.useState(false)
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
@@ -53,28 +52,18 @@ export default function SignInPage() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: false },
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+      },
     })
     setLoading(false)
     if (error) {
       toast.error(error.message)
       return
     }
-    toast.success('Código enviado para seu e-mail.')
+    toast.success('Link de acesso enviado para seu e-mail.')
     setMode('otp_verify')
-  }
-
-  const handleOtpVerify = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'email' })
-    setLoading(false)
-    if (error) {
-      toast.error(error.message)
-      return
-    }
-    router.push(redirectTo)
-    router.refresh()
   }
 
   const handleForgot = async (e: React.FormEvent) => {
@@ -101,7 +90,11 @@ export default function SignInPage() {
           <div className="space-y-1 text-center">
             <h1 className="text-2xl font-semibold text-white tracking-tight">Boas vindas!</h1>
             <p className="text-sm text-white/80">
-              {mode === 'forgot' ? 'Redefina sua senha' : 'Entre com sua conta'}
+              {mode === 'forgot'
+                ? 'Redefina sua senha'
+                : mode === 'otp_verify'
+                  ? 'Confira seu e-mail'
+                  : 'Entre com sua conta'}
             </p>
           </div>
 
@@ -116,10 +109,10 @@ export default function SignInPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setMode(mode === 'otp_verify' ? 'otp_verify' : 'otp_request')}
+                onClick={() => setMode('otp_request')}
                 className={`flex-1 rounded-md py-2 transition ${mode === 'otp_request' || mode === 'otp_verify' ? 'bg-white text-black' : 'text-white/70 hover:text-white'}`}
               >
-                Código por e-mail
+                Link por e-mail
               </button>
             </div>
           )}
@@ -169,37 +162,32 @@ export default function SignInPage() {
                 className={inputLight}
               />
               <button type="submit" disabled={loading} className={btnPrimary}>
-                {loading ? <Loader2 className="size-4 animate-spin" /> : <>Enviar código <ArrowRight className="size-4" /></>}
+                {loading ? <Loader2 className="size-4 animate-spin" /> : <>Enviar link <ArrowRight className="size-4" /></>}
               </button>
             </form>
           )}
 
           {mode === 'otp_verify' && (
-            <form onSubmit={handleOtpVerify} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4">
               <p className="text-center text-xs text-white/70">
-                Enviamos um código de 6 dígitos para <span className="font-semibold text-white">{email}</span>.
+                Enviamos um link de acesso para <span className="font-semibold text-white">{email}</span>.
+                Abra o e-mail e clique no link para entrar automaticamente.
               </p>
-              <input
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                required
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
-                className={`${inputLight} text-center text-lg tracking-[0.5em]`}
-              />
-              <button type="submit" disabled={loading || otp.length < 6} className={btnPrimary}>
-                {loading ? <Loader2 className="size-4 animate-spin" /> : 'Verificar'}
+              <button
+                type="button"
+                onClick={() => setMode('otp_request')}
+                className={btnPrimary}
+              >
+                Enviar novamente
               </button>
               <button
                 type="button"
-                onClick={() => { setOtp(''); setMode('otp_request') }}
+                onClick={() => setMode('password')}
                 className="text-xs text-white/80 underline underline-offset-2 hover:text-white"
               >
-                Reenviar código
+                Entrar com senha
               </button>
-            </form>
+            </div>
           )}
 
           {mode === 'forgot' && (
