@@ -9,7 +9,8 @@ Este documento descreve a arquitetura atual do banco de dados (Supabase) utiliza
 ## 1. Visão Geral do Sistema Base
 
 O banco de dados é gerido via **Supabase** (PostgreSQL) com migrações em SQL puro (`supabase/migrations/*.sql`).
-A autenticação primária é gerida por um provedor externo (Clerk), que é sincronizado com a tabela public.`users` (onde o `clerk_user_id` é salvo). No App Mobile, isso significa que ao fazer login/cadastro com Clerk, o usuário deverá estar vinculado à tabela principal de usuários e posteriormente ao seu perfil de **Atleta**.
+A autenticação é feita com **Supabase Auth**. O `auth.users.id` é o mesmo identificador salvo em public.`users.id`, e o perfil do atleta fica vinculado por `atleta.id_users`.
+
 > **Nota para Gestores:** Além dos dados de autenticação e nome, a tabela `users` também armazena o `cpf`, fornecido no momento do cadastro do gestor na plataforma Web. O telefone é armazenado diretamente no registro da respectiva `arena`.
 
 ---
@@ -19,7 +20,9 @@ A autenticação primária é gerida por um provedor externo (Clerk), que é sin
 Abaixo estão as entidades core do sistema focadas nas funcionalidades que o aplicativo precisará consumir ou interagir.
 
 ### 2.1. Arenas (`arenas` e tabelas auxiliares)
-As Arenas representam os estabelecimentos cadastrados no sistema. 
+
+As Arenas representam os estabelecimentos cadastrados no sistema.
+
 - **Funcionalidade no App:** Os usuários poderão realizar buscas de arenas por localidade, filtros e geolocalização exata usando GPS.
 - **Tabela `arenas`:**
   - `id` (uuid, primary key)
@@ -35,11 +38,13 @@ As Arenas representam os estabelecimentos cadastrados no sistema.
   Para listar as arenas considerando a distância do usuário, o App deve invocar a **RPC** `search_arenas_by_proximity(user_lat, user_lng, max_distance_meters)`. Essa função do Supabase retorna a lista de arenas 'ativo' ordenadas pela proximidade real. O payload inclui o valor de `dist_meters`, o array `sports` de modalidades e o array `comodidades`. Para apresentar a localidade (Cidade/Estado), o App usará o `municipio_id` retornado pela RPC para fazer um join posterior com a tabela `municipios` e `estados`.
 
 ### 2.1.1. Arenas Favoritas (`atleta_arena_favoritos`) e Vínculos (`arenas_atleta`)
+
 Mantém o registro das arenas que um atleta favoritou no aplicativo e os vínculos entre arenas e atletas.
+
 - **Funcionalidade no App:** O atleta pode favoritar/desfavoritar uma arena para acesso rápido (salvo em `atleta_arena_favoritos`). Além disso, ao favoritar, o sistema também cria uma vinculação caso não exista na tabela principal de vínculos (`arenas_atleta`).
 - **Tabela `arenas_atleta` (Vínculo Principal):**
   - Vincula um atleta a uma arena.
-  - **`origem` (Enum: `arena`, `aplicativo`):** Identifica se o vínculo foi criado pelo gestor da arena convidando o atleta (`arena`) ou se o atleta buscou a arena e a marcou como favorita (`aplicativo`). Quando favoritar no aplicativo, o valor preenchido deve ser `aplicativo`. Se o usuário desfavoritar pelo aplicativo, o registro será removido de ambas tabelas (`atleta_arena_favoritos` e `arenas_atleta`).
+  - **`origem` (Enum: `arena`, `aplicativo`):** Identifica se o vínculo foi criado pelo gestor da arena convidando o atleta (`arena`) ou se o atleta buscou a arena e a marcou como favorita (`aplicativo`). Quando favoritar no aplicativo, o valor preenchido deve ser `aplicativo`. Se o usuário desfavoritar pelo aplicativo, o registro será removido de ambas tabelas (`atleta_arena_favoritos` e `arenas_atleta`), independentemente da `origem` do vínculo (opt-out de relacionamento/novidades da arena).
 - **Tabela `atleta_arena_favoritos`: (Apenas Favoritos)**
 - **Tabela `atleta_arena_favoritos`:**
   - `id` (uuid, primary key)
@@ -52,13 +57,16 @@ Mantém o registro das arenas que um atleta favoritou no aplicativo e os víncul
   Fazer queries de `select` na tabela `atleta_arena_favoritos`, filtrando por `id_atleta = [id_do_atleta_logado]`. Para verificar se a arena está na lista do usuário, basta checar se o `id_arena` existe no retorno. Alternativamente, fazer join com `arenas` para trazer a lista de arenas favoritas completas.
 
 ### 2.2. Atletas (`atleta` e `atleta_esportes`)
+
 O usuário do app é um "Atleta". Ele terá um perfil próprio, configurando privacidade.
+
 - **Funcionalidade no App:** Busca de atletas para formar times, adicionar amigos ou desafiantes.
 - **Privacidade de Busca:** A regra de ouro é respeitar a coluna `compartilha_info`.
 - **Tabela `atleta`:**
   - `id` (uuid, primary key)
   - `id_users` (uuid, foreign key para `users.id`) - O elo entre a auth e o perfil.
-  - `nome_perfil`, `descricao_perfil`, `data_nascimento`, `cpf`, `telefone`.
+  - `cpf` - Identificador único de negócio do atleta, salvo apenas com dígitos.
+  - `nome_perfil`, `descricao_perfil`, `data_nascimento`, `telefone`.
   - `origem_cadastro` - Se cadastrado pelo 'aplicativo' ou pela 'arena'.
   - **`role` (tabela `users`):** Todo atleta criado pelo sistema Arena Digital Web recebe a role `'atleta'` na tabela de usuários.
   - **Redes:** `instagram`, `facebook`, `tiktok`.
@@ -78,13 +86,13 @@ O usuário do app é um "Atleta". Ele terá um perfil próprio, configurando pri
   - `id_nivel_habilidade_esporte` (uuid, foreign key para `nivel_habilidade_esporte.id`)
   - `data_criacao` (timestamp with time zone) - Data/hora em que a mudança ocorreu.
 
-
-
 - **Como o App Mobile deve buscar Atletas:**
   No módulo de pesquisa, ao buscar atletas, a cláusula `where compartilha_info = true` é **obrigatória**.
 
 ### 2.3. Comodidades (`comodidades` e `arena_comodidades`)
+
 As arenas possuem comodidades e facilidades que podem ser oferecidas para os atletas (ex: Churrasqueira, Wifi, Salão de Festas).
+
 - **Funcionalidade no App:** O aplicativo listará as comodidades no perfil da Arena e, futuramente, poderá usá-las em filtros de busca avançada.
 - **Tabela `comodidades`:**
   - `id` (uuid, primary key)
@@ -98,11 +106,15 @@ As arenas possuem comodidades e facilidades que podem ser oferecidas para os atl
   Acessando a relação de `arena_comodidades` na query de busca de detalhes da arena, ou utilizando o array `comodidades` retornado pela RPC `search_arenas_by_proximity` para fins de filtragem local no frontend.
 
 ### 2.4. Times (A desenvolver)
-A estrutura de *Times* (Equipes, Panelinhas) ainda será construída. 
+
+A estrutura de _Times_ (Equipes, Panelinhas) ainda será construída.
+
 - **Previsão:** Deve haver uma tabela de `times` e uma de vínculo `atleta_time`. Será mapeado posteriormente, seguindo o padrão relacional estabelecido.
 
 ### 2.4. Quadras e Agendamentos (`courts` e `bookings`)
+
 Dentro das arenas, o atleta visualizará as quadras disponíveis e fará reservas.
+
 - **Tabela `courts`:**
   - `id`, `arena_id`, `name`, `type`, `status` ('ativo', etc).
   - `image_url` (imagem da quadra), `is_covered` (se é coberta), `observations`.
@@ -120,20 +132,26 @@ Dentro das arenas, o atleta visualizará as quadras disponíveis e fará reserva
   3. Cruzar a grade horária (`day_config`) com os `bookings` para renderizar os horários livres.
 
 ### 2.5. Rotativos / Jogos Abertos (`rotativos` e `rotativo_inscricoes`)
+
 O sistema da Web permite ao gestor abrir um jogo ("Rotativo") para inscrições abertas (exatamente como uma partida avulsa).
+
 - **Tabela `rotativos`:** Representa o "evento" (ex: Rachão de Vôlei). Possui dados como data, hora, limite de participantes e `valor` (por inscrição).
 - **Tabela `rotativo_inscricoes`:** Relaciona o `id_rotativo` com o `id_atleta` interessado, o `status_pagamento` e o `valor_pago`.
 - **Funcionalidade no App:** O atleta pode se inscrever nestes jogos listados na página da Arena.
 
 ### 2.6. Pagamentos e Transações (App para a Arena)
+
 O pagamento realizado pelo usuário através do aplicativo **deve ser direcionado para a Arena**.
-- Atualmente, as transações financeiras na visão do gestor são persistidas na tabela `transactions`. 
+
+- Atualmente, as transações financeiras na visão do gestor são persistidas na tabela `transactions`.
 - **Coluna `atleta_id` (opcional):** A tabela `transactions` possui a coluna `atleta_id` (UUID, nullable, FK → `atleta.id` com `ON DELETE SET NULL`). Ao registrar uma **entrada**, o gestor pode vincular opcionalmente um atleta da carteira da arena. Quando preenchido, o nome do atleta é exibido no relatório de entradas e nos cards do dashboard financeiro. Transações sem atleta vinculado exibem `—`.
 - **Migração:** `ALTER TABLE transactions ADD COLUMN atleta_id UUID REFERENCES atleta(id) ON DELETE SET NULL;`
 - **Desenho Futuro (App):** Deve-se definir a infraestrutura de pagamentos (Ex: Stripe, Pagar.me ou MercadoPago com Split de Pagamentos, ou cobrança na chave própria da Arena). Ao efetuar a reserva no App, o status da reserva no `bookings` muda para e.g. `'confirmed'`, e um registro poderá ser injetado em `transactions` com tipo `'entrada'` e a origem do App, garantindo que o relatório do gestor reflita essa venda imediatamente.
 
 ### 2.6.1. Modos de Pagamento (`modo_pagamento`)
+
 Tabela de referência que armazena os métodos de pagamento disponíveis para lançamentos financeiros.
+
 - **Tabela `modo_pagamento`:**
   - `id` (uuid, primary key, default `gen_random_uuid()`)
   - `nome` (text, unique, not null) — Nome do modo de pagamento.
@@ -144,13 +162,17 @@ Tabela de referência que armazena os métodos de pagamento disponíveis para la
 - **RLS:** Política permissiva `Allow all for modo_pagamento` (padrão atual do projeto).
 
 ### 2.7. Programa de Fidelidade (`programa_fidelidade_extrato`)
+
 Algumas arenas oferecem cashback ou pontos ("Coins" da Arena).
+
 - Os extratos são visualizados usando a view `athlete_loyalty_balance` (soma os créditos e subtrai resgates).
 - O aplicativo pode consultar essa View simples: `SELECT balance FROM athlete_loyalty_balance WHERE id_arena = ? AND id_atleta = ?` para informar ao usuário quantos créditos ele tem em uma determinada Arena.
 
 ### 2.8. Rastreamento e Presença em Tempo Real (`atleta_locations`)
+
 A fim de contar e exibir informações sobre a lotação das arenas, o app rastreia a posição dos atletas.
-- **Funcionalidade no App:** O aplicativo captura a localização GPS do atleta a cada 5 minutos e envia para o banco fazendo um *Upsert*, mantendo apenas uma única linha (a mais atualizada) por usuário.
+
+- **Funcionalidade no App:** O aplicativo captura a localização GPS do atleta a cada 5 minutos e envia para o banco fazendo um _Upsert_, mantendo apenas uma única linha (a mais atualizada) por usuário.
 - **Tabela `atleta_locations`:**
   - `id_atleta` (uuid, primary key, foreign key para `atleta.id`).
   - `location` (geography(Point, 4326)).
@@ -159,6 +181,7 @@ A fim de contar e exibir informações sobre a lotação das arenas, o app rastr
 - **Função RPC (`get_arena_presence`):** Conta quantos atletas estão em um raio de 500 metros da Arena e que tiveram a localização enviada na última hora (`updated_at >= NOW() - INTERVAL '1 hour'`). Retorna -1 se a arena desativou a exibição.
 
 ### 2.9. Dashboard e Lógica de Ocupação
+
 A taxa de ocupação das quadras é calculada sob demanda para o dia atual, cruzando a disponibilidade da grade horária com as reservas confirmadas.
 
 - **Regra de Cálculo de Ocupação (Dashboard):**
@@ -169,7 +192,9 @@ A taxa de ocupação das quadras é calculada sob demanda para o dia atual, cruz
 - **Implementação Técnica:** Esta lógica reside no `DashboardService.ts`. O campo `day_config` é um `jsonb` contendo um array de objetos (ex: `[{ "day": "Segunda-feira", "enabled": true, "startTime": "08:00", "endTime": "22:00" }, ...]`).
 
 ### 2.10. Produtos e Controle de Estoque (`products`, `product_stock_entries` e `product_stock_movements`)
+
 O sistema de Ponto de Venda (PDV) das estações exige o controle rigoroso do estoque de produtos e suas movimentações para rastreabilidade e segurança.
+
 - **Tabela `products`:** Cadastro do produto.
   - `id`, `arena_id`, `name`, `description`, `price`, `status`.
   - `stock_quantity` (integer, default 0): Guarda o saldo atual do produto em estoque. O status do produto ("Em estoque" ou "Sem estoque") no frontend passou a ser derivado ativamente dessa coluna (em regra: `stock_quantity > 0`).
@@ -187,6 +212,7 @@ O sistema de Ponto de Venda (PDV) das estações exige o controle rigoroso do es
 ## 3. Row Level Security (RLS) policies 🛡️
 
 Atualmente, pela necessidade da aplicação estar tanto em estágio inicial como sendo consumida parcialmente sem Auth via APIs locais, a vasta maioria das tabelas possui políticas permissivas:
+
 ```sql
 -- Exemplo comum no schema
 create policy "Allow all for X" on X for all using (true) with check (true);
@@ -200,7 +226,7 @@ Apesar da facilidade por estar aberto, em etapas posteriores (Produção), o RLS
 ## 4. Sugestões de Setup do Client do App Mobile
 
 1. **Camada de Serviço (Repository Pattern):** Sempre encapsule as chamadas ao Supabase. Evite expor tabelas diretamente no UI.
-2. **Integração Clerk <-> Supabase:** Assegure-se de que ao registrar no App Mobile, após o Clerk ter sucesso, também seja criada a Entity de `Users` no Supabase e posteriormente gerado o row do `atleta`, caso não exista, com `origem_cadastro = 'aplicativo'`.
+2. **Integração Auth <-> Perfil:** Ao registrar no App Mobile, após o Supabase Auth criar o usuário, também deve ser criada/atualizada a linha em `users` e depois o row de `atleta`, caso não exista, com `origem_cadastro = 'aplicativo'`.
 3. **Múltiplos Esportes (Filtros):** Use a tabela de ligação relacional `arena_sports` (join table entre arenas e sports) além do uso da propriedade em array, para um filtro rápido e performático de arenas por modalidade pelo App.
 
 ## 5. Histórico e Manutenibilidade

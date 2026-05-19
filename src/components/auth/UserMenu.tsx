@@ -28,7 +28,6 @@ type UserMenuProps = {
 
 type DbUser = {
   id: string
-  clerk_user_id: string | null
   email: string
   name: string | null
   cpf: string | null

@@ -3,12 +3,127 @@
 import { SupabaseAthleteRepository } from '@/modules/athletes/repositories/SupabaseAthleteRepository'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { assertArenaBackofficeAccess, requireAuthenticatedDbUser } from '@/lib/server-auth'
-import { linkAthleteSchema } from '@/modules/athletes/schemas/athlete.schema'
+import {
+    linkAthleteSchema,
+    linkExistingAthleteSchema,
+    lookupAthleteByCpfSchema,
+} from '@/modules/athletes/schemas/athlete.schema'
+import { onlyDigits } from '@/lib/brasil-document'
 
 type MunicipioSearchRow = {
     codigo_ibge: number;
     nome: string;
     estados: { uf: string } | { uf: string }[] | null;
+}
+
+type AthleteLookupRow = {
+    id: string;
+    nome_perfil: string;
+    cpf: string | null;
+    telefone: string | null;
+    id_users: string;
+    users: { email: string; name: string | null } | { email: string; name: string | null }[] | null;
+    arenas_atleta: { id_arena: string }[] | null;
+    atleta_esportes: { sport: { name: string } | { name: string }[] | null }[] | null;
+}
+
+function formatCpf(digits: string) {
+    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
+}
+
+function getAthleteInviteRedirectTo() {
+    return (
+        process.env.NEXT_PUBLIC_ATHLETE_APP_PASSWORD_REDIRECT_URL ||
+        process.env.NEXT_PUBLIC_APP_PASSWORD_REDIRECT_URL ||
+        'arenadigital://set-password'
+    )
+}
+
+function normalizeLookupRow(row: AthleteLookupRow, arenaId: string) {
+    const user = Array.isArray(row.users) ? row.users[0] : row.users
+    const firstSport = row.atleta_esportes?.[0]?.sport
+    const sport = Array.isArray(firstSport) ? firstSport[0]?.name : firstSport?.name
+
+    return {
+        id: row.id,
+        name: row.nome_perfil,
+        cpf: row.cpf ?? '',
+        phone: row.telefone ?? '',
+        email: user?.email ?? '',
+        sport: sport ?? null,
+        alreadyLinked: (row.arenas_atleta ?? []).some((link) => link.id_arena === arenaId),
+    }
+}
+
+async function findAthleteByCpf(supabase: ReturnType<typeof getSupabaseAdmin>, cpf: string, arenaId: string) {
+    const digits = onlyDigits(cpf)
+    const variants = Array.from(new Set([digits, formatCpf(digits)]))
+
+    const { data, error } = await supabase
+        .from('atleta')
+        .select(`
+            id,
+            nome_perfil,
+            cpf,
+            telefone,
+            id_users,
+            users:id_users(email, name),
+            arenas_atleta(id_arena),
+            atleta_esportes(sport:id_esporte(name))
+        `)
+        .in('cpf', variants)
+        .maybeSingle()
+
+    if (error) throw error
+    return data ? normalizeLookupRow(data as unknown as AthleteLookupRow, arenaId) : null
+}
+
+export async function lookupAthleteByCpfAction(formData: {
+    cpf: string;
+    arenaId: string;
+}) {
+    const parsed = lookupAthleteByCpfSchema.safeParse(formData)
+    if (!parsed.success) {
+        return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" }
+    }
+
+    try {
+        await assertArenaBackofficeAccess(parsed.data.arenaId)
+        const supabase = getSupabaseAdmin()
+        const athlete = await findAthleteByCpf(supabase, parsed.data.cpf, parsed.data.arenaId)
+        return { success: true, data: athlete }
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Erro ao buscar atleta."
+        return { success: false, error: message }
+    }
+}
+
+export async function linkExistingAthleteToArenaAction(formData: {
+    athleteId: string;
+    arenaId: string;
+}) {
+    const parsed = linkExistingAthleteSchema.safeParse(formData)
+    if (!parsed.success) {
+        return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" }
+    }
+
+    try {
+        await requireAuthenticatedDbUser()
+        await assertArenaBackofficeAccess(parsed.data.arenaId)
+
+        const repo = new SupabaseAthleteRepository(getSupabaseAdmin())
+        await repo.linkToArena({
+            id_arena: parsed.data.arenaId,
+            id_atleta: parsed.data.athleteId,
+            origem: 'arena'
+        })
+
+        return { success: true }
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Erro ao vincular atleta."
+        if (message.includes('duplicate key')) return { success: true }
+        return { success: false, error: message }
+    }
 }
 
 export async function linkAthlete(formData: {
@@ -36,6 +151,12 @@ export async function linkAthlete(formData: {
         await assertArenaBackofficeAccess(formData.arenaId)
 
         const supabase = getSupabaseAdmin()
+        const cleanCpf = onlyDigits(parsed.data.cpf)
+
+        const existingAthlete = await findAthleteByCpf(supabase, cleanCpf, formData.arenaId)
+        if (existingAthlete) {
+            return { success: false, error: "Este CPF já pertence a um atleta cadastrado. Use a opção de vincular atleta existente." }
+        }
 
         // 1. Check if email already exists
         const { data: existingUser } = await supabase
@@ -44,29 +165,42 @@ export async function linkAthlete(formData: {
             return { success: false, error: "Este e-mail já está cadastrado no sistema." };
         }
 
-        // 2. Create User in Supabase Auth (no password — athlete entra via app mobile)
+        // 2. Create invited User in Supabase Auth. The athlete will set the password from the email link.
         const firstName = formData.name.split(' ')[0]
         const lastName = formData.name.split(' ').slice(1).join(' ') || undefined
-        const { data: created, error: createErr } = await supabase.auth.admin.createUser({
+        const { data: created, error: createErr } = await supabase.auth.admin.inviteUserByEmail(formData.email, {
+            redirectTo: getAthleteInviteRedirectTo(),
+            data: {
+                firstName,
+                lastName,
+                name: formData.name,
+                role: 'atleta',
+                origem_cadastro: 'arena',
+                cpf: cleanCpf,
+            },
+        })
+        if (createErr || !created.user) {
+            return { success: false, error: createErr?.message || 'Erro ao convidar usuário do atleta.' }
+        }
+
+        const { error: metadataErr } = await supabase.auth.admin.updateUserById(created.user.id, {
             email: formData.email,
-            email_confirm: true,
             user_metadata: {
                 firstName,
                 lastName,
                 name: formData.name,
                 role: 'atleta',
                 origem_cadastro: 'arena',
+                cpf: cleanCpf,
             },
         })
-        if (createErr || !created.user) {
-            return { success: false, error: createErr?.message || 'Erro ao criar usuário do atleta.' }
-        }
+        if (metadataErr) throw metadataErr
 
         // 3. Ensure public.users row exists (trigger inserts with role='gestor' por padrão; corrigimos para atleta)
         const { data: athleteDbUser, error: upsertError } = await supabase
             .from('users')
             .upsert(
-                { id: created.user.id, email: formData.email, name: formData.name, role: 'atleta' } as never,
+                { id: created.user.id, email: formData.email, name: formData.name, role: 'atleta', cpf: cleanCpf } as never,
                 { onConflict: 'id' }
             )
             .select()
@@ -78,7 +212,7 @@ export async function linkAthlete(formData: {
         const atleta = await repo.create({
             id_users: athleteDbUser.id,
             nome_perfil: formData.name,
-            cpf: formData.cpf,
+            cpf: cleanCpf,
             telefone: formData.phone,
             data_nascimento: formData.birthDate || null,
             cep: formData.cep || null,

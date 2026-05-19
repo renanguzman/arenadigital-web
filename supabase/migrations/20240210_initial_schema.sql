@@ -1,7 +1,6 @@
 -- Create users table
 create table if not exists users (
   id uuid default gen_random_uuid() primary key,
-  clerk_user_id text unique not null,
   email text not null,
   name text,
   role text default 'gestor' check (role in ('admin', 'gestor')),

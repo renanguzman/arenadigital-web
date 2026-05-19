@@ -1,6 +1,6 @@
 # Autenticação — Supabase Auth
 
-A aplicação web usa **Supabase Auth** (`@supabase/ssr`) como provedor de autenticação único. O Clerk foi removido do web.
+A aplicação web e o aplicativo usam **Supabase Auth** como provedor de autenticação único.
 
 ## Stack
 
@@ -62,16 +62,14 @@ Quando o gestor cria Gestor/Atendente/Caixa pelo backoffice (`/dashboard/setting
 - `updateArenaUserAction` → atualiza `public.users` + (se senha) `supabase.auth.admin.updateUserById(id, { password })`.
 - `deleteArenaUserAction` → remove `arena_users` + (se for usuário com `id = auth.users.id`) `supabase.auth.admin.deleteUser(id)`.
 
-## Tabela `public.users` durante a coexistência com mobile
+## Tabela `public.users`
 
-| Origem | `id` | `clerk_user_id` |
-|--------|------|-----------------|
-| Gestor/Atendente/Caixa (web) | igual ao `auth.users.id` | `NULL` |
-| Atleta | igual ao `auth.users.id` | `NULL` |
+| Origem | `id` |
+|--------|------|
+| Gestor/Atendente/Caixa (web) | igual ao `auth.users.id` |
+| Atleta | igual ao `auth.users.id` |
 
-A coluna `clerk_user_id` é `nullable` e tem `unique constraint`. A coluna `email` ganhou índice único case-insensitive (`lower(email)`).
-
-Nao ha mais webhook do Clerk no web. A coluna `clerk_user_id` permanece apenas como compatibilidade temporaria de schema e pode ser removida em uma migration futura quando os tipos Supabase forem regenerados.
+A coluna `email` tem índice único case-insensitive (`lower(email)`). Para atletas, o identificador de negócio é o CPF em `public.atleta.cpf`, normalizado apenas com dígitos e protegido por índice único.
 
 ## Variáveis de ambiente
 

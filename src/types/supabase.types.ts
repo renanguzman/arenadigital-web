@@ -2052,7 +2052,6 @@ export type Database = {
       }
       users: {
         Row: {
-          clerk_user_id: string
           cpf: string | null
           created_at: string
           email: string
@@ -2061,7 +2060,6 @@ export type Database = {
           role: string | null
         }
         Insert: {
-          clerk_user_id: string
           cpf?: string | null
           created_at?: string
           email: string
@@ -2070,7 +2068,6 @@ export type Database = {
           role?: string | null
         }
         Update: {
-          clerk_user_id?: string
           cpf?: string | null
           created_at?: string
           email?: string

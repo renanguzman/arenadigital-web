@@ -5,8 +5,9 @@
 -- ATENÇÃO: Ajuste os nomes de tabela se necessário (rode `\dt` no SQL Editor
 -- para confirmar os nomes exatos antes de executar).
 --
--- Contexto: o projeto usa Clerk para autenticação. O Supabase não recebe
--- tokens JWT do Clerk, então auth.uid() retorna NULL nas queries do browser.
+-- Contexto: o projeto usa Supabase Auth. A maioria das queries sensíveis da web
+-- passa por Route Handlers/Server Actions com service_role; o app usa a sessão
+-- do usuário autenticado.
 -- A estratégia adotada é a OPÇÃO A do plano:
 --   - Todas as queries autenticadas passam por Route Handlers (server-side)
 --     que usam o service_role. O RLS serve como camada extra de defesa.
@@ -145,8 +146,7 @@ USING (false);
 -- SELECT schemaname, tablename, policyname, roles, cmd FROM pg_policies WHERE schemaname = 'public' ORDER BY tablename;
 
 -- -----------------------------------------------------------------------------
--- PRÓXIMO PASSO (Opção B — longo prazo):
--- Integrar Clerk com Supabase via JWT template para usar auth.jwt() ->> 'clerk_user_id'
--- nas políticas. Isso permite queries autenticadas direto do browser com RLS real.
--- Documentação: https://supabase.com/docs/guides/auth/third-party/clerk
+-- PRÓXIMO PASSO:
+-- Apertar as policies por auth.uid() para permitir consultas diretas somente
+-- aos recursos do usuário autenticado e das arenas às quais ele tem acesso.
 -- -----------------------------------------------------------------------------

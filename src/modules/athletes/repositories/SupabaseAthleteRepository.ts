@@ -2,6 +2,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IAthleteRepository } from './IAthleteRepository';
 import type { Atleta, AtletaListItem, CreateAtletaDTO, CreateArenaAtletaDTO, CreateAtletaEsporteDTO } from '../types/athlete.types';
 
+type AthleteByArenaRow = {
+  id: string;
+  nome_perfil: string;
+  cpf: string | null;
+  telefone: string | null;
+  users: { email: string } | { email: string }[] | null;
+  atleta_esportes: { sport: { name: string } | { name: string }[] | null }[] | null;
+};
+
 export class SupabaseAthleteRepository implements IAthleteRepository {
   constructor(private readonly client: SupabaseClient) {}
 
@@ -25,14 +34,20 @@ export class SupabaseAthleteRepository implements IAthleteRepository {
     const { data, error } = await query;
     if (error) throw new Error(`SupabaseAthleteRepository.findByArena: ${error.message}`);
 
-    return (data ?? []).map((a: any) => ({
-      id: a.id,
-      name: a.nome_perfil,
-      cpf: a.cpf ?? '---',
-      telefone: a.telefone ?? '---',
-      email: a.users?.email ?? '---',
-      sport: a.atleta_esportes?.[0]?.sport?.name ?? 'N/A',
-    }));
+    return ((data ?? []) as unknown as AthleteByArenaRow[]).map((a) => {
+      const user = Array.isArray(a.users) ? a.users[0] : a.users;
+      const firstSport = a.atleta_esportes?.[0]?.sport;
+      const sport = Array.isArray(firstSport) ? firstSport[0]?.name : firstSport?.name;
+
+      return {
+        id: a.id,
+        name: a.nome_perfil,
+        cpf: a.cpf ?? '---',
+        telefone: a.telefone ?? '---',
+        email: user?.email ?? '---',
+        sport: sport ?? 'N/A',
+      };
+    });
   }
 
   async create(data: CreateAtletaDTO): Promise<Atleta> {
@@ -47,7 +62,9 @@ export class SupabaseAthleteRepository implements IAthleteRepository {
   }
 
   async linkToArena(data: CreateArenaAtletaDTO): Promise<void> {
-    const { error } = await this.client.from('arenas_atleta').insert(data);
+    const { error } = await this.client
+      .from('arenas_atleta')
+      .upsert(data, { onConflict: 'id_arena,id_atleta', ignoreDuplicates: true });
     if (error) throw new Error(`SupabaseAthleteRepository.linkToArena: ${error.message}`);
   }
 

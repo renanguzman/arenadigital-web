@@ -12,7 +12,7 @@ export async function GET() {
   const admin = getSupabaseAdmin()
   const { data: existingUser, error } = await admin
     .from('users')
-    .select('*')
+    .select('id, email, name, cpf, role, created_at')
     .eq('id', user.id)
     .maybeSingle()
 

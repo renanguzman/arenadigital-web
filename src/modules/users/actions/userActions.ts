@@ -112,7 +112,6 @@ type ArenaUserFormData = {
 
 type ArenaUserListItem = {
     arenaUserId: string;
-    clerkUserId: string | null;
     email: string;
     id: string;
     name: string;
@@ -136,7 +135,6 @@ type ArenaUserQueryRow = {
         id: string;
         name: string | null;
         email: string;
-        clerk_user_id: string | null;
     } | null;
 };
 
@@ -165,7 +163,7 @@ async function getArenaUserLinkOrThrow(arenaId: string, arenaUserId: string): Pr
     return data as ArenaUserLinkRow;
 }
 
-export async function createArenaUserAction(arenaId: string, data: ArenaUserFormData): Promise<ActionResult<{ clerk_user_id: string | null; email: string; id: string; name: string | null; role: string | null }>> {
+export async function createArenaUserAction(arenaId: string, data: ArenaUserFormData): Promise<ActionResult<{ email: string; id: string; name: string | null; role: string | null }>> {
     let createdAuthUserId: string | null = null;
 
     try {
@@ -200,7 +198,6 @@ export async function createArenaUserAction(arenaId: string, data: ArenaUserForm
 
         // 2. Trigger on_auth_user_created cria public.users automaticamente.
         //    Upsert defensivo para garantir nome correto e role.
-        // Cast: tipos gerados ainda dizem clerk_user_id NOT NULL; migration tornou nullable.
         const { data: newUser, error: userError } = await supabase
             .from('users')
             .upsert({
@@ -346,14 +343,7 @@ export async function deleteArenaUserAction(arenaId: string, arenaUserId: string
             throw new Error('Vínculo do usuário não corresponde à arena informada');
         }
 
-        // 1. Identificar se o usuario local tem entrada no Supabase Auth.
-        const { data: localUser } = await supabase
-            .from('users')
-            .select('clerk_user_id')
-            .eq('id', userId)
-            .single();
-
-        // 2. Delete from arena_users
+        // 1. Delete from arena_users
         const { error: arenaUserError } = await supabase
             .from('arena_users')
             .delete()
@@ -365,7 +355,7 @@ export async function deleteArenaUserAction(arenaId: string, arenaUserId: string
             throw new Error(`Erro ao desvincular usuário: ${arenaUserError.message}`);
         }
 
-        // 3. Se for o último vínculo do usuário, deletar de users e auth.users
+        // 2. Se for o último vínculo do usuário, deletar de users e auth.users
         const { count: remainingLinks, error: remainingLinksError } = await supabase
             .from('arena_users')
             .select('id', { count: 'exact', head: true })
@@ -377,11 +367,7 @@ export async function deleteArenaUserAction(arenaId: string, arenaUserId: string
 
         if ((remainingLinks ?? 0) === 0) {
             await supabase.from('users').delete().eq('id', userId);
-
-            // Usuarios Supabase Auth tem clerk_user_id nulo.
-            if (!localUser?.clerk_user_id) {
-                await supabase.auth.admin.deleteUser(userId).catch(e => console.error("Error deleting auth user", e));
-            }
+            await supabase.auth.admin.deleteUser(userId).catch(e => console.error("Error deleting auth user", e));
         }
 
         return { success: true };
@@ -415,7 +401,6 @@ export async function getArenaUsersAction(arenaId: string): Promise<ActionResult
                     role: item.role,
                     stationId: item.station_id,
                     status: item.status,
-                    clerkUserId: linkedUser.clerk_user_id,
                 };
             });
 

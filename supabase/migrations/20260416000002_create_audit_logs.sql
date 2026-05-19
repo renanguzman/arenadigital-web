@@ -8,7 +8,7 @@ create table audit_logs (
   entity_type text not null,      -- 'arena_subscription' | 'arena' | 'user' | ...
   entity_id   text not null,      -- UUID (como texto) da entidade afetada
   action      text not null,      -- ex: 'subscription.created', 'subscription.canceled'
-  actor_id    text,               -- clerk_user_id, stripe event ID, ou null para sistema
+  actor_id    text,               -- auth user ID, gateway event ID, ou null para sistema
   actor_type  text not null check (actor_type in ('user', 'system', 'stripe_webhook')),
   old_value   jsonb,              -- estado anterior (quando aplicável)
   new_value   jsonb,              -- novo estado

@@ -4,7 +4,6 @@ import React, { createContext, useContext, useReducer, useEffect, useCallback } 
 
 type DbUser = {
   id: string
-  clerk_user_id: string
   email: string
   name: string
   role: string | null

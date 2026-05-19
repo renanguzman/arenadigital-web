@@ -63,7 +63,7 @@ O acesso ao sistema ocorre por meio de login, disponível a partir da landing pa
 ## 5. Funcionalidades do MVP
 
 ### 5.1 Autenticação e Acesso
-- Login via Clerk
+- Login via Supabase Auth
 - Controle de sessão
 - Logout
 - Proteção de rotas autenticadas
@@ -210,7 +210,7 @@ O acesso ao sistema ocorre por meio de login, disponível a partir da landing pa
 
 ## 7. Restrições Técnicas
 
-- Autenticação obrigatória via Clerk
+- Autenticação obrigatória via Supabase Auth
 - Banco de dados Supabase (PostgreSQL)
 - Backend serverless (Vercel)
 - Consumo exclusivo via API REST
@@ -240,7 +240,7 @@ O acesso ao sistema ocorre por meio de login, disponível a partir da landing pa
 
 - Adoção inicial pelos gestores
 - Qualidade do cadastro de dados
-- Dependência da estabilidade de serviços terceiros (Clerk, Supabase, Vercel)
+- Dependência da estabilidade de serviços terceiros (Supabase, Vercel)
 
 
 ## 11. Fluxo de Agendamento

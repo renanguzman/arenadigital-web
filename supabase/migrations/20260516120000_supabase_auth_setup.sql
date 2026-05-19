@@ -1,14 +1,11 @@
--- Supabase Auth setup (web migrates from Clerk → Supabase Auth)
--- Atletas (mobile app) continuam vindo via webhook Clerk com UUIDs próprios;
--- gestores web passam a entrar via auth.users com id = users.id (mesmo UUID).
+-- Supabase Auth setup.
+-- Todos os usuários entram via auth.users com id = users.id (mesmo UUID).
 
--- 1. Tornar clerk_user_id opcional (gestores novos não terão; atletas ainda terão)
-alter table public.users alter column clerk_user_id drop not null;
+-- 1. Garantir índice único em email (defensivo para evitar duplicatas entre fluxos)
 
--- 2. Garantir índice único em email (defensivo para evitar duplicatas entre os dois fluxos)
 create unique index if not exists users_email_unique_idx on public.users (lower(email));
 
--- 3. Trigger: ao criar usuário em auth.users (signup do gestor web),
+-- 2. Trigger: ao criar usuário em auth.users (signup do gestor web),
 --    cria linha correspondente em public.users com mesmo id.
 create or replace function public.handle_new_auth_user()
 returns trigger

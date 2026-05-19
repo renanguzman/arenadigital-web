@@ -23,7 +23,6 @@ type ArenaUserRow = {
     id: string
     name: string | null
     email: string
-    clerk_user_id: string | null
   } | null
 }
 
@@ -162,8 +161,7 @@ export async function fetchArenaUsersForArena(
     users (
       id,
       name,
-      email,
-      clerk_user_id
+      email
     )
   `
 
@@ -176,8 +174,7 @@ export async function fetchArenaUsersForArena(
     users (
       id,
       name,
-      email,
-      clerk_user_id
+      email
     )
   `
 

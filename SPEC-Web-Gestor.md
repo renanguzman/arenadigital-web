@@ -16,7 +16,7 @@ Arquitetura **API-first**, onde toda a lógica de negócio reside no backend, e 
 v
 [ Web SaaS (Gestores) ] ────> [ API Serverless (Vercel) ]
 |
-├── Clerk (Auth)
+├── Supabase Auth
 ├── Supabase (PostgreSQL)
 └── Serviços auxiliares
 
@@ -29,7 +29,7 @@ v
 - Next.js (App Router)
 - TypeScript
 - TailwindCSS
-- Clerk SDK (Web)
+- Supabase Auth SDK
 - Fetch / Axios para consumo da API
 
 ---
@@ -46,21 +46,21 @@ v
 ### 3.3 Infraestrutura
 - Deploy: Vercel
 - Banco de dados: Supabase (PostgreSQL)
-- Autenticação: Clerk
+- Autenticação: Supabase Auth
 - Versionamento: GitHub
 
 ---
 
 ## 4. Autenticação e Autorização
 
-### 4.1 Autenticação (Clerk)
+### 4.1 Autenticação (Supabase Auth)
 
-- Toda autenticação é realizada via Clerk
-- O frontend nunca gerencia senhas
-- O token JWT do Clerk é enviado em todas as requisições autenticadas
+- Toda autenticação é realizada via Supabase Auth
+- O frontend nunca persiste senhas fora do provedor de autenticação
+- A sessão Supabase autentica as requisições protegidas
 
 Header padrão:
-Authorization: Bearer <clerk_token>
+Authorization: Bearer <supabase_access_token>
 
 ---
 
@@ -97,8 +97,8 @@ A validação ocorre no backend via server components e API routes.
 ## 5. Middleware de Segurança
 
 ### Responsabilidades
-- Validar token JWT do Clerk
-- Extrair `clerk_user_id`
+- Validar sessão Supabase
+- Extrair `auth.users.id`
 - Buscar usuário interno no Supabase
 - Verificar role e arena associada
 - Bloquear acessos não autorizados
@@ -112,7 +112,7 @@ A validação ocorre no backend via server components e API routes.
 ```sql
 users
 - id (uuid, pk)
-- clerk_user_id (text, unique)
+- email (text, unique)
 - email (text)
 - name (text)
 - role (admin | gestor)
@@ -192,7 +192,7 @@ Row Level Security (RLS) habilitado
 
 Policies baseadas em:
 
-clerk_user_id
+auth_user_id
 
 role
 

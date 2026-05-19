@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import { useEffect, useState } from "react"
+import { type FormEvent, useEffect, useState } from "react"
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -44,7 +44,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/shared/database/supabaseClient"
-import { linkAthlete, getSportsAction, getNiveisHabilidadeAction } from "@/modules/athletes/actions/athleteActions"
+import {
+    linkAthlete,
+    getSportsAction,
+    getNiveisHabilidadeAction,
+    linkExistingAthleteToArenaAction,
+    lookupAthleteByCpfAction,
+} from "@/modules/athletes/actions/athleteActions"
 import { athleteFormSchema, type AthleteFormValues } from "@/modules/athletes/schemas/athlete.schema"
 
 interface AthleteRegistrationModalProps {
@@ -63,6 +69,37 @@ const maskCpf = (value: string) =>
 const maskPhone = (value: string) =>
     value.replace(/\D/g, "").replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{5})(\d)/, "$1-$2").replace(/(-\d{4})\d+?$/, "$1")
 
+type ModalStep = "lookup" | "existing" | "create"
+
+type LookupAthlete = {
+    id: string
+    name: string
+    cpf: string
+    phone: string
+    email: string
+    sport: string | null
+    alreadyLinked: boolean
+}
+
+type Estado = {
+    codigo_uf: number
+    nome: string
+    uf: string
+}
+
+type Municipio = {
+    codigo_ibge: number
+    nome: string
+}
+
+type ViaCepResponse = {
+    erro?: boolean
+    logradouro?: string
+    bairro?: string
+    uf?: string
+    ibge?: string
+}
+
 export function AthleteRegistrationModal({
     arenaId,
     open,
@@ -74,10 +111,13 @@ export function AthleteRegistrationModal({
     const [isLoadingNiveis, setIsLoadingNiveis] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isFetchingCep, setIsFetchingCep] = useState(false)
+    const [step, setStep] = useState<ModalStep>("lookup")
+    const [lookupCpf, setLookupCpf] = useState("")
+    const [lookupAthlete, setLookupAthlete] = useState<LookupAthlete | null>(null)
 
     // Estado / Municipio state (same pattern as sign-up)
-    const [estados, setEstados] = useState<any[]>([])
-    const [municipios, setMunicipios] = useState<any[]>([])
+    const [estados, setEstados] = useState<Estado[]>([])
+    const [municipios, setMunicipios] = useState<Municipio[]>([])
     const [selectedEstadoId, setSelectedEstadoId] = useState<number | null>(null)
     const [municipioId, setMunicipioId] = useState<number | null>(null)
     const [isEstadoOpen, setIsEstadoOpen] = useState(false)
@@ -122,6 +162,9 @@ export function AthleteRegistrationModal({
         setSelectedEstadoId(null)
         setMunicipioId(null)
         setMunicipios([])
+        setStep("lookup")
+        setLookupCpf("")
+        setLookupAthlete(null)
     }
 
     // CEP lookup — same as sign-up
@@ -131,7 +174,7 @@ export function AthleteRegistrationModal({
         setIsFetchingCep(true)
         try {
             const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
-            const data = await res.json()
+            const data = await res.json() as ViaCepResponse
             if (data.erro) { toast.error("CEP não encontrado."); return }
 
             form.setValue("endereco", data.logradouro || "")
@@ -145,7 +188,7 @@ export function AthleteRegistrationModal({
                     .eq("codigo_uf", estadoEncontrado.codigo_uf).order("nome")
                 if (muns) {
                     setMunicipios(muns)
-                    const cidade = muns.find((m: any) => m.codigo_ibge.toString() === data.ibge)
+                    const cidade = (muns as Municipio[]).find((m) => m.codigo_ibge.toString() === data.ibge)
                     if (cidade) {
                         setMunicipioId(cidade.codigo_ibge)
                         form.setValue("idMunicipio", cidade.codigo_ibge)
@@ -174,6 +217,56 @@ export function AthleteRegistrationModal({
         }
     }
 
+    async function handleLookupSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+        const cleanCpf = lookupCpf.replace(/\D/g, "")
+        if (cleanCpf.length !== 11) {
+            toast.error("Informe um CPF válido para buscar o atleta.")
+            return
+        }
+
+        setIsSubmitting(true)
+        try {
+            const result = await lookupAthleteByCpfAction({ cpf: cleanCpf, arenaId })
+            if (!result.success) {
+                toast.error(result.error || "Erro ao buscar atleta.")
+                return
+            }
+
+            if (result.data) {
+                setLookupAthlete(result.data)
+                setStep("existing")
+                return
+            }
+
+            form.setValue("cpf", maskCpf(cleanCpf))
+            setStep("create")
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    async function handleLinkExisting() {
+        if (!lookupAthlete) return
+        setIsSubmitting(true)
+        try {
+            const result = await linkExistingAthleteToArenaAction({
+                athleteId: lookupAthlete.id,
+                arenaId,
+            })
+
+            if (result.success) {
+                toast.success(lookupAthlete.alreadyLinked ? "Atleta já estava vinculado." : "Atleta vinculado com sucesso!")
+                onSuccess()
+                onOpenChange(false)
+            } else {
+                toast.error(result.error || "Erro ao vincular atleta.")
+            }
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
     async function onSubmit(data: AthleteFormValues) {
         setIsSubmitting(true)
         try {
@@ -193,7 +286,7 @@ export function AthleteRegistrationModal({
                 idMunicipio: municipioId ?? undefined,
             })
             if (result.success) {
-                toast.success("Atleta vinculado com sucesso!")
+                toast.success("Atleta cadastrado, vinculado e convidado por e-mail.")
                 onSuccess()
                 onOpenChange(false)
             } else {
@@ -224,12 +317,61 @@ export function AthleteRegistrationModal({
                     {/* Header */}
                     <DialogHeader className="px-8 pt-7 pb-5 border-b border-arena-navy-800/8 shrink-0">
                         <DialogTitle className="text-xl font-bold text-arena-navy-800">
-                            Cadastrar novo atleta
+                            {step === "lookup" ? "Vincular atleta" : step === "existing" ? "Atleta encontrado" : "Cadastrar novo atleta"}
                         </DialogTitle>
                     </DialogHeader>
 
                     {/* Scrollable body */}
                     <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
+                        {step === "lookup" ? (
+                            <form id="athlete-lookup-form" onSubmit={handleLookupSubmit} className="px-8 py-6 space-y-5">
+                                <div className="space-y-2">
+                                    <FormLabel className={labelCls}>CPF do atleta</FormLabel>
+                                    <Input
+                                        placeholder="000.000.000-00"
+                                        value={lookupCpf}
+                                        onChange={(event) => setLookupCpf(maskCpf(event.target.value))}
+                                        className={inputCls}
+                                    />
+                                    <p className="text-sm text-arena-navy-800/55">
+                                        Primeiro buscamos pelo CPF. Se o atleta já existir, basta vincular à arena; se não existir, abrimos o cadastro.
+                                    </p>
+                                </div>
+                            </form>
+                        ) : step === "existing" && lookupAthlete ? (
+                            <div className="px-8 py-6 space-y-5">
+                                <div className="rounded-lg border border-arena-navy-800/10 bg-arena-navy-800/[0.03] p-5">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-arena-navy-800">{lookupAthlete.name}</h3>
+                                            <p className="text-sm text-arena-navy-800/60">{maskCpf(lookupAthlete.cpf)}</p>
+                                        </div>
+                                        <span className={cn(
+                                            "rounded-full px-3 py-1 text-xs font-semibold",
+                                            lookupAthlete.alreadyLinked
+                                                ? "bg-amber-100 text-amber-800"
+                                                : "bg-emerald-100 text-emerald-800"
+                                        )}>
+                                            {lookupAthlete.alreadyLinked ? "Já vinculado" : "Disponível para vínculo"}
+                                        </span>
+                                    </div>
+                                    <div className="mt-5 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                                        <div>
+                                            <p className="font-semibold text-arena-navy-800">E-mail</p>
+                                            <p className="text-arena-navy-800/65">{lookupAthlete.email || "---"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-arena-navy-800">Telefone</p>
+                                            <p className="text-arena-navy-800/65">{lookupAthlete.phone || "---"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-arena-navy-800">Esporte</p>
+                                            <p className="text-arena-navy-800/65">{lookupAthlete.sport || "---"}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
                         <Form {...form}>
                             <form id="athlete-form" onSubmit={form.handleSubmit(onSubmit)}>
                                 <div className="px-8 py-6 space-y-5">
@@ -464,7 +606,7 @@ export function AthleteRegistrationModal({
                                                         <CommandList>
                                                             <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>
                                                             <CommandGroup>
-                                                                {municipios.map((municipio: any) => (
+                                                                {municipios.map((municipio) => (
                                                                     <CommandItem key={municipio.codigo_ibge} value={municipio.nome}
                                                                         onSelect={() => {
                                                                             setMunicipioId(municipio.codigo_ibge)
@@ -487,6 +629,7 @@ export function AthleteRegistrationModal({
                                 </div>
                             </form>
                         </Form>
+                        )}
                     </ScrollArea>
 
                     {/* Footer — fora do ScrollArea para não ficar sobreposto */}
@@ -496,10 +639,34 @@ export function AthleteRegistrationModal({
                             className="border-arena-navy-800/20 text-arena-navy-800 font-semibold rounded-lg hover:bg-gray-50">
                             Fechar
                         </Button>
-                        <Button type="submit" form="athlete-form" disabled={isSubmitting}
-                            className="bg-arena-button hover:bg-arena-button-hover text-white font-semibold rounded-lg shadow-sm disabled:opacity-50">
-                            {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : "Salvar"}
-                        </Button>
+                        {step !== "lookup" && (
+                            <Button type="button" variant="outline"
+                                onClick={() => {
+                                    setStep("lookup")
+                                    setLookupAthlete(null)
+                                }}
+                                className="border-arena-navy-800/20 text-arena-navy-800 font-semibold rounded-lg hover:bg-gray-50">
+                                Voltar
+                            </Button>
+                        )}
+                        {step === "lookup" && (
+                            <Button type="submit" form="athlete-lookup-form" disabled={isSubmitting}
+                                className="bg-arena-button hover:bg-arena-button-hover text-white font-semibold rounded-lg shadow-sm disabled:opacity-50">
+                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Buscando...</> : "Buscar"}
+                            </Button>
+                        )}
+                        {step === "existing" && (
+                            <Button type="button" onClick={handleLinkExisting} disabled={isSubmitting || !!lookupAthlete?.alreadyLinked}
+                                className="bg-arena-button hover:bg-arena-button-hover text-white font-semibold rounded-lg shadow-sm disabled:opacity-50">
+                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Vinculando...</> : lookupAthlete?.alreadyLinked ? "Vínculo existente" : "Vincular"}
+                            </Button>
+                        )}
+                        {step === "create" && (
+                            <Button type="submit" form="athlete-form" disabled={isSubmitting}
+                                className="bg-arena-button hover:bg-arena-button-hover text-white font-semibold rounded-lg shadow-sm disabled:opacity-50">
+                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : "Salvar e enviar convite"}
+                            </Button>
+                        )}
                     </div>
 
                 </div>
