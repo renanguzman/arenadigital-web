@@ -20,6 +20,7 @@ import {
     FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
     Select,
     SelectContent,
@@ -326,7 +327,7 @@ export function AthleteRegistrationModal({
                         {step === "lookup" ? (
                             <form id="athlete-lookup-form" onSubmit={handleLookupSubmit} className="px-8 py-6 space-y-5">
                                 <div className="space-y-2">
-                                    <FormLabel className={labelCls}>CPF do atleta</FormLabel>
+                                    <Label className={labelCls}>CPF do atleta</Label>
                                     <Input
                                         placeholder="000.000.000-00"
                                         value={lookupCpf}
@@ -534,7 +535,7 @@ export function AthleteRegistrationModal({
                                     {/* Row 6: Estado | Cidade (Popover+Command — same as sign-up) */}
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,12rem)_1fr]">
                                         <FormItem className="min-w-0">
-                                            <FormLabel className={labelCls}>Estado</FormLabel>
+                                            <Label className={labelCls}>Estado</Label>
                                             <Popover open={isEstadoOpen} onOpenChange={setIsEstadoOpen}>
                                                 <PopoverTrigger asChild>
                                                     <Button
@@ -578,7 +579,7 @@ export function AthleteRegistrationModal({
                                         </FormItem>
 
                                         <FormItem className="min-w-0">
-                                            <FormLabel className={labelCls}>Cidade</FormLabel>
+                                            <Label className={labelCls}>Cidade</Label>
                                             <Popover open={isMunicipioOpen} onOpenChange={setIsMunicipioOpen}>
                                             <PopoverTrigger asChild>
                                                 <Button
