@@ -26,7 +26,7 @@ import { createCourtAction, updateCourtAction, getSportsForCourtAction } from "@
 import { useRouter } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
 import { useEffect, useState, useRef } from "react"
-import { UploadCloud, X, Image as ImageIcon } from "lucide-react"
+import { UploadCloud, X, Image as ImageIcon, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { DayScheduleConfig, DayConfig } from "./DayScheduleConfig"
 import { courtSchema, type CourtFormValues } from "@/modules/courts/schemas/court.schema"
@@ -493,8 +493,15 @@ export function CourtForm({ initialData, arenaId, onSuccess, returnTab = "espaco
                     )}
                 />
 
-                <Button type="submit" className="w-full bg-arena-button hover:bg-arena-button-hover text-white">
-                    {initialData ? "Salvar Alterações" : "Cadastrar Espaço"}
+                <Button type="submit" disabled={isUploading} className="w-full bg-arena-button hover:bg-arena-button-hover text-white">
+                    {isUploading ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {initialData ? "Salvando..." : "Cadastrando..."}
+                        </>
+                    ) : (
+                        initialData ? "Salvar Alterações" : "Cadastrar Espaço"
+                    )}
                 </Button>
             </form>
         </Form>
