@@ -6,6 +6,7 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Logo } from '@/components/shared/Logo'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { provisionAfterSignUpAction } from '@/modules/auth/actions/authActions'
 
 const inputLight =
   'w-full rounded-lg border border-zinc-700 bg-white px-3 py-2.5 text-sm text-black placeholder-zinc-500 outline-none transition focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400'
@@ -43,6 +44,12 @@ export default function SignInPage() {
       toast.error(error.message)
       return
     }
+
+    const provision = await provisionAfterSignUpAction()
+    if (!provision.success) {
+      console.error('provisionAfterSignUpAction:', provision.error)
+    }
+
     router.push(redirectTo)
     router.refresh()
   }

@@ -83,8 +83,9 @@ export async function startSignUpAction(input: SignUpInput): Promise<ActionResul
     }
 }
 
-// Após o usuário confirmar o link de email, provisiona arena + arena_user.
-// Lê o usuário autenticado da session (cookie) e os dados do metadata salvos em raw_user_meta_data.
+// Provisiona arena + arena_user a partir do metadata do cadastro.
+// Chamado após confirmação de email (/auth/callback) e no login, para cobrir quem
+// confirma o e-mail mas entra depois pela tela de login.
 export async function provisionAfterSignUpAction(): Promise<ActionResult<{ arenaCreated: boolean }>> {
     try {
         const supabase = await createSupabaseServerClient()

@@ -36,7 +36,10 @@ export async function GET(request: Request) {
 
     // Garante que gestores autenticados via OAuth/magic link tenham provisionamento
     // (se o metadata tiver arenaName, provisionAfterSignUpAction cria arena+arena_user).
-    await provisionAfterSignUpAction()
+    const provision = await provisionAfterSignUpAction()
+    if (!provision.success) {
+        console.error("[auth/callback] provisionAfterSignUpAction failed:", provision.error)
+    }
 
     return NextResponse.redirect(new URL(next, url.origin))
 }

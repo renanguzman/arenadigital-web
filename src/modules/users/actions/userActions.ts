@@ -51,8 +51,29 @@ function normalizeOwnerArenaAddressData(value: unknown): OwnerArenaAddressData |
     };
 }
 
+async function ensureOwnerArenaUserLink(supabase: ReturnType<typeof getSupabaseAdmin>, arenaId: string, ownerId: string) {
+    const { data: existingLink } = await supabase
+        .from('arena_users')
+        .select('id')
+        .eq('arena_id', arenaId)
+        .eq('user_id', ownerId)
+        .maybeSingle();
+
+    if (existingLink) return;
+
+    const { error: arenaUserError } = await supabase.from('arena_users').insert({
+        arena_id: arenaId,
+        user_id: ownerId,
+        role: 'Gestor',
+        status: 'Ativo',
+    });
+    if (arenaUserError && arenaUserError.code !== '23505') {
+        throw new Error(`Erro ao vincular usuário: ${arenaUserError.message}`);
+    }
+}
+
 // Cria arena + vínculo arena_user (role Gestor) para um owner já existente em public.users.
-// Idempotente: se já houver arena com o mesmo nome para o owner, não faz nada.
+// Idempotente: se a arena já existir, garante ao menos o vínculo em arena_users.
 export async function provisionOwnerArena(
     ownerId: string,
     arenaName: string,
@@ -65,7 +86,10 @@ export async function provisionOwnerArena(
     const { data: existingArena } = await supabase
         .from('arenas').select('id').eq('owner_id', ownerId).eq('name', arenaName).maybeSingle();
 
-    if (existingArena) return;
+    if (existingArena) {
+        await ensureOwnerArenaUserLink(supabase, existingArena.id, ownerId);
+        return;
+    }
 
     const arenaInsertData: ArenaInsert = { name: arenaName, owner_id: ownerId, status: 'ativo', ...(phone && { phone }) };
 
@@ -92,10 +116,7 @@ export async function provisionOwnerArena(
     if (arenaError && arenaError.code !== '23505') throw new Error(`Erro ao criar arena: ${arenaError.message}`);
 
     if (newArena) {
-        const { error: arenaUserError } = await supabase.from('arena_users').insert({
-            arena_id: newArena.id, user_id: ownerId, role: 'Gestor', status: 'Ativo'
-        });
-        if (arenaUserError && arenaUserError.code !== '23505') throw new Error(`Erro ao vincular usuário: ${arenaUserError.message}`);
+        await ensureOwnerArenaUserLink(supabase, newArena.id, ownerId);
     }
 }
 
