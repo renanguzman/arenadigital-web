@@ -84,4 +84,4 @@ A coluna `email` tem índice único case-insensitive (`lower(email)`). Para atle
 - **Auth → URL Configuration:**
   - `Site URL`: domínio de produção (`https://...`).
   - `Redirect URLs`: incluir `http://localhost:3000/**` (dev), domínio de prod com `/**`, e explicitamente `/auth/callback`.
-- **Auth → Email Templates:** confirmation, magic link, recovery em PT-BR.
+- **Auth → Email Templates:** templates em PT-BR com identidade Arena Digital — ver `supabase/email-templates/` (aplicar com `pnpm email-templates:apply` ou copiar manualmente no painel).

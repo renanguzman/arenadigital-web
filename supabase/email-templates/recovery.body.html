@@ -1,0 +1,19 @@
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#002b40;line-height:1.3;">Redefinir senha</h1>
+<p style="margin:0 0 20px;color:#7a7e87;font-size:15px;line-height:1.5;">
+  Recebemos uma solicitação para redefinir a senha da conta <strong>{{ .Email }}</strong>.
+</p>
+<p style="margin:0 0 8px;color:#002b40;font-size:15px;">
+  Clique no botão abaixo para escolher uma nova senha.
+</p>
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0;">
+  <tr>
+    <td style="border-radius:8px;background-color:#ff6b00;">
+      <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:14px 32px;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
+        Redefinir senha
+      </a>
+    </td>
+  </tr>
+</table>
+<p style="margin:0;color:#7a7e87;font-size:13px;line-height:1.5;">
+  Se você não solicitou a redefinição, ignore este e-mail — sua senha permanece a mesma.
+</p>
