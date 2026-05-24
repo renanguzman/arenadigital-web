@@ -38,7 +38,33 @@ export async function getPaymentStatusReportAction(
     if (filters.tipo === 'avulso') query = query.is('plano_mensalista_id', null)
     if (filters.tipo === 'mensal') query = query.not('plano_mensalista_id', 'is', null)
 
-    const [bookingsResult, courtsResult, sportsResult] = await Promise.all([
+    const includeStationPayments =
+      !filters.courtId && !filters.sportId && (!filters.tipo || filters.tipo === 'todos')
+
+    let stationPaymentsQuery = supabase
+      .from('station_payments')
+      .select(`
+        id,
+        amount,
+        payment_method,
+        paid_by_name,
+        created_at,
+        station_orders!inner(
+          arena_id,
+          order_number,
+          status,
+          customer_name,
+          atleta:atleta(nome_perfil),
+          station:stations(name, station_type:station_types(name))
+        )
+      `)
+      .eq('station_orders.arena_id', arenaId)
+      .order('created_at', { ascending: false })
+
+    if (filters.startDate) stationPaymentsQuery = stationPaymentsQuery.gte('created_at', filters.startDate)
+    if (filters.endDate) stationPaymentsQuery = stationPaymentsQuery.lte('created_at', filters.endDate + 'T23:59:59')
+
+    const [bookingsResult, courtsResult, sportsResult, stationPaymentsResult] = await Promise.all([
       query,
       supabase.from('courts').select('id, name').eq('arena_id', arenaId).order('name'),
       supabase
@@ -47,11 +73,13 @@ export async function getPaymentStatusReportAction(
         .in('court_id',
           (await supabase.from('courts').select('id').eq('arena_id', arenaId)).data?.map(c => c.id) ?? []
         ),
+      includeStationPayments ? stationPaymentsQuery : Promise.resolve({ data: [], error: null }),
     ])
 
     if (bookingsResult.error) throw new Error(bookingsResult.error.message)
+    if (stationPaymentsResult.error) throw new Error(stationPaymentsResult.error.message)
 
-    const rows: PaymentStatusRow[] = (bookingsResult.data ?? []).map((b: any) => {
+    const bookingRows: PaymentStatusRow[] = (bookingsResult.data ?? []).map((b: any) => {
       let status: PaymentStatusRow['status'] = 'Pendente'
       if (b.status === 'confirmed') status = 'Pago'
       else if (b.status === 'cancelled') status = 'Cancelado'
@@ -67,6 +95,30 @@ export async function getPaymentStatusReportAction(
         status,
       }
     })
+
+    const stationPaymentRows: PaymentStatusRow[] = (stationPaymentsResult.data ?? []).map((payment: any) => {
+      const order = payment.station_orders
+      const station = order?.station
+      const stationTypeName = station?.station_type?.name ?? null
+
+      let status: PaymentStatusRow['status'] = 'Pago'
+      if (order?.status === 'cancelled') status = 'Cancelado'
+
+      return {
+        id: `station-payment-${payment.id}`,
+        data: payment.created_at,
+        atleta: payment.paid_by_name ?? order?.atleta?.nome_perfil ?? order?.customer_name ?? null,
+        servico: 'Comanda',
+        espaco: station?.name ?? stationTypeName,
+        esporte: payment.payment_method ?? null,
+        valor: payment.amount ?? null,
+        status,
+      }
+    })
+
+    const rows: PaymentStatusRow[] = [...bookingRows, ...stationPaymentRows].sort(
+      (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
+    )
 
     const summary: PaymentStatusSummary = rows.reduce(
       (acc, r) => {

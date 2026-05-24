@@ -188,7 +188,7 @@ export function StatusPagamentosPageClient({
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Pagamentos</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Acompanhe o status de todas as reservas da sua arena
+          Acompanhe pagamentos de reservas e comandas da sua arena
         </p>
       </div>
 
@@ -202,7 +202,7 @@ export function StatusPagamentosPageClient({
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pagamentos Confirmados</p>
               <p className="text-2xl font-bold text-gray-900 mt-0.5">{formatCurrency(summary.totalPago)}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{summary.countPago} reserva{summary.countPago !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{summary.countPago} lançamento{summary.countPago !== 1 ? 's' : ''}</p>
             </div>
           </CardContent>
         </Card>
@@ -215,7 +215,7 @@ export function StatusPagamentosPageClient({
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pagamentos Pendentes</p>
               <p className="text-2xl font-bold text-gray-900 mt-0.5">{formatCurrency(summary.totalPendente)}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{summary.countPendente} reserva{summary.countPendente !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{summary.countPendente} lançamento{summary.countPendente !== 1 ? 's' : ''}</p>
             </div>
           </CardContent>
         </Card>
@@ -228,7 +228,7 @@ export function StatusPagamentosPageClient({
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cancelados</p>
               <p className="text-2xl font-bold text-gray-900 mt-0.5">{formatCurrency(summary.totalCancelado)}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{summary.countCancelado} reserva{summary.countCancelado !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{summary.countCancelado} lançamento{summary.countCancelado !== 1 ? 's' : ''}</p>
             </div>
           </CardContent>
         </Card>
@@ -324,7 +324,7 @@ export function StatusPagamentosPageClient({
         <CardContent className="p-0">
           <div className="flex items-center justify-between px-5 py-4 border-b">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Reservas</h2>
+              <h2 className="text-base font-semibold text-gray-900">Lançamentos</h2>
               <p className="text-xs text-gray-400">{monthLabel}</p>
             </div>
             <Button
@@ -362,7 +362,7 @@ export function StatusPagamentosPageClient({
                 ) : paginatedRows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className={arenaDataTable.emptyCell}>
-                      Nenhuma reserva encontrada para os filtros selecionados.
+                      Nenhum lançamento encontrado para os filtros selecionados.
                     </td>
                   </tr>
                 ) : (
