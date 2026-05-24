@@ -199,10 +199,6 @@ export function CustomSignUp() {
                         Abra o e-mail e clique no link para ativar sua conta e entrar no dashboard.
                     </p>
                 </div>
-                <p className="text-xs leading-relaxed text-white/60">
-                    Em desenvolvimento local, o link precisa voltar para <span className="font-semibold text-white">localhost:3000</span>.
-                    Se ele apontar para outro dominio, ajuste as Redirect URLs no painel do Supabase.
-                </p>
                 <Link href="/sign-in" className="block">
                     <Button
                         type="button"
