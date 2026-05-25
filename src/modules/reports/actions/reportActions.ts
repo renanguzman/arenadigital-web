@@ -38,7 +38,7 @@ export async function getPaymentStatusReportAction(
     if (filters.tipo === 'avulso') query = query.is('plano_mensalista_id', null)
     if (filters.tipo === 'mensal') query = query.not('plano_mensalista_id', 'is', null)
 
-    const includeStationPayments =
+    const includeExtraPayments =
       !filters.courtId && !filters.sportId && (!filters.tipo || filters.tipo === 'todos')
 
     let stationPaymentsQuery = supabase
@@ -64,7 +64,49 @@ export async function getPaymentStatusReportAction(
     if (filters.startDate) stationPaymentsQuery = stationPaymentsQuery.gte('created_at', filters.startDate)
     if (filters.endDate) stationPaymentsQuery = stationPaymentsQuery.lte('created_at', filters.endDate + 'T23:59:59')
 
-    const [bookingsResult, courtsResult, sportsResult, stationPaymentsResult] = await Promise.all([
+    let rotativoInscricoesQuery = supabase
+      .from('rotativo_inscricoes')
+      .select(`
+        id,
+        valor_pago,
+        data_inscricao,
+        tipo_pagamento,
+        atleta:id_atleta(nome_perfil),
+        modo_pagamento:modo_pagamento_id(nome),
+        rotativo:rotativos!inner(
+          id_arena,
+          status,
+          data,
+          esporte:id_esporte(name)
+        )
+      `)
+      .eq('tipo_pagamento', 'avulso')
+      .eq('rotativo.id_arena', arenaId)
+      .order('data_inscricao', { ascending: false })
+
+    if (filters.startDate) rotativoInscricoesQuery = rotativoInscricoesQuery.gte('data_inscricao', filters.startDate)
+    if (filters.endDate) rotativoInscricoesQuery = rotativoInscricoesQuery.lte('data_inscricao', filters.endDate + 'T23:59:59')
+    if (filters.sportId) rotativoInscricoesQuery = rotativoInscricoesQuery.eq('rotativo.id_esporte', filters.sportId)
+
+    let rotativoCreditosQuery = supabase
+      .from('rotativo_credito_movimentos')
+      .select(`
+        id,
+        quantidade,
+        valor_pago,
+        created_at,
+        atleta:id_atleta(nome_perfil),
+        modo_pagamento:modo_pagamento_id(nome)
+      `)
+      .eq('arena_id', arenaId)
+      .eq('tipo', 'compra')
+      .not('valor_pago', 'is', null)
+      .order('created_at', { ascending: false })
+
+    if (filters.startDate) rotativoCreditosQuery = rotativoCreditosQuery.gte('created_at', filters.startDate)
+    if (filters.endDate) rotativoCreditosQuery = rotativoCreditosQuery.lte('created_at', filters.endDate + 'T23:59:59')
+
+    const [bookingsResult, courtsResult, sportsResult, stationPaymentsResult, rotativoInscricoesResult, rotativoCreditosResult] = await Promise.all([
       query,
       supabase.from('courts').select('id, name').eq('arena_id', arenaId).order('name'),
       supabase
@@ -73,11 +115,15 @@ export async function getPaymentStatusReportAction(
         .in('court_id',
           (await supabase.from('courts').select('id').eq('arena_id', arenaId)).data?.map(c => c.id) ?? []
         ),
-      includeStationPayments ? stationPaymentsQuery : Promise.resolve({ data: [], error: null }),
+      includeExtraPayments ? stationPaymentsQuery : Promise.resolve({ data: [], error: null }),
+      includeExtraPayments ? rotativoInscricoesQuery : Promise.resolve({ data: [], error: null }),
+      includeExtraPayments ? rotativoCreditosQuery : Promise.resolve({ data: [], error: null }),
     ])
 
     if (bookingsResult.error) throw new Error(bookingsResult.error.message)
     if (stationPaymentsResult.error) throw new Error(stationPaymentsResult.error.message)
+    if (rotativoInscricoesResult.error) throw new Error(rotativoInscricoesResult.error.message)
+    if (rotativoCreditosResult.error) throw new Error(rotativoCreditosResult.error.message)
 
     const bookingRows: PaymentStatusRow[] = (bookingsResult.data ?? []).map((b: any) => {
       let status: PaymentStatusRow['status'] = 'Pendente'
@@ -116,7 +162,40 @@ export async function getPaymentStatusReportAction(
       }
     })
 
-    const rows: PaymentStatusRow[] = [...bookingRows, ...stationPaymentRows].sort(
+    const rotativoInscricaoRows: PaymentStatusRow[] = (rotativoInscricoesResult.data ?? []).map((inscricao: any) => {
+      const rotativo = inscricao.rotativo
+      let status: PaymentStatusRow['status'] = 'Pago'
+      if (rotativo?.status === 'desativado') status = 'Cancelado'
+
+      return {
+        id: `rotativo-inscricao-${inscricao.id}`,
+        data: inscricao.data_inscricao,
+        atleta: inscricao.atleta?.nome_perfil ?? null,
+        servico: 'Rotativo',
+        espaco: rotativo?.esporte?.name ?? null,
+        esporte: inscricao.modo_pagamento?.nome ?? null,
+        valor: inscricao.valor_pago ?? null,
+        status,
+      }
+    })
+
+    const rotativoCreditoRows: PaymentStatusRow[] = (rotativoCreditosResult.data ?? []).map((mov: any) => ({
+      id: `rotativo-credito-${mov.id}`,
+      data: mov.created_at,
+      atleta: mov.atleta?.nome_perfil ?? null,
+      servico: 'Crédito rotativo',
+      espaco: `${mov.quantidade} crédito${mov.quantidade !== 1 ? 's' : ''}`,
+      esporte: mov.modo_pagamento?.nome ?? null,
+      valor: mov.valor_pago ?? null,
+      status: 'Pago' as const,
+    }))
+
+    const rows: PaymentStatusRow[] = [
+      ...bookingRows,
+      ...stationPaymentRows,
+      ...rotativoInscricaoRows,
+      ...rotativoCreditoRows,
+    ].sort(
       (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
     )
 

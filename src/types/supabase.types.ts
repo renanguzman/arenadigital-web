@@ -1413,7 +1413,10 @@ export type Database = {
           id: string
           id_atleta: string
           id_rotativo: string
+          modo_pagamento_id: string | null
+          observacao: string | null
           status_pagamento: string | null
+          tipo_pagamento: string | null
           valor_pago: number
         }
         Insert: {
@@ -1421,7 +1424,10 @@ export type Database = {
           id?: string
           id_atleta: string
           id_rotativo: string
+          modo_pagamento_id?: string | null
+          observacao?: string | null
           status_pagamento?: string | null
+          tipo_pagamento?: string | null
           valor_pago?: number
         }
         Update: {
@@ -1429,7 +1435,10 @@ export type Database = {
           id?: string
           id_atleta?: string
           id_rotativo?: string
+          modo_pagamento_id?: string | null
+          observacao?: string | null
           status_pagamento?: string | null
+          tipo_pagamento?: string | null
           valor_pago?: number
         }
         Relationships: [
@@ -1449,6 +1458,129 @@ export type Database = {
           },
         ]
       }
+      rotativo_courts: {
+        Row: {
+          id: string
+          rotativo_id: string
+          court_id: string
+        }
+        Insert: {
+          id?: string
+          rotativo_id: string
+          court_id: string
+        }
+        Update: {
+          id?: string
+          rotativo_id?: string
+          court_id?: string
+        }
+        Relationships: []
+      }
+      rotativo_pacotes: {
+        Row: {
+          id: string
+          arena_id: string
+          quantidade: number
+          valor_reais: number
+          ordem: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          arena_id: string
+          quantidade: number
+          valor_reais: number
+          ordem?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          arena_id?: string
+          quantidade?: number
+          valor_reais?: number
+          ordem?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rotativo_credito_lotes: {
+        Row: {
+          id: string
+          arena_id: string
+          atleta_id: string
+          quantidade_inicial: number
+          quantidade_restante: number
+          data_vencimento: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          arena_id: string
+          atleta_id: string
+          quantidade_inicial: number
+          quantidade_restante: number
+          data_vencimento: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          arena_id?: string
+          atleta_id?: string
+          quantidade_inicial?: number
+          quantidade_restante?: number
+          data_vencimento?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      rotativo_credito_movimentos: {
+        Row: {
+          id: string
+          arena_id: string
+          atleta_id: string
+          tipo: string
+          quantidade: number
+          lote_id: string | null
+          inscricao_id: string | null
+          valor_pago: number | null
+          modo_pagamento_id: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          arena_id: string
+          atleta_id: string
+          tipo: string
+          quantidade: number
+          lote_id?: string | null
+          inscricao_id?: string | null
+          valor_pago?: number | null
+          modo_pagamento_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          arena_id?: string
+          atleta_id?: string
+          tipo?: string
+          quantidade?: number
+          lote_id?: string | null
+          inscricao_id?: string | null
+          valor_pago?: number | null
+          modo_pagamento_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       rotativos: {
         Row: {
           created_at: string
@@ -1460,6 +1592,7 @@ export type Database = {
           id_esporte: string
           limitado: boolean
           limite_participantes: number | null
+          status: string
           updated_at: string
           valor: number
         }
@@ -1473,6 +1606,7 @@ export type Database = {
           id_esporte: string
           limitado?: boolean
           limite_participantes?: number | null
+          status?: string
           updated_at?: string
           valor?: number
         }
@@ -1486,6 +1620,7 @@ export type Database = {
           id_esporte?: string
           limitado?: boolean
           limite_participantes?: number | null
+          status?: string
           updated_at?: string
           valor?: number
         }
@@ -2101,6 +2236,14 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rotativo_credito_saldo: {
+        Row: {
+          arena_id: string | null
+          atleta_id: string | null
+          saldo: number | null
+        }
+        Relationships: []
       }
       geography_columns: {
         Row: {
