@@ -24,6 +24,15 @@ export class InvalidPlanKeyError extends PaymentApiError {
   }
 }
 
+export class ExperimentalPlanAlreadyUsedError extends PaymentApiError {
+  constructor() {
+    super(
+      409,
+      'Plano Experimental já utilizado. Escolha Starter, Max ou PRO.'
+    );
+  }
+}
+
 export class MissingWebhookSignatureError extends PaymentApiError {
   constructor() {
     super(400, 'Missing webhook signature header');

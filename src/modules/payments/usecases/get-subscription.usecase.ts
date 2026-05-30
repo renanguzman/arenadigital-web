@@ -11,6 +11,7 @@ import { fetchPlanByKey } from '@/modules/payments/repositories/subscription-pla
 
 export type SubscriptionStatus =
   | 'active'
+  | 'trialing'
   | 'incomplete'
   | 'incomplete_expired'
   | 'past_due'

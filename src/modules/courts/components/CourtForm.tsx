@@ -232,7 +232,7 @@ export function CourtForm({ initialData, arenaId, onSuccess, returnTab = "espaco
             router.push(arenaDashboardPath(arenaId, returnTab))
         } catch (error) {
             console.error("Error saving space:", error)
-            toast.error("Ocorreu um erro ao salvar o espaço.")
+            toast.error(error instanceof Error ? error.message : "Ocorreu um erro ao salvar o espaço.")
         } finally {
             setIsUploading(false)
         }

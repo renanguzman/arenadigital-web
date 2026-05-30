@@ -82,6 +82,7 @@ export type Database = {
           canceled_at: string | null
           created_at: string
           current_period_end: string | null
+          experimental_started_at: string | null
           id: string
           plan_id: string | null
           plan_key: string
@@ -98,6 +99,7 @@ export type Database = {
           canceled_at?: string | null
           created_at?: string
           current_period_end?: string | null
+          experimental_started_at?: string | null
           id?: string
           plan_id?: string | null
           plan_key: string
@@ -114,6 +116,7 @@ export type Database = {
           canceled_at?: string | null
           created_at?: string
           current_period_end?: string | null
+          experimental_started_at?: string | null
           id?: string
           plan_id?: string | null
           plan_key?: string

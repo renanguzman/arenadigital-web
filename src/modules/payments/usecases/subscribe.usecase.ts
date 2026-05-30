@@ -4,16 +4,24 @@ import { logAuditEvent } from '@/modules/audit/audit-log.service'
 import type { DomainSubscription } from '@/modules/payments/domain/types'
 import {
   CreateSubscriptionFailedError,
+  ExperimentalPlanAlreadyUsedError,
   InvalidPlanKeyError,
   PaymentConfigurationError
 } from '@/modules/payments/errors'
 import { getPaymentGateway } from '@/modules/payments/gateway'
 import type { SubscriptionPlanInfo } from '@/modules/payments/gateway/payment-gateway.interface'
-import { planKeySchema, resolveCheckoutPlanKey } from '@/modules/payments/plans'
+import {
+  EXPERIMENTAL_PLAN_KEY,
+  PARTNER_PLAN_KEY,
+  planKeySchema,
+  resolveCheckoutPlanKey,
+  userSelectablePlanKeySchema
+} from '@/modules/payments/plans'
 import {
   fetchPlanByKey,
   type SubscriptionPlanRow
 } from '@/modules/payments/repositories/subscription-plans.repository'
+import { planAccessEndIso } from '@/modules/payments/subscription-rules'
 
 export const SubscribeRequestSchema = z.object({
   arenaId: z.string().uuid(),
@@ -91,32 +99,58 @@ async function persistSubscriptionState(input: {
   }
 }
 
+async function activateExperimentalSubscription(input: {
+  arenaId: string
+  plan: SubscriptionPlanRow
+  actorId?: string | null
+}): Promise<SubscribeResponse> {
+  const now = new Date()
+  const expiresAt = planAccessEndIso(EXPERIMENTAL_PLAN_KEY, now)
+  const supabase = getSupabaseAdmin()
+  const subscriptions = supabase.from('arena_subscriptions')
+
+  const { error } = await subscriptions
+    .update({
+      gateway_subscription_id: null,
+      plan_key: input.plan.key,
+      plan_id: input.plan.id,
+      status: 'active',
+      current_period_end: expiresAt,
+      cancel_at_period_end: false,
+      canceled_at: null,
+      experimental_started_at: now.toISOString(),
+      updated_at: now.toISOString()
+    })
+    .eq('arena_id', input.arenaId)
+
+  if (error) {
+    throw new PaymentConfigurationError(error.message)
+  }
+
+  await logAuditEvent({
+    entityType: 'arena_subscription',
+    entityId: input.arenaId,
+    action: 'subscription.experimental_activated',
+    actorId: input.actorId ?? null,
+    actorType: 'user',
+    newValue: {
+      status: 'active',
+      plan_key: input.plan.key,
+      plan_id: input.plan.id,
+      current_period_end: expiresAt
+    }
+  })
+
+  return { status: 'active' }
+}
+
 export async function subscribe(request: SubscribeRequest): Promise<SubscribeResponse> {
   const supabase = getSupabaseAdmin()
   const gateway = getPaymentGateway()
 
-  if (!gateway.createSubscription) {
-    throw new PaymentConfigurationError(
-      `Provedor "${gateway.providerName}" não suporta criação direta de subscription — use o fluxo de checkout hospedado.`
-    )
-  }
-  const createSubscriptionFn = gateway.createSubscription.bind(gateway)
-
-  const planKey = resolveCheckoutPlanKey(request.planKey)
-  const plan = await fetchPlanByKey(planKey)
-  if (!plan) throw new InvalidPlanKeyError()
-
-  if (gateway.providerName === 'stripe' && !plan.gateway_price_id) {
-    throw new PaymentConfigurationError(
-      `Stripe price_id não configurado para o plano "${plan.key}".`
-    )
-  }
-
-  const planInfo = toPlanInfo(plan)
-
   const { data: record } = await supabase
     .from('arena_subscriptions')
-    .select('gateway_customer_id, plan_key, plan_id, gateway_subscription_id, status')
+    .select('gateway_customer_id, plan_key, plan_id, gateway_subscription_id, status, current_period_end, experimental_started_at')
     .eq('arena_id', request.arenaId)
     .maybeSingle()
 
@@ -125,6 +159,56 @@ export async function subscribe(request: SubscribeRequest): Promise<SubscribeRes
       'No customer found for this arena. Call setup-intent first.'
     )
   }
+
+  const isSelectablePlan = userSelectablePlanKeySchema.safeParse(request.planKey).success
+  if (
+    request.planKey === EXPERIMENTAL_PLAN_KEY &&
+    record.plan_key !== EXPERIMENTAL_PLAN_KEY
+  ) {
+    throw new ExperimentalPlanAlreadyUsedError()
+  }
+
+  if (
+    !isSelectablePlan &&
+    (request.planKey !== PARTNER_PLAN_KEY || record.plan_key !== PARTNER_PLAN_KEY)
+  ) {
+    throw new InvalidPlanKeyError()
+  }
+
+  const planKey = resolveCheckoutPlanKey(request.planKey)
+  const plan = await fetchPlanByKey(planKey)
+  if (!plan) throw new InvalidPlanKeyError()
+
+  if (
+    gateway.providerName === 'stripe' &&
+    plan.key !== EXPERIMENTAL_PLAN_KEY &&
+    !plan.gateway_price_id
+  ) {
+    throw new PaymentConfigurationError(
+      `Stripe price_id não configurado para o plano "${plan.key}".`
+    )
+  }
+
+  const planInfo = toPlanInfo(plan)
+
+  if (plan.key === EXPERIMENTAL_PLAN_KEY) {
+    if (record.experimental_started_at) {
+      throw new ExperimentalPlanAlreadyUsedError()
+    }
+
+    return activateExperimentalSubscription({
+      arenaId: request.arenaId,
+      plan,
+      actorId: request.actorId
+    })
+  }
+
+  if (!gateway.createSubscription) {
+    throw new PaymentConfigurationError(
+      `Provedor "${gateway.providerName}" não suporta criação direta de subscription — use o fluxo de checkout hospedado.`
+    )
+  }
+  const createSubscriptionFn = gateway.createSubscription.bind(gateway)
 
   await supabase
     .from('arena_subscriptions')

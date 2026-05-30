@@ -10,11 +10,12 @@ import {
 } from '@/modules/payments/errors'
 import { getPaymentGateway } from '@/modules/payments/gateway'
 import { AsaasGateway } from '@/modules/payments/gateway/asaas.gateway'
-import { planKeySchema } from '@/modules/payments/plans'
+import { EXPERIMENTAL_PLAN_KEY, planKeySchema } from '@/modules/payments/plans'
 import {
   fetchPlanByGatewayPriceId,
   fetchPlanByKey,
 } from '@/modules/payments/repositories/subscription-plans.repository'
+import { planAccessEndIso } from '@/modules/payments/subscription-rules'
 import { syncArenaBillingSnapshotFromGateway } from '@/modules/payments/usecases/sync-arena-billing-snapshot.usecase'
 import type { Database } from '@/types/supabase.types'
 import { NextRequest, NextResponse } from 'next/server'
@@ -399,14 +400,23 @@ async function handleCheckoutPaid(
     ? await gateway.retrieveSubscriptionWithPaymentMethod(resolvedSubscriptionId)
     : null
 
-  const payload: ArenaSubscriptionTable['Update'] = {
+  const isExperimentalPlan = record.plan_key === EXPERIMENTAL_PLAN_KEY
+  const activatedAt = new Date()
+  const payload: ArenaSubscriptionTable['Update'] & {
+    experimental_started_at?: string
+  } = {
     status: 'active',
     gateway_subscription_id: resolvedSubscriptionId ?? null,
     ...(effectiveCustomerId ? { gateway_customer_id: effectiveCustomerId } : {}),
     current_period_end:
-      fullSubscription?.primaryItem?.currentPeriodEndIso ?? null,
+      isExperimentalPlan
+        ? planAccessEndIso(EXPERIMENTAL_PLAN_KEY, activatedAt)
+        : fullSubscription?.primaryItem?.currentPeriodEndIso ?? null,
     cancel_at_period_end: false,
     canceled_at: null,
+    ...(isExperimentalPlan
+      ? { experimental_started_at: activatedAt.toISOString() }
+      : {}),
     updated_at: new Date().toISOString(),
   }
 

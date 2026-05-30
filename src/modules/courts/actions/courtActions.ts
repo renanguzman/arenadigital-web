@@ -2,7 +2,28 @@
 
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { assertArenaBackofficeAccess, assertCourtAccess } from '@/lib/server-auth'
+import { assertCanCreateSpaceForArena } from '@/modules/payments/usecases/assert-space-entitlement.usecase'
+import type { Database } from '@/types/supabase.types'
 import { revalidatePath } from 'next/cache'
+
+type CourtInsert = Database['public']['Tables']['courts']['Insert']
+type CourtUpdate = Database['public']['Tables']['courts']['Update']
+type CourtCreateInput = Omit<CourtInsert, 'arena_id'>
+
+type CourtSportJoin = {
+    sport: unknown
+}
+
+type CourtRowWithSports = Record<string, unknown> & {
+    sports?: CourtSportJoin[] | null
+}
+
+function normalizeCourtSports<T extends CourtRowWithSports>(court: T) {
+    return {
+        ...court,
+        sports: (court.sports ?? []).map((s) => s.sport)
+    }
+}
 
 export async function getSportsForCourtAction(): Promise<{ success: boolean; data: { id: string; name: string }[]; error?: string }> {
     try {
@@ -35,10 +56,7 @@ export async function getCourtsByArenaAction(arenaId: string) {
 
         return {
             success: true,
-            data: data.map(court => ({
-                ...court,
-                sports: (court.sports as any[]).map(s => s.sport)
-            }))
+            data: (data as CourtRowWithSports[]).map(normalizeCourtSports)
         }
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao buscar espaços'
@@ -75,24 +93,22 @@ export async function getCourtByIdAction(arenaId: string, courtId: string) {
 
         if (error) throw new Error(error.message)
 
-        return {
-            success: true,
-            data: { ...data, sports: (data.sports as any[]).map(s => s.sport) }
-        }
+        return { success: true, data: normalizeCourtSports(data as CourtRowWithSports) }
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao buscar espaço'
         return { success: false, error: message, data: null }
     }
 }
 
-export async function createCourtAction(arenaId: string, input: Record<string, any>, sportIds?: string[]) {
+export async function createCourtAction(arenaId: string, input: CourtCreateInput, sportIds?: string[]) {
     try {
         await assertArenaBackofficeAccess(arenaId)
+        await assertCanCreateSpaceForArena(arenaId)
         const supabase = getSupabaseAdmin()
 
         const { data: court, error } = await supabase
             .from('courts')
-            .insert([{ ...input, arena_id: arenaId }] as any)
+            .insert([{ ...input, arena_id: arenaId }])
             .select()
             .single()
 
@@ -110,14 +126,14 @@ export async function createCourtAction(arenaId: string, input: Record<string, a
     }
 }
 
-export async function updateCourtAction(arenaId: string, courtId: string, input: Record<string, any>, sportIds?: string[]) {
+export async function updateCourtAction(arenaId: string, courtId: string, input: CourtUpdate, sportIds?: string[]) {
     try {
         await assertCourtAccess(courtId, arenaId)
         const supabase = getSupabaseAdmin()
 
         const { data: court, error } = await supabase
             .from('courts')
-            .update(input as any)
+            .update(input)
             .eq('id', courtId)
             .eq('arena_id', arenaId)
             .select()

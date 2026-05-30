@@ -4,6 +4,8 @@ import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 import { ArenaProvider } from '@/contexts/ArenaContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { Sidebar } from '@/components/dashboard/Sidebar';
+import { DashboardSubscriptionGate } from '@/components/dashboard/DashboardSubscriptionGate';
+import { WelcomeTutorialDialog } from '@/components/dashboard/WelcomeTutorialDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -53,6 +55,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           <Menu className="h-5 w-5" />
         </Button>
         <main className="flex-1 min-w-0 p-4 pb-24 md:p-6 lg:p-8">{children}</main>
+        <DashboardSubscriptionGate />
+        <WelcomeTutorialDialog />
       </div>
     </div>
   );
