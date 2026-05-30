@@ -1,9 +1,9 @@
-import { fetchAllActivePlans } from '@/modules/payments/repositories/subscription-plans.repository'
+import { fetchSelectableActivePlans } from '@/modules/payments/repositories/subscription-plans.repository'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
-    const plans = await fetchAllActivePlans()
+    const plans = await fetchSelectableActivePlans()
 
     return NextResponse.json(
       plans.map(({ key, label, price_cents, max_spaces, features }) => ({

@@ -6,10 +6,11 @@ import {
   useStripe
 } from '@stripe/react-stripe-js'
 import { useState } from 'react'
+import type { PlanKey } from '@/modules/payments/plans'
 
 type Props = {
   arenaId: string
-  planKey: 'starter' | 'pro' | 'max'
+  planKey: PlanKey
   onSuccess: () => void
   onError: (message: string) => void
   onCancel?: () => void

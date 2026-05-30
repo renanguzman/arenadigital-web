@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase-server'
+import { userSelectablePlanKeySchema } from '@/modules/payments/plans'
 
 export type SubscriptionPlanRow = {
   id: string
@@ -25,6 +26,11 @@ export async function fetchAllActivePlans(): Promise<SubscriptionPlanRow[]> {
 
   if (error) throw new Error(`[subscription-plans] Falha ao buscar planos: ${error.message}`)
   return data ?? []
+}
+
+export async function fetchSelectableActivePlans(): Promise<SubscriptionPlanRow[]> {
+  const plans = await fetchAllActivePlans()
+  return plans.filter((plan) => userSelectablePlanKeySchema.safeParse(plan.key).success)
 }
 
 export async function fetchPlanByKey(key: string): Promise<SubscriptionPlanRow | null> {

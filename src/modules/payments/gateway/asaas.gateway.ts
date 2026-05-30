@@ -395,6 +395,7 @@ export class AsaasGateway implements PaymentGateway {
   ): Promise<CardCollectionContext> {
     const cycle = input.plan.cycle ?? 'MONTHLY';
     const today = todayIsoDate();
+    const isExperimentalPlan = input.plan.key === 'experimental';
 
     // O Asaas exige uma data de fim do checkout (não da subscription).
     // 24h é suficiente — se expirar, geramos outro.
@@ -417,6 +418,7 @@ export class AsaasGateway implements PaymentGateway {
           subscription: {
             cycle,
             nextDueDate: today,
+            ...(isExperimentalPlan ? { endDate: addDays(today, 5) } : {}),
           },
           items: [
             {

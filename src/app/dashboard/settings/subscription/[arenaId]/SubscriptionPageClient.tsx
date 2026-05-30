@@ -28,7 +28,12 @@ import { cn } from '@/lib/utils';
 import { arenaDataTable } from '@/lib/arena-data-table';
 import { PaymentMethodCollector } from '@/modules/payments/components/PaymentMethodCollector';
 import type { CardCollectionContext } from '@/modules/payments/gateway/payment-gateway.interface';
-import type { PlanKey } from '@/modules/payments/plans';
+import {
+  PARTNER_PLAN_KEY,
+  hasUnlimitedSpaces,
+  type PlanKey,
+  type UserSelectablePlanKey,
+} from '@/modules/payments/plans';
 import type { PaymentHistoryItem } from '@/modules/payments/usecases/get-payment-history.usecase';
 import type { ArenaBillingAddress } from '@/modules/arenas/usecases/get-arena-billing-address.usecase';
 import type { ArenaSubscription } from '@/modules/payments/usecases/get-subscription.usecase';
@@ -41,7 +46,7 @@ type SetupData = {
 };
 
 type SubscriptionPlanOption = {
-  key: PlanKey;
+  key: UserSelectablePlanKey;
   label: string;
   priceCents: number;
   maxSpaces: number;
@@ -88,6 +93,11 @@ function formatMaskedCardLine(last4: string) {
 
 function capitalizeFirst(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function formatSpaceLimit(maxSpaces: number) {
+  if (hasUnlimitedSpaces(maxSpaces)) return 'Espaços ilimitados.'
+  return `Até ${maxSpaces} espaços/quadras incluídos.`
 }
 
 function PaymentStatusBadge({ status }: { status: string }) {
@@ -140,12 +150,17 @@ export function SubscriptionPageClient({
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cardModalOpen, setCardModalOpen] = useState(false);
-  const [selectedPlanKey, setSelectedPlanKey] = useState<PlanKey>(
-    initialSubscription.planKey ?? plans[0]?.key ?? 'starter'
+  const [selectedPlanKey, setSelectedPlanKey] = useState<UserSelectablePlanKey>(
+    plans.some((plan) => plan.key === initialSubscription.planKey)
+      ? (initialSubscription.planKey as UserSelectablePlanKey)
+      : plans[0]?.key ?? 'starter'
   );
 
   const selectedPlan =
     plans.find((plan) => plan.key === selectedPlanKey) ?? null;
+  const isPartnerSubscription = subscription.planKey === PARTNER_PLAN_KEY;
+  const resolveBillingPlanKey = (): PlanKey =>
+    subscription.planKey ?? selectedPlanKey;
 
   const hasSubscription = subscription.status !== 'none';
   const modalPlanChange =
@@ -169,7 +184,7 @@ export function SubscriptionPageClient({
     }
   }
 
-  async function handleOpenCardModal(planKey = selectedPlanKey) {
+  async function handleOpenCardModal(planKey: PlanKey = resolveBillingPlanKey()) {
     setActionLoading(true);
 
     try {
@@ -278,7 +293,7 @@ export function SubscriptionPageClient({
         </p>
       </div>
 
-      {planSelectionEnabled && (
+      {planSelectionEnabled && !isPartnerSubscription && (
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -329,7 +344,7 @@ export function SubscriptionPageClient({
                     </div>
 
                     <div className="rounded-lg border border-dashed border-[#1B7B8A]/20 bg-[#1B7B8A]/5 px-3 py-2 text-sm text-[#0D3B45]">
-                      Ate {plan.maxSpaces} espacos/quadras incluidos.
+                      {formatSpaceLimit(plan.maxSpaces)}
                     </div>
 
                     <div className="space-y-2">
@@ -367,7 +382,6 @@ export function SubscriptionPageClient({
       <Tabs defaultValue="dados-basicos">
         <TabsList variant="line">
           <TabsTrigger value="dados-basicos">Dados basicos</TabsTrigger>
-          <TabsTrigger value="historico">Historico de pagamentos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dados-basicos" className="mt-6">
@@ -465,6 +479,7 @@ export function SubscriptionPageClient({
 
                 {hasSubscription &&
                   planSelectionEnabled &&
+                  !isPartnerSubscription &&
                   selectedPlan &&
                   selectedPlan.key !== subscription.planKey && (
                     <div className="space-y-3 rounded-lg border border-arena-button/20 bg-arena-button/5 p-4">
@@ -550,7 +565,7 @@ export function SubscriptionPageClient({
                           type="button"
                           onClick={() =>
                             handleOpenCardModal(
-                              subscription.planKey ?? selectedPlanKey
+                              resolveBillingPlanKey()
                             )
                           }
                           disabled={actionLoading}
@@ -585,7 +600,7 @@ export function SubscriptionPageClient({
                             type="button"
                             onClick={() =>
                               handleOpenCardModal(
-                                subscription.planKey ?? selectedPlanKey
+                                resolveBillingPlanKey()
                               )
                             }
                             disabled={actionLoading}

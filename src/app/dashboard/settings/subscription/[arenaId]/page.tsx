@@ -1,11 +1,13 @@
 import { redirect } from 'next/navigation'
 import { assertArenaSubscriptionAccess } from '@/lib/server-auth'
-import { fetchAllActivePlans } from '@/modules/payments/repositories/subscription-plans.repository'
+import { fetchSelectableActivePlans } from '@/modules/payments/repositories/subscription-plans.repository'
 import {
   EARLY_ACCESS_PLAN_KEY,
+  EXPERIMENTAL_PLAN_KEY,
   isPlanSelectionEnabled,
-  planKeySchema
+  userSelectablePlanKeySchema
 } from '@/modules/payments/plans'
+import { isPeriodExpired } from '@/modules/payments/subscription-rules'
 import { getArenaBillingAddress } from '@/modules/arenas/usecases/get-arena-billing-address.usecase'
 import { getPaymentHistory } from '@/modules/payments/usecases/get-payment-history.usecase'
 import { getSubscription } from '@/modules/payments/usecases/get-subscription.usecase'
@@ -33,7 +35,7 @@ export default async function SubscriptionArenaPage({
   const [subscription, paymentHistory, plans, billingAddress] = await Promise.all([
     getSubscription(arenaId),
     getPaymentHistory(arenaId),
-    fetchAllActivePlans(),
+    fetchSelectableActivePlans(),
     getArenaBillingAddress(arenaId),
   ])
 
@@ -47,9 +49,17 @@ export default async function SubscriptionArenaPage({
       billingAddress={billingAddress}
       planSelectionEnabled={planSelectionEnabled}
       plans={plans.flatMap((plan) => {
-        const parsedPlanKey = planKeySchema.safeParse(plan.key)
+        const parsedPlanKey = userSelectablePlanKeySchema.safeParse(plan.key)
         if (!parsedPlanKey.success) return []
         if (!planSelectionEnabled && parsedPlanKey.data !== EARLY_ACCESS_PLAN_KEY) return []
+        if (
+          parsedPlanKey.data === EXPERIMENTAL_PLAN_KEY &&
+          subscription.planKey &&
+          (subscription.planKey !== EXPERIMENTAL_PLAN_KEY ||
+            isPeriodExpired(subscription.currentPeriodEnd))
+        ) {
+          return []
+        }
 
         return [
           {

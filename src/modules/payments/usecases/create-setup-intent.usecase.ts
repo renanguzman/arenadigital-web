@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { logAuditEvent } from '@/modules/audit/audit-log.service';
 import {
+  ExperimentalPlanAlreadyUsedError,
   InvalidPlanKeyError,
   PaymentConfigurationError,
 } from '@/modules/payments/errors';
@@ -11,8 +12,11 @@ import type {
   SubscriptionPlanInfo,
 } from '@/modules/payments/gateway/payment-gateway.interface';
 import {
+  EXPERIMENTAL_PLAN_KEY,
+  PARTNER_PLAN_KEY,
   planKeySchema,
   resolveCheckoutPlanKey,
+  userSelectablePlanKeySchema,
   type PlanKey,
 } from '@/modules/payments/plans';
 import {
@@ -76,12 +80,40 @@ export async function createSetupIntent(
 
   const parsedPlanKey = planKeySchema.safeParse(selectedPlanKey);
   if (!parsedPlanKey.success) throw new InvalidPlanKeyError();
-  const planKey = resolveCheckoutPlanKey(parsedPlanKey.data);
 
+  const { data: subscription } = await supabase
+    .from('arena_subscriptions')
+    .select('gateway_customer_id, status, plan_key, experimental_started_at')
+    .eq('arena_id', arenaId)
+    .maybeSingle();
+
+  const requestedPlanKey = parsedPlanKey.data;
+  const isSelectablePlan = userSelectablePlanKeySchema.safeParse(requestedPlanKey).success;
+  if (
+    requestedPlanKey === EXPERIMENTAL_PLAN_KEY &&
+    subscription?.plan_key &&
+    subscription.plan_key !== EXPERIMENTAL_PLAN_KEY
+  ) {
+    throw new ExperimentalPlanAlreadyUsedError();
+  }
+
+  if (
+    !isSelectablePlan &&
+    (requestedPlanKey !== PARTNER_PLAN_KEY ||
+      subscription?.plan_key !== PARTNER_PLAN_KEY)
+  ) {
+    throw new InvalidPlanKeyError();
+  }
+
+  const planKey = resolveCheckoutPlanKey(requestedPlanKey);
   const plan = await fetchPlanByKey(planKey);
   if (!plan) throw new InvalidPlanKeyError();
 
-  if (gateway.providerName === 'stripe' && !plan.gateway_price_id) {
+  if (
+    gateway.providerName === 'stripe' &&
+    plan.key !== EXPERIMENTAL_PLAN_KEY &&
+    !plan.gateway_price_id
+  ) {
     throw new PaymentConfigurationError(
       `Stripe price_id não configurado para o plano "${planKey}".`
     );
@@ -94,11 +126,12 @@ export async function createSetupIntent(
     );
   }
 
-  const { data: subscription } = await supabase
-    .from('arena_subscriptions')
-    .select('gateway_customer_id, status')
-    .eq('arena_id', arenaId)
-    .maybeSingle();
+  if (
+    plan.key === EXPERIMENTAL_PLAN_KEY &&
+    subscription?.experimental_started_at
+  ) {
+    throw new ExperimentalPlanAlreadyUsedError();
+  }
 
   let gatewayCustomerId: string | null =
     subscription?.gateway_customer_id ?? null;
