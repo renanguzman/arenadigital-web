@@ -51,6 +51,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           className="fixed top-4 left-4 z-50 h-10 w-10 rounded-lg bg-arena-navy-800 text-white shadow-md hover:bg-arena-navy-700 hover:text-white md:hidden"
           onClick={() => setIsMobileMenuOpen(true)}
           aria-label="Abrir menu"
+          data-tutorial="mobile-menu"
         >
           <Menu className="h-5 w-5" />
         </Button>
