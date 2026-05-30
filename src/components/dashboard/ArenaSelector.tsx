@@ -32,7 +32,7 @@ export function ArenaSelector({ isCollapsed }: { isCollapsed?: boolean }) {
     if (arenas.length === 1) {
         if (isCollapsed) {
             return (
-                <div className="mb-4 flex w-full justify-center">
+                <div className="mb-4 flex w-full justify-center" data-tutorial="arena-selector">
                     <div
                         title={arenas[0].name}
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white/10 text-sm font-bold text-white/70"
@@ -43,14 +43,14 @@ export function ArenaSelector({ isCollapsed }: { isCollapsed?: boolean }) {
             );
         }
         return (
-            <div className="mb-6 px-3 py-2 rounded-md bg-white/5 border border-white/10 text-white text-sm truncate">
+            <div data-tutorial="arena-selector" className="mb-6 px-3 py-2 rounded-md bg-white/5 border border-white/10 text-white text-sm truncate">
                 {arenas[0].name}
             </div>
         );
     }
 
     return (
-        <div className={cn(isCollapsed ? "mb-4 flex w-full justify-center px-0" : "mb-6 px-0")}>
+        <div data-tutorial="arena-selector" className={cn(isCollapsed ? "mb-4 flex w-full justify-center px-0" : "mb-6 px-0")}>
             {isCollapsed ? (
                 <div
                     title={arenas.find(a => a.id === selectedArena)?.name ?? ""}

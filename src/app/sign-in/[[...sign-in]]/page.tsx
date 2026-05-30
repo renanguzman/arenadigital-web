@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Logo } from '@/components/shared/Logo'
@@ -25,7 +25,6 @@ function normalizeRedirectPath(value: string | null) {
 }
 
 export default function SignInPage() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const redirectTo = normalizeRedirectPath(searchParams.get('redirect_to'))
@@ -38,10 +37,16 @@ export default function SignInPage() {
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
+      setLoading(false)
       toast.error(error.message)
+      return
+    }
+
+    if (!data.session) {
+      setLoading(false)
+      toast.error('Não foi possível iniciar sua sessão. Tente novamente.')
       return
     }
 
@@ -50,8 +55,7 @@ export default function SignInPage() {
       console.error('provisionAfterSignUpAction:', provision.error)
     }
 
-    router.push(redirectTo)
-    router.refresh()
+    window.location.replace(redirectTo)
   }
 
   const handleOtpRequest = async (e: React.FormEvent) => {

@@ -189,7 +189,7 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                     <div className={cn(
                         "space-y-2",
                         isCollapsed && "flex flex-col items-center gap-2 space-y-0",
-                    )}>
+                    )} data-tutorial="sidebar-navigation">
                         {mainNavItems.map((item) => {
                             const isActive = item.isActive(pathname);
 

@@ -94,7 +94,7 @@ export default function DashboardPage() {
     ]
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" data-tutorial="dashboard-content">
             <div>
                 <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
                 <p className="text-muted-foreground">Bem-vindo de volta! Aqui está um resumo da sua arena.</p>
