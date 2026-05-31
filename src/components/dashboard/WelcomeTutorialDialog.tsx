@@ -4,9 +4,9 @@ import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { CURRENT_ONBOARDING_VERSION } from '@/lib/onboarding'
 import { useDbUser } from '@/contexts/UserContext'
 
-const STORAGE_PREFIX = 'arena-welcome-tutorial-seen'
 const SPOTLIGHT_GAP = 8
 
 type TutorialStep = {
@@ -54,30 +54,31 @@ export function WelcomeTutorialDialog() {
   const [spotlight, setSpotlight] = useState<Spotlight | null>(null)
   const step = steps[stepIndex]
   const isLastStep = stepIndex === steps.length - 1
-  const dbUserId = dbUser?.id
-
-  const finishTutorial = useCallback(() => {
-    if (dbUserId) {
-      window.localStorage.setItem(`${STORAGE_PREFIX}:${dbUserId}`, 'true')
-    }
+  const finishTutorial = useCallback(async () => {
     setOpen(false)
-  }, [dbUserId])
+    try {
+      const response = await fetch('/api/user/me/onboarding', { method: 'POST' })
+      if (!response.ok) {
+        console.error('[WelcomeTutorialDialog] Failed to complete onboarding', await response.text())
+      }
+    } catch (error) {
+      console.error('[WelcomeTutorialDialog] Failed to complete onboarding', error)
+    }
+  }, [])
 
   const goForward = useCallback(() => {
     if (isLastStep) {
-      finishTutorial()
+      void finishTutorial()
       return
     }
     setStepIndex((current) => current + 1)
   }, [finishTutorial, isLastStep])
 
   useEffect(() => {
-    if (!dbUserId) return
-    const key = `${STORAGE_PREFIX}:${dbUserId}`
-    if (window.localStorage.getItem(key)) return
+    if (!dbUser || dbUser.onboarding_version >= CURRENT_ONBOARDING_VERSION) return
     const timer = window.setTimeout(() => setOpen(true), 0)
     return () => window.clearTimeout(timer)
-  }, [dbUserId])
+  }, [dbUser])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -116,7 +117,7 @@ export function WelcomeTutorialDialog() {
     if (!open) return
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') finishTutorial()
+      if (event.key === 'Escape') void finishTutorial()
       if (event.key === 'ArrowRight') goForward()
       if (event.key === 'ArrowLeft') setStepIndex((current) => Math.max(0, current - 1))
     }
@@ -148,7 +149,7 @@ export function WelcomeTutorialDialog() {
             type="button"
             variant="ghost"
             size="icon"
-            onClick={finishTutorial}
+            onClick={() => void finishTutorial()}
             className="size-8 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800"
             aria-label="Fechar tutorial"
           >
