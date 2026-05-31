@@ -3,14 +3,33 @@ import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { getArenaUsersAction } from '@/modules/users/actions/userActions'
 import { UsersPageClient } from './UsersPageClient'
 import { redirect } from 'next/navigation'
+import { buildTutorialUsers } from '@/lib/tutorial-mock-data'
 
-export default async function UsersCRUDPage({ params }: { params: Promise<{ arenaId: string }> }) {
+export default async function UsersCRUDPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ arenaId: string }>
+    searchParams: Promise<{ tutorial?: string }>
+}) {
     const { arenaId } = await params
+    const { tutorial } = await searchParams
 
     try {
         await assertArenaBackofficeAccess(arenaId)
     } catch {
         redirect('/dashboard/settings/arenas')
+    }
+
+    if (tutorial === '1') {
+        return (
+            <UsersPageClient
+                arenaId={arenaId}
+                arenaName="Arena demonstrativa"
+                initialUsers={buildTutorialUsers()}
+                stations={[{ id: 'tutorial-station-1', name: 'Bar Principal' }]}
+            />
+        )
     }
 
     const supabase = getSupabaseAdmin()

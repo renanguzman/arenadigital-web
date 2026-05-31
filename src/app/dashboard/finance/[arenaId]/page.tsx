@@ -4,14 +4,35 @@ import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseFinanceRepository } from '@/modules/finance/repositories/SupabaseFinanceRepository'
 import { format } from 'date-fns'
 import { FinanceDashboardClient } from './FinanceDashboardClient'
+import { buildTutorialFinance } from '@/lib/tutorial-mock-data'
 
-export default async function FinanceDashboard({ params }: { params: Promise<{ arenaId: string }> }) {
+export default async function FinanceDashboard({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ arenaId: string }>
+    searchParams: Promise<{ tutorial?: string }>
+}) {
     const { arenaId } = await params
+    const { tutorial } = await searchParams
 
     try {
         await assertArenaBackofficeAccess(arenaId)
     } catch {
         redirect('/dashboard/settings/arenas')
+    }
+
+    if (tutorial === '1') {
+        const finance = buildTutorialFinance(arenaId)
+        return (
+            <FinanceDashboardClient
+                arenaId={arenaId}
+                initialSummary={finance.summary}
+                initialRecentEntradas={finance.recentEntradas}
+                initialRecentSaidas={finance.recentSaidas}
+                initialChartSeries={finance.chartSeries}
+            />
+        )
     }
 
     const repo = new SupabaseFinanceRepository(getSupabaseAdmin())

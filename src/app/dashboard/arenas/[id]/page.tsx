@@ -5,20 +5,34 @@ import { SupabaseBookingRepository } from '@/modules/bookings/repositories/Supab
 import { ArenaDetailPageClient } from './ArenaDetailPageClient'
 import { parseArenaDashboardTab } from '@/lib/arena-dashboard-navigation'
 import { redirect } from 'next/navigation'
+import { buildTutorialBookings, buildTutorialCourts } from '@/lib/tutorial-mock-data'
 export default async function ArenaDetailPage({
     params,
     searchParams,
 }: {
     params: Promise<{ id: string }>
-    searchParams: Promise<{ tab?: string }>
+    searchParams: Promise<{ tab?: string; tutorial?: string }>
 }) {
     const { id } = await params
-    const { tab } = await searchParams
+    const { tab, tutorial } = await searchParams
 
     try {
         await assertArenaBackofficeAccess(id)
     } catch {
         redirect('/dashboard/settings/arenas')
+    }
+
+    const initialTab = parseArenaDashboardTab(tab)
+    if (tutorial === '1') {
+        return (
+            <ArenaDetailPageClient
+                arenaId={id}
+                arenaName="Arena demonstrativa"
+                initialCourts={buildTutorialCourts(id)}
+                initialBookings={buildTutorialBookings(id)}
+                initialTab={initialTab}
+            />
+        )
     }
 
     const supabase = getSupabaseAdmin()
@@ -42,8 +56,6 @@ export default async function ArenaDetailPage({
         ...court,
         sports: (court.sports as any[]).map(s => s.sport)
     }))
-
-    const initialTab = parseArenaDashboardTab(tab)
 
     return (
         <ArenaDetailPageClient

@@ -1,21 +1,16 @@
 'use client'
 
 import type { CSSProperties } from 'react'
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { CURRENT_ONBOARDING_VERSION } from '@/lib/onboarding'
 import { useDbUser } from '@/contexts/UserContext'
-import {
-  TutorialScreenPreview,
-  type TutorialPreviewKey,
-} from '@/components/dashboard/TutorialScreenPreview'
+import { useArena } from '@/contexts/ArenaContext'
 
 const SPOTLIGHT_GAP = 8
-const PANEL_WIDTH = 390
-const PANEL_ESTIMATED_HEIGHT = 270
 const VIEWPORT_GAP = 16
 
 type TutorialStep = {
@@ -23,7 +18,8 @@ type TutorialStep = {
   eyebrow: string
   title: string
   description: string
-  preview?: TutorialPreviewKey
+  route: (arenaId: string) => string
+  dimBackground?: boolean
 }
 
 type Spotlight = {
@@ -33,158 +29,149 @@ type Spotlight = {
   height: number
 }
 
+const dashboardRoute = () => '/dashboard'
+const arenaRoute = (path: string) => (arenaId: string) =>
+  arenaId ? `/dashboard/${path.replace(':arenaId', arenaId)}` : '/dashboard'
+
 const steps: TutorialStep[] = [
   {
     selector: '[data-tutorial="dashboard-main"]',
-    eyebrow: 'Visão geral',
+    eyebrow: 'Visao geral',
     title: 'Comece pelo Dashboard',
     description:
-      'Seu dia começa aqui. Acompanhe reservas, receita, espaços ativos e o movimento da arena em uma única visão.',
-    preview: 'dashboard',
+      'Seu dia comeca aqui. Acompanhe reservas, receita, espacos ativos e o movimento da arena em uma unica visao.',
+    route: dashboardRoute,
+    dimBackground: true,
   },
   {
     selector: '[data-tutorial="arena-selector"]',
-    eyebrow: 'Sua operação',
+    eyebrow: 'Sua operacao',
     title: 'Alterne entre suas arenas',
     description:
       'Quando houver mais de uma unidade, use este seletor para mudar o contexto de trabalho sem perder tempo.',
-    preview: 'dashboard',
+    route: dashboardRoute,
+    dimBackground: true,
   },
   {
     selector: '[data-tutorial-menu="spaces"], [data-tutorial="mobile-menu"]',
-    eyebrow: 'Espaços e agenda',
-    title: 'Organize cada espaço',
+    eyebrow: 'Espacos e agenda',
+    title: 'Organize cada espaco',
     description:
-      'Cadastre quadras e espaços sociais, consulte horários e acompanhe as reservas do dia. A quantidade disponível respeita o plano contratado.',
-    preview: 'spaces',
+      'Esta e a agenda real da arena. Cadastre quadras e espacos sociais, consulte horarios e acompanhe as reservas do dia.',
+    route: arenaRoute('arenas/:arenaId'),
   },
   {
     selector: '[data-tutorial-menu="athletes"], [data-tutorial="mobile-menu"]',
     eyebrow: 'Relacionamento',
-    title: 'Conheça seus atletas',
+    title: 'Conheca seus atletas',
     description:
-      'Centralize os cadastros, consulte o histórico de reservas e mantenha os dados de contato sempre à mão.',
-    preview: 'athletes',
+      'Nesta tela voce centraliza os cadastros, consulta o historico de reservas e mantem os dados de contato sempre a mao.',
+    route: arenaRoute('athletes/:arenaId'),
   },
   {
     selector: '[data-tutorial-menu="stations"], [data-tutorial="mobile-menu"]',
     eyebrow: 'Atendimento',
-    title: 'Cuide da operação de balcão',
+    title: 'Cuide da operacao de balcao',
     description:
-      'Use as estações para controlar comandas, vendas e o atendimento realizado em cada ponto da arena.',
-    preview: 'stations',
+      'As estacoes ajudam a controlar comandas, vendas e o atendimento realizado em cada ponto da arena.',
+    route: arenaRoute('arenas/:arenaId/stations'),
   },
   {
     selector: '[data-tutorial-menu="catalog"], [data-tutorial="mobile-menu"]',
-    eyebrow: 'Catálogo',
-    title: 'Gerencie produtos e serviços',
+    eyebrow: 'Catalogo',
+    title: 'Gerencie produtos e servicos',
     description:
-      'Organize bebidas, itens de estoque, locações e serviços oferecidos pela arena.',
-    preview: 'catalog',
+      'Organize bebidas, itens de estoque, locacoes e servicos oferecidos pela arena.',
+    route: arenaRoute('settings/products/:arenaId'),
   },
   {
     selector: '[data-tutorial-menu="memberships"], [data-tutorial="mobile-menu"]',
-    eyebrow: 'Recorrência',
+    eyebrow: 'Recorrencia',
     title: 'Acompanhe os mensalistas',
     description:
-      'Crie planos recorrentes para seus clientes e acompanhe as contratações da arena.',
-    preview: 'memberships',
+      'Crie planos recorrentes para seus clientes e acompanhe as contratacoes da arena.',
+    route: arenaRoute('arenas/:arenaId/mensalistas'),
   },
   {
     selector: '[data-tutorial-menu="rotativo"], [data-tutorial="mobile-menu"]',
     eyebrow: 'Partidas abertas',
     title: 'Preencha vagas com o Rotativo',
     description:
-      'Monte partidas, venda créditos avulsos e acompanhe as vagas disponíveis em cada horário.',
-    preview: 'rotativo',
+      'Monte partidas, venda creditos avulsos e acompanhe as vagas disponiveis em cada horario.',
+    route: arenaRoute('rotativo/:arenaId'),
   },
   {
     selector: '[data-tutorial-menu="loyalty"], [data-tutorial="mobile-menu"]',
-    eyebrow: 'Fidelização',
-    title: 'Reconheça os clientes recorrentes',
+    eyebrow: 'Fidelizacao',
+    title: 'Reconheca os clientes recorrentes',
     description:
-      'Use pontos e benefícios para incentivar novas reservas e acompanhar os atletas mais engajados.',
-    preview: 'loyalty',
+      'Use pontos e beneficios para incentivar novas reservas e acompanhar os atletas mais engajados.',
+    route: arenaRoute('loyalty/:arenaId'),
   },
   {
     selector: '[data-tutorial-menu="finance"], [data-tutorial="mobile-menu"]',
     eyebrow: 'Financeiro',
     title: 'Tenha clareza sobre o caixa',
     description:
-      'Consulte entradas, saídas e resultados para entender a saúde financeira da operação.',
-    preview: 'finance',
+      'Consulte entradas, saidas e resultados para entender a saude financeira da operacao.',
+    route: arenaRoute('finance/:arenaId'),
   },
   {
     selector: '[data-tutorial-menu="reports"], [data-tutorial="mobile-menu"]',
     eyebrow: 'Indicadores',
-    title: 'Acompanhe seus relatórios',
+    title: 'Acompanhe seus relatorios',
     description:
-      'Analise ocupação, pagamentos e comportamento dos clientes para tomar decisões com mais contexto.',
-    preview: 'reports',
+      'Analise ocupacao, pagamentos e comportamento dos clientes para tomar decisoes com mais contexto.',
+    route: arenaRoute('reports/:arenaId/clientes-overview'),
   },
   {
     selector: '[data-tutorial-menu="settings"], [data-tutorial="mobile-menu"]',
-    eyebrow: 'Configurações',
-    title: 'Finalize a preparação da arena',
+    eyebrow: 'Configuracoes',
+    title: 'Finalize a preparacao da arena',
     description:
-      'Gerencie sua equipe, confira a assinatura e complete o perfil da arena. Ao sair do Dashboard pela primeira vez, você seguirá para o cadastro do cartão.',
-    preview: 'settings',
+      'Gerencie sua equipe, confira a assinatura e complete o perfil da arena. Ao concluir, voce podera explorar sua operacao.',
+    route: arenaRoute('settings/users/:arenaId'),
   },
 ]
 
-function getPanelPosition(spotlight: Spotlight | null, hasPreview = false): CSSProperties {
-  if (!spotlight || typeof window === 'undefined' || window.innerWidth < 768) {
+function getPanelPosition(): CSSProperties {
+  if (typeof window === 'undefined' || window.innerWidth < 768) {
     return { bottom: VIEWPORT_GAP, left: VIEWPORT_GAP }
   }
-
-  if (hasPreview) {
-    return { right: VIEWPORT_GAP, top: VIEWPORT_GAP }
-  }
-
-  const availableRight = window.innerWidth - (spotlight.left + spotlight.width)
-  if (availableRight >= PANEL_WIDTH + VIEWPORT_GAP * 2) {
-    return {
-      left: spotlight.left + spotlight.width + VIEWPORT_GAP,
-      top: Math.min(
-        Math.max(VIEWPORT_GAP, spotlight.top),
-        window.innerHeight - PANEL_ESTIMATED_HEIGHT - VIEWPORT_GAP
-      ),
-    }
-  }
-
-  if (spotlight.left >= PANEL_WIDTH + VIEWPORT_GAP * 2) {
-    return {
-      left: spotlight.left - PANEL_WIDTH - VIEWPORT_GAP,
-      top: Math.min(
-        Math.max(VIEWPORT_GAP, spotlight.top),
-        window.innerHeight - PANEL_ESTIMATED_HEIGHT - VIEWPORT_GAP
-      ),
-    }
-  }
-
-  return {
-    bottom: VIEWPORT_GAP,
-    left: Math.max(VIEWPORT_GAP, (window.innerWidth - PANEL_WIDTH) / 2),
-  }
+  return { right: VIEWPORT_GAP, top: VIEWPORT_GAP }
 }
 
-export function WelcomeTutorialDialog() {
+export function WelcomeTutorialDialog({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { dbUser } = useDbUser()
+  const { selectedArena, isLoadingArenas } = useArena()
   const [open, setOpen] = useState(false)
   const [completedLocally, setCompletedLocally] = useState(false)
-  const [stepIndex, setStepIndex] = useState(0)
   const [spotlight, setSpotlight] = useState<Spotlight | null>(null)
-  const [panelPosition, setPanelPosition] = useState<CSSProperties>({
-    bottom: VIEWPORT_GAP,
-    left: VIEWPORT_GAP,
-  })
+  const [panelPosition, setPanelPosition] = useState<CSSProperties>(getPanelPosition)
+  const isTutorialUrl = searchParams.get('tutorial') === '1'
+  const parsedStep = Number(searchParams.get('step') ?? 0)
+  const stepIndex = Number.isInteger(parsedStep) && parsedStep >= 0 && parsedStep < steps.length
+    ? parsedStep
+    : 0
   const step = steps[stepIndex]
   const isLastStep = stepIndex === steps.length - 1
+  const needsTutorial = Boolean(
+    dbUser && dbUser.onboarding_version < CURRENT_ONBOARDING_VERSION
+  )
+  const isVisible = open && isTutorialUrl && needsTutorial && !completedLocally
+
+  const tutorialUrl = useCallback((index: number) => {
+    const route = steps[index].route(selectedArena)
+    return `${route}?tutorial=1&step=${index}`
+  }, [selectedArena])
 
   const finishTutorial = useCallback(async () => {
     setCompletedLocally(true)
     setOpen(false)
+    router.replace('/dashboard')
     try {
       const response = await fetch('/api/user/me/onboarding', { method: 'POST' })
       if (!response.ok) {
@@ -193,38 +180,51 @@ export function WelcomeTutorialDialog() {
     } catch (error) {
       console.error('[WelcomeTutorialDialog] Failed to complete onboarding', error)
     }
-  }, [])
+  }, [router])
+
+  const goToStep = useCallback((index: number) => {
+    router.push(tutorialUrl(index))
+  }, [router, tutorialUrl])
 
   const goForward = useCallback(() => {
     if (isLastStep) {
       void finishTutorial()
       return
     }
-    setStepIndex((current) => current + 1)
-  }, [finishTutorial, isLastStep])
+    goToStep(stepIndex + 1)
+  }, [finishTutorial, goToStep, isLastStep, stepIndex])
 
   useEffect(() => {
     if (
       completedLocally ||
       pathname !== '/dashboard' ||
-      !dbUser ||
-      dbUser.onboarding_version >= CURRENT_ONBOARDING_VERSION
+      isTutorialUrl ||
+      isLoadingArenas ||
+      !selectedArena ||
+      !needsTutorial
     ) {
       return
     }
+    router.replace(tutorialUrl(0))
+  }, [
+    completedLocally,
+    isLoadingArenas,
+    isTutorialUrl,
+    needsTutorial,
+    pathname,
+    router,
+    selectedArena,
+    tutorialUrl,
+  ])
 
-    const timer = window.setTimeout(() => {
-      setStepIndex(0)
-      setOpen(true)
-    }, 150)
-
-    return () => {
-      window.clearTimeout(timer)
-    }
-  }, [completedLocally, dbUser, pathname])
+  useEffect(() => {
+    if (!isTutorialUrl || !needsTutorial || completedLocally) return
+    const timer = window.setTimeout(() => setOpen(true), 120)
+    return () => window.clearTimeout(timer)
+  }, [completedLocally, isTutorialUrl, needsTutorial])
 
   useLayoutEffect(() => {
-    if (!open) return
+    if (!isVisible) return
 
     function updateSpotlight() {
       const target = [...document.querySelectorAll(step.selector)].find((element) => {
@@ -233,72 +233,52 @@ export function WelcomeTutorialDialog() {
         return rect.width > 0 && rect.height > 0
       })
 
+      setPanelPosition(getPanelPosition())
       if (!(target instanceof HTMLElement)) {
         setSpotlight(null)
-        setPanelPosition(getPanelPosition(null, Boolean(step.preview)))
         return
       }
 
       const rect = target.getBoundingClientRect()
-      if (
-        rect.height <= window.innerHeight - VIEWPORT_GAP * 2 &&
-        (rect.top < VIEWPORT_GAP || rect.bottom > window.innerHeight - VIEWPORT_GAP)
-      ) {
-        target.scrollIntoView({ block: 'center' })
-        window.requestAnimationFrame(updateSpotlight)
-        return
-      }
-
-      const nextSpotlight = {
+      setSpotlight({
         top: Math.max(VIEWPORT_GAP / 2, rect.top - SPOTLIGHT_GAP),
         left: Math.max(VIEWPORT_GAP / 2, rect.left - SPOTLIGHT_GAP),
         width: Math.min(window.innerWidth - VIEWPORT_GAP, rect.width + SPOTLIGHT_GAP * 2),
         height: Math.min(window.innerHeight - VIEWPORT_GAP, rect.height + SPOTLIGHT_GAP * 2),
-      }
-      setSpotlight(nextSpotlight)
-      setPanelPosition(getPanelPosition(nextSpotlight, Boolean(step.preview)))
+      })
     }
 
     updateSpotlight()
     window.addEventListener('resize', updateSpotlight)
-    window.addEventListener('scroll', updateSpotlight, true)
-    return () => {
-      window.removeEventListener('resize', updateSpotlight)
-      window.removeEventListener('scroll', updateSpotlight, true)
-    }
-  }, [open, step.preview, step.selector])
+    return () => window.removeEventListener('resize', updateSpotlight)
+  }, [isVisible, pathname, step.selector])
 
   useEffect(() => {
-    if (!open) return
-
+    if (!isVisible) return
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') void finishTutorial()
       if (event.key === 'ArrowRight') goForward()
-      if (event.key === 'ArrowLeft') setStepIndex((current) => Math.max(0, current - 1))
+      if (event.key === 'ArrowLeft' && stepIndex > 0) goToStep(stepIndex - 1)
     }
-
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [finishTutorial, goForward, open])
+  }, [finishTutorial, goForward, goToStep, isVisible, stepIndex])
 
-  if (!open) return null
+  const spotlightClassName = useMemo(() => cn(
+    'pointer-events-none absolute z-[2] rounded-md border-2 border-arena-button bg-transparent transition-all duration-300 ease-out',
+    step.dimBackground && 'shadow-[0_0_0_9999px_rgba(2,20,28,0.62),0_0_0_5px_rgba(255,107,0,0.18)]',
+  ), [step.dimBackground])
+
+  useEffect(() => {
+    onOpenChange?.(isVisible)
+    return () => onOpenChange?.(false)
+  }, [isVisible, onOpenChange])
+
+  if (!isVisible) return null
 
   return (
     <div className="fixed inset-0 z-[100] overflow-hidden">
-      {spotlight && (
-        <div
-          className="pointer-events-none absolute z-[2] rounded-md border-2 border-arena-button bg-transparent shadow-[0_0_0_9999px_rgba(2,20,28,0.68),0_0_0_5px_rgba(255,107,0,0.18)] transition-all duration-300 ease-out"
-          style={spotlight}
-        />
-      )}
-
-      {!spotlight && <div className="absolute inset-0 z-[2] bg-slate-950/68" />}
-
-      {step.preview && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-[17.5rem] top-0 z-[3] md:bottom-0 md:left-64 md:right-[26rem]">
-          <TutorialScreenPreview previewKey={step.preview} />
-        </div>
-      )}
+      {spotlight && <div className={spotlightClassName} style={spotlight} />}
 
       <section
         className="absolute z-[4] w-[min(390px,calc(100%-2rem))] rounded-md border border-slate-200 bg-white shadow-2xl transition-[top,left,bottom] duration-300 ease-out"
@@ -330,25 +310,14 @@ export function WelcomeTutorialDialog() {
           <p className="shrink-0 text-xs font-semibold text-slate-500">
             {stepIndex + 1} de {steps.length}
           </p>
-
           <div className="flex gap-2">
             {stepIndex > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setStepIndex((current) => current - 1)}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => goToStep(stepIndex - 1)}>
                 <ArrowLeft className="size-4" />
                 Voltar
               </Button>
             )}
-            <Button
-              type="button"
-              size="sm"
-              onClick={goForward}
-              className={cn('bg-arena-button text-white hover:bg-arena-button-hover')}
-            >
+            <Button type="button" size="sm" onClick={goForward} className="bg-arena-button text-white hover:bg-arena-button-hover">
               {isLastStep ? (
                 <>
                   <Check className="size-4" />
@@ -356,7 +325,7 @@ export function WelcomeTutorialDialog() {
                 </>
               ) : (
                 <>
-                  Próximo
+                  Proximo
                   <ArrowRight className="size-4" />
                 </>
               )}
