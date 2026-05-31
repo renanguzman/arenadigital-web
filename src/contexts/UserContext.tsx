@@ -8,6 +8,8 @@ type DbUser = {
   name: string
   role: string | null
   created_at: string
+  onboarding_completed_at: string | null
+  onboarding_version: number
 }
 
 type State =
