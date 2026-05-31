@@ -218,6 +218,16 @@ export function WelcomeTutorialDialog({ onOpenChange }: { onOpenChange?: (open: 
   ])
 
   useEffect(() => {
+    if (!isTutorialUrl || !selectedArena) return
+
+    for (const index of [stepIndex + 1, stepIndex + 2]) {
+      if (index < steps.length) {
+        router.prefetch(tutorialUrl(index))
+      }
+    }
+  }, [isTutorialUrl, router, selectedArena, stepIndex, tutorialUrl])
+
+  useEffect(() => {
     if (!isTutorialUrl || !needsTutorial || completedLocally) return
     const timer = window.setTimeout(() => setOpen(true), 120)
     return () => window.clearTimeout(timer)
