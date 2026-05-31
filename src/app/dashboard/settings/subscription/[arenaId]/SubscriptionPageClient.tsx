@@ -6,7 +6,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   AlertCircle,
   Building2,
-  CalendarClock,
   Check,
   FlaskConical,
   Layers3,
@@ -357,28 +356,7 @@ export function SubscriptionPageClient({
       </div>
 
       {planSelectionEnabled && !isPartnerSubscription && (
-        <section className="space-y-5">
-          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
-            <div>
-              <h3 className="font-heading text-xl font-bold text-arena-navy-800">
-                Planos disponíveis
-              </h3>
-              <p className="mt-1 max-w-2xl text-sm text-arena-navy-800/60">
-                Escolha a capacidade adequada para sua arena. A alteração entra
-                em vigor após a confirmação do cartão.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-arena-navy-800 shadow-sm">
-            <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-arena-button" />
-            <p>
-              Os planos Starter, Max e PRO possuem vigência anual com cobrança
-              mensal. O Experimental é gratuito por até 5 dias e exige um
-              cartão válido.
-            </p>
-          </div>
-
+        <section>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {plans.map((plan) => {
               const isSelected = plan.key === selectedPlanKey;
