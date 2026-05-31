@@ -2195,6 +2195,8 @@ export type Database = {
           email: string
           id: string
           name: string | null
+          onboarding_completed_at: string | null
+          onboarding_version: number
           role: string | null
         }
         Insert: {
@@ -2203,6 +2205,8 @@ export type Database = {
           email: string
           id?: string
           name?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_version?: number
           role?: string | null
         }
         Update: {
@@ -2211,6 +2215,8 @@ export type Database = {
           email?: string
           id?: string
           name?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_version?: number
           role?: string | null
         }
         Relationships: []
