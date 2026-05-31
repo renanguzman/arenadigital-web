@@ -187,38 +187,38 @@ export function CadastradosTab({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por atleta"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </form>
-
-        <Select value={status} onValueChange={handleStatusChange}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os status</SelectItem>
-            <SelectItem value="ativo">Ativo</SelectItem>
-            <SelectItem value="desativado">Desativado</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Button onClick={openCreate} className="ml-auto gap-2">
-          Cadastrar rotativo
-          <Plus className="h-4 w-4" />
-        </Button>
-      </div>
-
-      <Card>
+    <div>
+      <Card className="rounded-lg border border-slate-100 bg-white px-6 py-6 shadow-sm">
         <CardContent className="p-0">
+          <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center">
+            <form onSubmit={handleSearchSubmit} className="relative w-full md:max-w-sm">
+              <Input
+                placeholder="Buscar rotativo..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-10 rounded-md border-slate-300 pl-3 pr-10 text-sm shadow-none"
+              />
+              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </form>
+
+            <Select value={status} onValueChange={handleStatusChange}>
+              <SelectTrigger className="h-10 w-full rounded-md border-slate-300 shadow-none md:w-[180px]">
+                <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os status</SelectItem>
+                <SelectItem value="ativo">Ativo</SelectItem>
+                <SelectItem value="desativado">Desativado</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button onClick={openCreate} className="ml-auto h-10 rounded-md bg-arena-button px-4 text-sm font-bold text-white shadow-none hover:bg-arena-button-hover">
+              <Plus className="mr-2 h-4 w-4" />
+              Cadastrar rotativo
+            </Button>
+          </div>
+
           <div className="overflow-x-auto">
             <table className={arenaDataTable.table}>
               <thead>
@@ -281,7 +281,9 @@ export function CadastradosTab({
                               size="icon"
                               className={cn(
                                 "h-8 w-8",
-                                canReactivate ? "text-teal-600" : "text-arena-button"
+                                canReactivate
+                                  ? "bg-teal-50 text-teal-600/60 hover:bg-teal-100 hover:text-teal-600"
+                                  : "bg-arena-button/10 text-arena-button/60 hover:bg-arena-button/20 hover:text-arena-button"
                               )}
                               disabled={!isActive && !canReactivate}
                               onClick={() => {
@@ -303,7 +305,7 @@ export function CadastradosTab({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-arena-button"
+                              className="h-8 w-8 bg-slate-100 text-arena-navy-800/60 hover:bg-slate-200 hover:text-arena-navy-800"
                               disabled={!isActive}
                               onClick={() => {
                                 setSelected(row)
@@ -315,7 +317,7 @@ export function CadastradosTab({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-red-500"
+                              className="h-8 w-8 bg-red-50 text-red-500/70 hover:bg-red-100 hover:text-red-600"
                               disabled={!isActive}
                               onClick={() => openDeactivate(row)}
                             >
@@ -324,7 +326,7 @@ export function CadastradosTab({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-teal-600"
+                              className="h-8 w-8 bg-teal-50 text-teal-600/60 hover:bg-teal-100 hover:text-teal-600"
                               onClick={() => openDetails(row)}
                             >
                               <Eye className="h-4 w-4" />
@@ -339,15 +341,15 @@ export function CadastradosTab({
             </table>
           </div>
 
-          <div className="flex items-center justify-between px-5 py-4 border-t">
-            <p className="text-xs text-gray-500">
+          <div className="flex items-center justify-between border-t border-slate-100 px-0 pt-4">
+            <p className="text-xs text-arena-navy-800/40">
               Exibindo {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} de {total}
             </p>
             <div className="flex items-center gap-1">
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 bg-white"
                 disabled={page === 1}
                 onClick={() => {
                   const next = page - 1
@@ -370,9 +372,12 @@ export function CadastradosTab({
                   ) : (
                     <Button
                       key={p}
-                      variant={p === page ? "default" : "outline"}
+                      variant="outline"
                       size="icon"
-                      className="h-8 w-8 text-xs"
+                      className={cn(
+                        "h-8 w-8 text-xs",
+                        p === page && "border-transparent bg-arena-navy-800 text-white hover:bg-arena-navy-800/90 hover:text-white"
+                      )}
                       onClick={() => {
                         setPage(p as number)
                         reload(p as number)
@@ -385,7 +390,7 @@ export function CadastradosTab({
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 bg-white"
                 disabled={page >= totalPages}
                 onClick={() => {
                   const next = page + 1
