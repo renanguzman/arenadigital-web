@@ -130,9 +130,13 @@ const steps: TutorialStep[] = [
   },
 ]
 
-function getPanelPosition(spotlight: Spotlight | null): CSSProperties {
+function getPanelPosition(spotlight: Spotlight | null, hasPreview = false): CSSProperties {
   if (!spotlight || typeof window === 'undefined' || window.innerWidth < 768) {
     return { bottom: VIEWPORT_GAP, left: VIEWPORT_GAP }
+  }
+
+  if (hasPreview) {
+    return { bottom: VIEWPORT_GAP, right: VIEWPORT_GAP }
   }
 
   const availableRight = window.innerWidth - (spotlight.left + spotlight.width)
@@ -243,7 +247,7 @@ export function WelcomeTutorialDialog() {
 
       if (!(target instanceof HTMLElement)) {
         setSpotlight(null)
-        setPanelPosition(getPanelPosition(null))
+        setPanelPosition(getPanelPosition(null, Boolean(step.preview)))
         return
       }
 
@@ -261,7 +265,7 @@ export function WelcomeTutorialDialog() {
         height: Math.min(window.innerHeight - VIEWPORT_GAP, rect.height + SPOTLIGHT_GAP * 2),
       }
       setSpotlight(nextSpotlight)
-      setPanelPosition(getPanelPosition(nextSpotlight))
+      setPanelPosition(getPanelPosition(nextSpotlight, Boolean(step.preview)))
     }
 
     updateSpotlight()
@@ -271,7 +275,7 @@ export function WelcomeTutorialDialog() {
       window.removeEventListener('resize', updateSpotlight)
       window.removeEventListener('scroll', updateSpotlight, true)
     }
-  }, [open, step.selector])
+  }, [open, step.preview, step.selector])
 
   useEffect(() => {
     if (!open) return
@@ -300,7 +304,7 @@ export function WelcomeTutorialDialog() {
       {!spotlight && <div className="absolute inset-0 z-[2] bg-slate-950/68" />}
 
       {step.preview && (
-        <div className="pointer-events-none absolute inset-x-4 bottom-[16.5rem] top-[4.5rem] z-[3] md:bottom-4 md:left-[17rem]">
+        <div className="pointer-events-none absolute inset-x-4 bottom-[17.5rem] top-[4.5rem] z-[3] md:bottom-4 md:left-[17rem] md:right-[26rem] md:top-4">
           <TutorialScreenPreview previewKey={step.preview} />
         </div>
       )}
