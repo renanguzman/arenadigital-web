@@ -1,6 +1,5 @@
 'use client'
 
-import type { CSSProperties } from 'react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react'
@@ -134,14 +133,7 @@ const steps: TutorialStep[] = [
   },
 ]
 
-function getPanelPosition(): CSSProperties {
-  if (typeof window === 'undefined' || window.innerWidth < 768) {
-    return { bottom: VIEWPORT_GAP, left: VIEWPORT_GAP }
-  }
-  return { right: VIEWPORT_GAP, top: VIEWPORT_GAP }
-}
-
-export function WelcomeTutorialDialog({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
+export function WelcomeTutorialDialog() {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -150,7 +142,6 @@ export function WelcomeTutorialDialog({ onOpenChange }: { onOpenChange?: (open: 
   const [open, setOpen] = useState(false)
   const [completedLocally, setCompletedLocally] = useState(false)
   const [spotlight, setSpotlight] = useState<Spotlight | null>(null)
-  const [panelPosition, setPanelPosition] = useState<CSSProperties>(getPanelPosition)
   const isTutorialUrl = searchParams.get('tutorial') === '1'
   const parsedStep = Number(searchParams.get('step') ?? 0)
   const stepIndex = Number.isInteger(parsedStep) && parsedStep >= 0 && parsedStep < steps.length
@@ -243,7 +234,6 @@ export function WelcomeTutorialDialog({ onOpenChange }: { onOpenChange?: (open: 
         return rect.width > 0 && rect.height > 0
       })
 
-      setPanelPosition(getPanelPosition())
       if (!(target instanceof HTMLElement)) {
         setSpotlight(null)
         return
@@ -279,11 +269,6 @@ export function WelcomeTutorialDialog({ onOpenChange }: { onOpenChange?: (open: 
     step.dimBackground && 'shadow-[0_0_0_9999px_rgba(2,20,28,0.62),0_0_0_5px_rgba(255,107,0,0.18)]',
   ), [step.dimBackground])
 
-  useEffect(() => {
-    onOpenChange?.(isVisible)
-    return () => onOpenChange?.(false)
-  }, [isVisible, onOpenChange])
-
   if (!isVisible) return null
 
   return (
@@ -291,8 +276,7 @@ export function WelcomeTutorialDialog({ onOpenChange }: { onOpenChange?: (open: 
       {spotlight && <div className={spotlightClassName} style={spotlight} />}
 
       <section
-        className="absolute z-[4] w-[min(390px,calc(100%-2rem))] rounded-md border border-slate-200 bg-white shadow-2xl transition-[top,left,bottom] duration-300 ease-out"
-        style={panelPosition}
+        className="absolute bottom-4 left-4 z-[4] w-[min(390px,calc(100%-2rem))] rounded-md border border-slate-200 bg-white shadow-2xl"
         aria-live="polite"
       >
         <header className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
