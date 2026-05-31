@@ -50,11 +50,15 @@ export default function SignInPage() {
       return
     }
 
-    const provision = await provisionAfterSignUpAction()
-    if (!provision.success) {
-      console.error('provisionAfterSignUpAction:', provision.error)
-    }
-
+    void provisionAfterSignUpAction()
+      .then((provision) => {
+        if (!provision.success) {
+          console.error('provisionAfterSignUpAction:', provision.error)
+        }
+      })
+      .catch((provisionError) => {
+        console.error('provisionAfterSignUpAction:', provisionError)
+      })
     window.location.replace(redirectTo)
   }
 

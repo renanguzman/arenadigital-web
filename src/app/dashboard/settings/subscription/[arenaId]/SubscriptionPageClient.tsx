@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, Check } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  AlertCircle,
+  Building2,
+  Check,
+  FlaskConical,
+  Layers3,
+  ShieldCheck,
+  Trophy,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -53,6 +62,11 @@ type SubscriptionPlanOption = {
   features: string[];
 };
 
+type PlanPresentation = {
+  icon: LucideIcon;
+  iconClassName: string;
+};
+
 interface Props {
   arenaId: string;
   initialSubscription: ArenaSubscription;
@@ -61,6 +75,25 @@ interface Props {
   plans: SubscriptionPlanOption[];
   planSelectionEnabled: boolean;
 }
+
+const PLAN_PRESENTATION: Record<UserSelectablePlanKey, PlanPresentation> = {
+  experimental: {
+    icon: FlaskConical,
+    iconClassName: 'bg-orange-50 text-arena-button',
+  },
+  starter: {
+    icon: Layers3,
+    iconClassName: 'bg-teal-50 text-teal-700',
+  },
+  max: {
+    icon: ShieldCheck,
+    iconClassName: 'bg-sky-50 text-sky-700',
+  },
+  pro: {
+    icon: Trophy,
+    iconClassName: 'bg-amber-50 text-amber-700',
+  },
+};
 
 function formatPrice(cents: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -98,6 +131,12 @@ function capitalizeFirst(str: string) {
 function formatSpaceLimit(maxSpaces: number) {
   if (hasUnlimitedSpaces(maxSpaces)) return 'Espaços ilimitados.'
   return `Até ${maxSpaces} espaços/quadras incluídos.`
+}
+
+function getPlanRules(plan: SubscriptionPlanOption) {
+  return plan.key === 'experimental'
+    ? ['Cartão válido obrigatório', 'Acesso gratuito por até 5 dias']
+    : ['Contrato anual', 'Cobrança mensal'];
 }
 
 function PaymentStatusBadge({ status }: { status: string }) {
@@ -287,74 +326,85 @@ export function SubscriptionPageClient({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Assinatura</h2>
-        <p className="mt-1 text-muted-foreground">
+        <p className="text-xs font-bold uppercase text-arena-button">
+          Configurações financeiras
+        </p>
+        <h2 className="mt-1 font-heading text-3xl font-black tracking-normal text-arena-navy-800">
+          Assinatura
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm text-arena-navy-800/60">
           Gerencie seu plano, forma de pagamento e historico de cobranca.
         </p>
       </div>
 
       {planSelectionEnabled && !isPartnerSubscription && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold">Planos disponiveis</h3>
-              <p className="text-sm text-muted-foreground">
-                Escolha explicitamente o plano antes de cadastrar ou trocar o
-                cartao.
-              </p>
-            </div>
-            {selectedPlan && (
-              <Badge
-                variant="outline"
-                className="border-arena-button/30 bg-arena-button/5 text-[#C65100]"
-              >
-                Selecionado: {selectedPlan.label}
-              </Badge>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {plans.map((plan) => {
               const isSelected = plan.key === selectedPlanKey;
               const isCurrent = subscription.planKey === plan.key;
+              const presentation = PLAN_PRESENTATION[plan.key];
+              const PlanIcon = presentation.icon;
+              const rules = getPlanRules(plan);
 
               return (
                 <Card
                   key={plan.key}
-                  className={
-                    isSelected
-                      ? 'border-arena-button shadow-[0_0_0_1px_rgba(255,107,0,0.15)]'
-                      : 'border-border'
-                  }
+                  className={cn(
+                    'relative overflow-hidden rounded-lg border-slate-200 bg-white py-0 shadow-sm transition-[border-color,box-shadow,transform] duration-200',
+                    isSelected &&
+                      'border-arena-button shadow-[0_0_0_1px_rgba(255,107,0,0.16),0_10px_28px_rgba(0,43,64,0.08)]',
+                    !isSelected && 'hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md'
+                  )}
                 >
-                  <CardContent className="space-y-5 pt-6">
+                  <CardContent className="flex h-full flex-col p-5">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-semibold">{plan.label}</p>
-                        <p className="mt-1 text-2xl font-bold text-[#0D3B45]">
-                          {formatPrice(plan.priceCents)}
-                          <span className="ml-1 text-sm font-medium text-muted-foreground">
-                            / mes
-                          </span>
-                        </p>
-                      </div>
-                      {isCurrent && (
-                        <Badge className="bg-[#1B7B8A] text-white">Atual</Badge>
-                      )}
-                    </div>
-
-                    <div className="rounded-lg border border-dashed border-[#1B7B8A]/20 bg-[#1B7B8A]/5 px-3 py-2 text-sm text-[#0D3B45]">
-                      {formatSpaceLimit(plan.maxSpaces)}
-                    </div>
-
-                    <div className="space-y-2">
-                      {plan.features.map((feature) => (
+                      <div className="flex items-center gap-3">
                         <div
-                          key={feature}
-                          className="flex items-start gap-2 text-sm text-foreground"
+                          className={cn(
+                            'flex h-10 w-10 items-center justify-center rounded-lg',
+                            presentation.iconClassName
+                          )}
                         >
-                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#1B7B8A]" />
-                          <span>{feature}</span>
+                          <PlanIcon className="h-5 w-5" />
+                        </div>
+                        <h4 className="font-heading text-lg font-black text-arena-navy-800">
+                          {plan.label}
+                        </h4>
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        {isCurrent && (
+                          <Badge className="bg-teal-700 text-white">Plano atual</Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 border-y border-slate-100 py-4">
+                      <p className="font-heading text-3xl font-black leading-none text-arena-navy-800">
+                        {formatPrice(plan.priceCents)}
+                        {plan.key !== 'experimental' && (
+                          <span className="ml-1 font-sans text-sm font-semibold text-arena-navy-800/50">
+                            /mês
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-2 text-xs font-medium text-arena-navy-800/50">
+                        {plan.key === 'experimental'
+                          ? 'Gratuito por até 5 dias'
+                          : 'Plano anual'}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex items-start gap-2 rounded-md bg-slate-50 px-3 py-2.5 text-sm font-bold text-arena-navy-800">
+                      <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
+                      <span>{formatSpaceLimit(plan.maxSpaces)}</span>
+                    </div>
+
+                    <div className="mt-4 flex-1 space-y-2">
+                      {rules.map((rule) => (
+                        <div key={rule} className="flex items-start gap-2 text-sm text-arena-navy-800/75">
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
+                          <span>{rule}</span>
                         </div>
                       ))}
                     </div>
@@ -362,11 +412,13 @@ export function SubscriptionPageClient({
                     <Button
                       type="button"
                       variant={isSelected ? 'default' : 'outline'}
-                      className={
+                      aria-pressed={isSelected}
+                      className={cn(
+                        'mt-5 w-full rounded-md font-bold',
                         isSelected
-                          ? 'w-full bg-arena-button text-white hover:bg-arena-button-hover'
-                          : 'w-full border-[#0D3B45] text-[#0D3B45]'
-                      }
+                          ? 'bg-arena-button text-white hover:bg-arena-button-hover'
+                          : 'border-slate-300 text-arena-navy-800 hover:bg-slate-50'
+                      )}
                       onClick={() => setSelectedPlanKey(plan.key)}
                     >
                       {isSelected ? 'Plano selecionado' : 'Selecionar plano'}
@@ -382,6 +434,7 @@ export function SubscriptionPageClient({
       <Tabs defaultValue="dados-basicos">
         <TabsList variant="line">
           <TabsTrigger value="dados-basicos">Dados basicos</TabsTrigger>
+          <TabsTrigger value="historico">Historico de pagamentos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dados-basicos" className="mt-6">
