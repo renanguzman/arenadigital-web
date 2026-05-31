@@ -2,9 +2,17 @@ import { assertArenaAccess } from '@/lib/server-auth'
 import { getStationsWithMetricsAction } from '@/modules/stations/actions/stationActions'
 import { StationsPageClient } from './StationsPageClient'
 import { redirect } from 'next/navigation'
+import { buildTutorialStations } from '@/lib/tutorial-mock-data'
 
-export default async function StationsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function StationsPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ id: string }>
+    searchParams: Promise<{ tutorial?: string }>
+}) {
     const { id } = await params
+    const { tutorial } = await searchParams
     let access: Awaited<ReturnType<typeof assertArenaAccess>> | null = null
 
     try {
@@ -17,7 +25,9 @@ export default async function StationsPage({ params }: { params: Promise<{ id: s
         redirect(`/dashboard/arenas/${id}/stations/${access.assignedStationId}`)
     }
 
-    const result = await getStationsWithMetricsAction(id)
+    const result = tutorial === '1'
+        ? { data: buildTutorialStations(id) }
+        : await getStationsWithMetricsAction(id)
 
     return (
         <StationsPageClient

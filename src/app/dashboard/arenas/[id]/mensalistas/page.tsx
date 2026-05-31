@@ -3,14 +3,26 @@ import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { MensalistasPageClient } from './MensalistasPageClient'
 import type { PlanoMensalistaComDetalhes } from '@/modules/bookings/types/booking.types'
+import { buildTutorialMonthlyPlans } from '@/lib/tutorial-mock-data'
 
-export default async function MensalistasPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MensalistasPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ id: string }>
+    searchParams: Promise<{ tutorial?: string }>
+}) {
     const { id: arenaId } = await params
+    const { tutorial } = await searchParams
 
     try {
         await assertArenaBackofficeAccess(arenaId)
     } catch {
         redirect('/dashboard/settings/arenas')
+    }
+
+    if (tutorial === '1') {
+        return <MensalistasPageClient arenaId={arenaId} initialPlanos={buildTutorialMonthlyPlans(arenaId)} />
     }
 
     const supabase = getSupabaseAdmin()

@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useArena } from '@/contexts/ArenaContext'
+import { useDbUser } from '@/contexts/UserContext'
+import { CURRENT_ONBOARDING_VERSION } from '@/lib/onboarding'
 import { PARTNER_PLAN_KEY } from '@/modules/payments/plans'
 import {
   hasUsableSubscription,
@@ -24,15 +26,22 @@ type State =
 export function DashboardSubscriptionGate() {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { dbUser } = useDbUser()
   const { selectedArena, selectedArenaDetails, isLoadingArenas } = useArena()
   const [state, setState] = useState<State>({ status: 'idle' })
+  const isTutorialAccess = Boolean(
+    searchParams.get('tutorial') === '1' &&
+    dbUser &&
+    dbUser.onboarding_version < CURRENT_ONBOARDING_VERSION
+  )
 
   const canManageSubscription = Boolean(
     selectedArenaDetails?.isOwner || selectedArenaDetails?.role === 'Gestor'
   )
 
   useEffect(() => {
-    if (isLoadingArenas || !selectedArena || !canManageSubscription) {
+    if (isTutorialAccess || isLoadingArenas || !selectedArena || !canManageSubscription) {
       return
     }
 
@@ -53,10 +62,11 @@ export function DashboardSubscriptionGate() {
       })
 
     return () => controller.abort()
-  }, [canManageSubscription, isLoadingArenas, selectedArena])
+  }, [canManageSubscription, isLoadingArenas, isTutorialAccess, selectedArena])
 
   useEffect(() => {
     if (
+      isTutorialAccess ||
       !selectedArena ||
       !canManageSubscription ||
       state.status !== 'ready' ||
@@ -83,7 +93,7 @@ export function DashboardSubscriptionGate() {
     ) {
       router.replace(subscriptionPath)
     }
-  }, [canManageSubscription, pathname, router, selectedArena, state])
+  }, [canManageSubscription, isTutorialAccess, pathname, router, selectedArena, state])
 
   return null
 }

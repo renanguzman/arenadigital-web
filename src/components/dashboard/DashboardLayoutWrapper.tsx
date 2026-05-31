@@ -10,11 +10,12 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Menu } from 'lucide-react';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useSidebar();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
 
   return (
     <div className="flex min-h-[100dvh] flex-col md:flex-row">
@@ -55,9 +56,19 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <main className="flex-1 min-w-0 p-4 pb-24 md:p-6 lg:p-8" data-tutorial="dashboard-main">{children}</main>
-        <DashboardSubscriptionGate />
-        <WelcomeTutorialDialog />
+        <main
+          className={cn(
+            'flex-1 min-w-0 p-4 pb-24 md:p-6 lg:p-8',
+            isTutorialOpen && 'pb-[19rem] md:pb-6 md:pr-[26rem]'
+          )}
+          data-tutorial="dashboard-main"
+        >
+          {children}
+        </main>
+        <Suspense fallback={null}>
+          <DashboardSubscriptionGate />
+          <WelcomeTutorialDialog onOpenChange={setIsTutorialOpen} />
+        </Suspense>
       </div>
     </div>
   );

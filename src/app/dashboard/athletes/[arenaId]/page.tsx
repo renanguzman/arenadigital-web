@@ -1,6 +1,6 @@
 "use client"
 import React, { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import { useArena } from "@/contexts/ArenaContext"
 export default function AthletesPage({ params }: { params: Promise<{ arenaId: string }> }) {
     const resolvedParams = React.use(params);
     const router = useRouter()
+    const searchParams = useSearchParams()
     const { arenas } = useArena()
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -42,7 +43,11 @@ export default function AthletesPage({ params }: { params: Promise<{ arenaId: st
                 </Button>
             </div>
 
-            <AthletesList arenaId={resolvedParams.arenaId} key={refreshTrigger} />
+            <AthletesList
+                arenaId={resolvedParams.arenaId}
+                key={refreshTrigger}
+                tutorial={searchParams.get('tutorial') === '1'}
+            />
 
             <AthleteRegistrationModal
                 arenaId={resolvedParams.arenaId}

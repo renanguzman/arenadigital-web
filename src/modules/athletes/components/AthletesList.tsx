@@ -8,18 +8,25 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { normalizeString } from '@/lib/utils';
 import { getAthletesByArenaAction } from '@/modules/athletes/actions/athleteActions';
 import { AthletesTable, type Athlete } from './AthletesTable';
+import { tutorialAthletes } from '@/lib/tutorial-mock-data';
 
 interface AthletesListProps {
   arenaId: string | null;
+  tutorial?: boolean;
 }
 
-export function AthletesList({ arenaId }: AthletesListProps) {
+export function AthletesList({ arenaId, tutorial = false }: AthletesListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const loadAthletes = useCallback(async () => {
     if (!arenaId) return;
+    if (tutorial) {
+      setAthletes(tutorialAthletes);
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       const res = await getAthletesByArenaAction(arenaId);
@@ -29,7 +36,7 @@ export function AthletesList({ arenaId }: AthletesListProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [arenaId]);
+  }, [arenaId, tutorial]);
 
   useEffect(() => {
     loadAthletes();

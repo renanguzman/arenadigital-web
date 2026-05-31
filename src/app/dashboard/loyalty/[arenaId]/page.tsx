@@ -4,14 +4,35 @@ import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseArenaRepository } from '@/modules/arenas/repositories/SupabaseArenaRepository'
 import { SupabaseLoyaltyRepository } from '@/modules/loyalty/repositories/SupabaseLoyaltyRepository'
 import { LoyaltyDashboardClient } from './LoyaltyDashboardClient'
+import { buildTutorialLoyalty } from '@/lib/tutorial-mock-data'
 
-export default async function FidelityPage({ params }: { params: Promise<{ arenaId: string }> }) {
+export default async function FidelityPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ arenaId: string }>
+    searchParams: Promise<{ tutorial?: string }>
+}) {
     const { arenaId } = await params
+    const { tutorial } = await searchParams
 
     try {
         await assertArenaBackofficeAccess(arenaId)
     } catch {
         redirect('/dashboard/settings/arenas')
+    }
+
+    if (tutorial === '1') {
+        const loyalty = buildTutorialLoyalty(arenaId)
+        return (
+            <LoyaltyDashboardClient
+                arenaId={arenaId}
+                initialCurrencyName="Arena Coins"
+                initialCredits={loyalty.credits}
+                initialRedemptions={loyalty.redemptions}
+                initialTopAthletes={loyalty.topAthletes}
+            />
+        )
     }
 
     const admin = getSupabaseAdmin()

@@ -2,22 +2,35 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, Map as MapIcon, Calendar as CalendarIcon, TrendingUp, Clock } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useArena } from "@/contexts/ArenaContext"
 import { getDashboardDataAction } from "@/modules/dashboard/actions/dashboardActions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { OccupancyChart } from "@/modules/dashboard/components/OccupancyChart"
 import type { DashboardStats, OccupancyRow } from "@/modules/dashboard/types/dashboard.types"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import {
+    tutorialDashboardOccupancy,
+    tutorialDashboardStats,
+    tutorialRecentActivity,
+} from "@/lib/tutorial-mock-data"
 
-export default function DashboardPage() {
+function DashboardPageContent() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const { selectedArena, selectedArenaDetails, isLoadingArenas } = useArena()
     const [stats, setStats] = useState<DashboardStats>({ receita: 0, receitaChange: 0, reservas: 0, quadras: 0, ativos: 0 })
     const [occupancyData, setOccupancyData] = useState<OccupancyRow[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const isTutorial = searchParams.get('tutorial') === '1'
+    const displayStats = isTutorial ? tutorialDashboardStats : stats
+    const displayOccupancyData = isTutorial ? tutorialDashboardOccupancy : occupancyData
 
     useEffect(() => {
+        if (isTutorial) {
+            setIsLoading(false)
+            return
+        }
         if (isLoadingArenas) return
         if (selectedArenaDetails?.role === 'Caixa' && selectedArenaDetails.assignedStationId) {
             // Caixa com estação atribuída: vai direto para a estação
@@ -26,7 +39,7 @@ export default function DashboardPage() {
             // Caixa sem estação atribuída: vai para a lista de estações
             router.replace(`/dashboard/arenas/${selectedArena}/stations`)
         }
-    }, [isLoadingArenas, router, selectedArena, selectedArenaDetails])
+    }, [isLoadingArenas, isTutorial, router, selectedArena, selectedArenaDetails])
 
     useEffect(() => {
         if (isLoadingArenas) return
@@ -49,9 +62,9 @@ export default function DashboardPage() {
         }
 
         loadStats()
-    }, [selectedArena, selectedArenaDetails, isLoadingArenas])
+    }, [selectedArena, selectedArenaDetails, isLoadingArenas, isTutorial])
 
-    if (isLoading || isLoadingArenas) {
+    if (!isTutorial && (isLoading || isLoadingArenas)) {
         return (
             <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -65,28 +78,28 @@ export default function DashboardPage() {
     const cards = [
         {
             title: "Receita Total",
-            value: `R$ ${stats.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+            value: `R$ ${displayStats.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             icon: TrendingUp,
-            description: `${stats.receitaChange >= 0 ? '+' : ''}${stats.receitaChange.toFixed(1)}% em relação ao mês passado`,
-            color: stats.receitaChange >= 0 ? "text-emerald-500" : "text-red-500",
+            description: `${displayStats.receitaChange >= 0 ? '+' : ''}${displayStats.receitaChange.toFixed(1)}% em relação ao mês passado`,
+            color: displayStats.receitaChange >= 0 ? "text-emerald-500" : "text-red-500",
         },
         {
             title: "Reservas",
-            value: stats.reservas.toString(),
+            value: displayStats.reservas.toString(),
             icon: CalendarIcon,
             description: "Reservas confirmadas hoje",
             color: "text-blue-500",
         },
         {
             title: "Quadras Ativas",
-            value: stats.quadras.toString(),
+            value: displayStats.quadras.toString(),
             icon: MapIcon,
             description: "Prontas para uso",
             color: "text-orange-500",
         },
         {
             title: "Atletas Ativos",
-            value: stats.ativos.toString(),
+            value: displayStats.ativos.toString(),
             icon: Users,
             description: "Jogando este mês",
             color: "text-purple-500",
@@ -121,7 +134,7 @@ export default function DashboardPage() {
                         <CardTitle>Ocupação dos espaços para hoje</CardTitle>
                     </CardHeader>
                     <CardContent className="pl-2">
-                        <OccupancyChart data={occupancyData} />
+                        <OccupancyChart data={displayOccupancyData} />
                     </CardContent>
                 </Card>
 
@@ -131,19 +144,32 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-8">
-                            <div className="flex items-center">
-                                <div className="bg-muted p-2 rounded-full mr-4">
-                                    <Clock className="h-4 w-4" />
+                            {(isTutorial ? tutorialRecentActivity : [
+                                { title: 'Nenhuma atividade recente', description: 'As últimas ações aparecerão aqui.', time: '' },
+                            ]).map((activity) => (
+                                <div className="flex items-center" key={`${activity.title}-${activity.description}`}>
+                                    <div className="bg-muted p-2 rounded-full mr-4">
+                                        <Clock className="h-4 w-4" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-medium leading-none">{activity.title}</p>
+                                        <p className="text-sm text-muted-foreground">{activity.description}</p>
+                                        {activity.time && <p className="text-xs text-muted-foreground">{activity.time}</p>}
+                                    </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-sm font-medium leading-none">Nenhuma atividade recente</p>
-                                    <p className="text-sm text-muted-foreground">As últimas ações aparecerão aqui.</p>
-                                </div>
-                            </div>
+                            ))}
                         </div>
                     </CardContent>
                 </Card>
             </div>
         </div>
+    )
+}
+
+export default function DashboardPage() {
+    return (
+        <Suspense fallback={null}>
+            <DashboardPageContent />
+        </Suspense>
     )
 }
