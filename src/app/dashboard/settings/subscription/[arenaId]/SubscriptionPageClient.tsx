@@ -64,9 +64,6 @@ type SubscriptionPlanOption = {
 
 type PlanPresentation = {
   icon: LucideIcon;
-  eyebrow: string;
-  description: string;
-  billingLabel: string;
   iconClassName: string;
 };
 
@@ -82,30 +79,18 @@ interface Props {
 const PLAN_PRESENTATION: Record<UserSelectablePlanKey, PlanPresentation> = {
   experimental: {
     icon: FlaskConical,
-    eyebrow: 'Primeiros passos',
-    description: 'Conheça a operação antes de iniciar uma assinatura recorrente.',
-    billingLabel: 'Teste gratuito por até 5 dias',
     iconClassName: 'bg-orange-50 text-arena-button',
   },
   starter: {
     icon: Layers3,
-    eyebrow: 'Operação essencial',
-    description: 'Para arenas compactas que precisam organizar a rotina com clareza.',
-    billingLabel: 'Plano anual com cobrança mensal',
     iconClassName: 'bg-teal-50 text-teal-700',
   },
   max: {
     icon: ShieldCheck,
-    eyebrow: 'Operação em expansão',
-    description: 'Mais capacidade para acompanhar arenas com uma estrutura maior.',
-    billingLabel: 'Plano anual com cobrança mensal',
     iconClassName: 'bg-sky-50 text-sky-700',
   },
   pro: {
     icon: Trophy,
-    eyebrow: 'Operação avançada',
-    description: 'Cobertura completa para arenas com alto volume de espaços.',
-    billingLabel: 'Plano anual com cobrança mensal',
     iconClassName: 'bg-amber-50 text-amber-700',
   },
 };
@@ -149,12 +134,9 @@ function formatSpaceLimit(maxSpaces: number) {
 }
 
 function getPlanRules(plan: SubscriptionPlanOption) {
-  const rules =
-    plan.key === 'experimental'
-      ? ['Cartão válido necessário para ativação', 'Uso gratuito por até 5 dias']
-      : ['Recorrência anual', 'Cobrança realizada mensalmente'];
-
-  return [...new Set([...rules, ...plan.features])];
+  return plan.key === 'experimental'
+    ? ['Cartão válido obrigatório', 'Acesso gratuito por até 5 dias']
+    : ['Contrato anual', 'Cobrança mensal'];
 }
 
 function PaymentStatusBadge({ status }: { status: string }) {
@@ -377,13 +359,18 @@ export function SubscriptionPageClient({
                 >
                   <CardContent className="flex h-full flex-col p-5">
                     <div className="flex items-start justify-between gap-3">
-                      <div
-                        className={cn(
-                          'flex h-10 w-10 items-center justify-center rounded-lg',
-                          presentation.iconClassName
-                        )}
-                      >
-                        <PlanIcon className="h-5 w-5" />
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={cn(
+                            'flex h-10 w-10 items-center justify-center rounded-lg',
+                            presentation.iconClassName
+                          )}
+                        >
+                          <PlanIcon className="h-5 w-5" />
+                        </div>
+                        <h4 className="font-heading text-lg font-black text-arena-navy-800">
+                          {plan.label}
+                        </h4>
                       </div>
                       <div className="flex flex-wrap justify-end gap-1.5">
                         {isCurrent && (
@@ -400,18 +387,6 @@ export function SubscriptionPageClient({
                       </div>
                     </div>
 
-                    <div className="mt-5">
-                      <p className="text-[11px] font-bold uppercase text-arena-navy-800/50">
-                        {presentation.eyebrow}
-                      </p>
-                      <h4 className="mt-1 font-heading text-xl font-black text-arena-navy-800">
-                        {plan.label}
-                      </h4>
-                      <p className="mt-2 min-h-10 text-sm leading-5 text-arena-navy-800/60">
-                        {presentation.description}
-                      </p>
-                    </div>
-
                     <div className="mt-5 border-y border-slate-100 py-4">
                       <p className="font-heading text-3xl font-black leading-none text-arena-navy-800">
                         {formatPrice(plan.priceCents)}
@@ -422,7 +397,9 @@ export function SubscriptionPageClient({
                         )}
                       </p>
                       <p className="mt-2 text-xs font-medium text-arena-navy-800/50">
-                        {presentation.billingLabel}
+                        {plan.key === 'experimental'
+                          ? 'Gratuito por até 5 dias'
+                          : 'Plano anual'}
                       </p>
                     </div>
 
@@ -431,7 +408,7 @@ export function SubscriptionPageClient({
                       <span>{formatSpaceLimit(plan.maxSpaces)}</span>
                     </div>
 
-                    <div className="mt-5 flex-1 space-y-2.5">
+                    <div className="mt-4 flex-1 space-y-2">
                       {rules.map((rule) => (
                         <div key={rule} className="flex items-start gap-2 text-sm text-arena-navy-800/75">
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
@@ -445,7 +422,7 @@ export function SubscriptionPageClient({
                       variant={isSelected ? 'default' : 'outline'}
                       aria-pressed={isSelected}
                       className={cn(
-                        'mt-6 w-full rounded-md font-bold',
+                        'mt-5 w-full rounded-md font-bold',
                         isSelected
                           ? 'bg-arena-button text-white hover:bg-arena-button-hover'
                           : 'border-slate-300 text-arena-navy-800 hover:bg-slate-50'
