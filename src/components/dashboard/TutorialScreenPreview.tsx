@@ -5,6 +5,7 @@ import {
   BarChart3,
   CalendarDays,
   ChevronDown,
+  Clock,
   Filter,
   LayoutGrid,
   MoreHorizontal,
@@ -17,6 +18,7 @@ import {
 import { cn } from '@/lib/utils'
 
 export type TutorialPreviewKey =
+  | 'dashboard'
   | 'spaces'
   | 'athletes'
   | 'stations'
@@ -177,14 +179,67 @@ function MediaCard({
   )
 }
 
-function PreviewFrame({ children }: { children: ReactNode }) {
+function DemoScreen({ children }: { children: ReactNode }) {
   return (
-    <div className="h-full overflow-hidden rounded-md border border-slate-200 bg-[#F8FAFB] shadow-2xl">
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2.5">
-        <p className="text-xs font-black uppercase text-[#0D3B45]">Arena Digital</p>
+    <div className="relative h-full overflow-hidden bg-arena-app-surface p-5 lg:p-7">
+      <div className="absolute right-5 top-5 z-10">
         <Badge tone="orange">Dados ilustrativos</Badge>
       </div>
-      <div className="h-[calc(100%-42px)] overflow-hidden p-4">{children}</div>
+      <div className="h-full overflow-hidden">{children}</div>
+    </div>
+  )
+}
+
+function DashboardPreview() {
+  return (
+    <div className="space-y-5">
+      <PreviewHeader title="Dashboard" subtitle="Bem-vindo de volta! Aqui está um resumo da sua arena." />
+      <div className="grid grid-cols-4 gap-3">
+        <Metric label="Receita total" value="R$ 84.320,00" tone="text-emerald-600" />
+        <Metric label="Reservas" value="34" tone="text-blue-600" />
+        <Metric label="Quadras ativas" value="08" tone="text-orange-600" />
+        <Metric label="Atletas ativos" value="694" tone="text-purple-600" />
+      </div>
+      <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(220px,0.8fr)] gap-3">
+        <div className="rounded-md border border-slate-100 bg-white p-4 shadow-sm">
+          <p className="text-sm font-bold text-[#0D3B45]">Ocupação dos espaços para hoje</p>
+          <div className="mt-6 flex h-36 items-end gap-3">
+            {[
+              ['Beach 01', 72],
+              ['Beach 02', 58],
+              ['Society', 86],
+              ['Salão', 44],
+              ['Tênis', 66],
+            ].map(([label, height]) => (
+              <div key={label as string} className="flex flex-1 flex-col items-center justify-end gap-2">
+                <div className="w-full rounded-t-sm bg-[#1B7B8A]" style={{ height: `${height}%` }} />
+                <span className="text-[10px] font-semibold text-slate-500">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-md border border-slate-100 bg-white p-4 shadow-sm">
+          <p className="text-sm font-bold text-[#0D3B45]">Atividade recente</p>
+          <div className="mt-4 space-y-3">
+            {[
+              [CalendarDays, 'Reserva confirmada', 'Quadra Beach 01, 18:00'],
+              [Users, 'Novo atleta cadastrado', 'Marina Lopes'],
+              [Clock, 'Mensalidade recebida', 'Plano Society noturno'],
+            ].map(([Icon, title, description]) => {
+              const ActivityIcon = Icon as typeof CalendarDays
+              return (
+                <div key={title as string} className="flex gap-2 rounded-md bg-slate-50 p-2.5">
+                  <ActivityIcon className="mt-0.5 size-3.5 shrink-0 text-[#1B7B8A]" />
+                  <div>
+                    <p className="text-[11px] font-bold text-[#0D3B45]">{title as string}</p>
+                    <p className="text-[10px] text-slate-500">{description as string}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -460,6 +515,7 @@ function SettingsPreview() {
 }
 
 const previews: Record<TutorialPreviewKey, () => ReactNode> = {
+  dashboard: DashboardPreview,
   spaces: SpacesPreview,
   athletes: AthletesPreview,
   stations: StationsPreview,
@@ -475,8 +531,8 @@ const previews: Record<TutorialPreviewKey, () => ReactNode> = {
 export function TutorialScreenPreview({ previewKey }: { previewKey: TutorialPreviewKey }) {
   const Preview = previews[previewKey]
   return (
-    <PreviewFrame>
+    <DemoScreen>
       <Preview />
-    </PreviewFrame>
+    </DemoScreen>
   )
 }

@@ -55,7 +55,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <main className="flex-1 min-w-0 p-4 pb-24 md:p-6 lg:p-8">{children}</main>
+        <main className="flex-1 min-w-0 p-4 pb-24 md:p-6 lg:p-8" data-tutorial="dashboard-main">{children}</main>
         <DashboardSubscriptionGate />
         <WelcomeTutorialDialog />
       </div>
