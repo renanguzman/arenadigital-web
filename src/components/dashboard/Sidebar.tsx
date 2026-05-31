@@ -54,6 +54,7 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
         {
             icon: Store,
             label: "Minha estação",
+            tutorialKey: "stations",
             href: `/dashboard/arenas/${selectedArena}/stations/${selectedArenaDetails.assignedStationId}`,
             isActive: (p: string) => p.includes(`/dashboard/arenas/${selectedArena}/stations/`),
         },
@@ -64,6 +65,7 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
         {
             icon: Store,
             label: "Estações",
+            tutorialKey: "stations",
             href: stationsHref,
             isActive: (p: string) => p.includes("/stations"),
         },
@@ -87,54 +89,63 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
             {
                 icon: LayoutDashboard,
                 label: "Dashboard",
+                tutorialKey: "dashboard",
                 href: "/dashboard",
                 isActive: (p: string) => p === "/dashboard",
             },
             {
                 icon: Calendar,
                 label: "Espaços",
+                tutorialKey: "spaces",
                 href: arenaHref,
                 isActive: espacosActive,
             },
             {
                 icon: Medal,
                 label: "Atletas",
+                tutorialKey: "athletes",
                 href: athletesHref,
                 isActive: (p: string) => p.startsWith("/dashboard/athletes/"),
             },
             {
                 icon: Store,
                 label: "Estações",
+                tutorialKey: "stations",
                 href: stationsHref,
                 isActive: (p: string) => p.includes("/stations"),
             },
             {
                 icon: Package,
                 label: "Catálogo",
+                tutorialKey: "catalog",
                 href: productsHref,
                 isActive: (p: string) => p.startsWith("/dashboard/settings/products/"),
             },
             {
                 icon: ClipboardPen,
                 label: "Mensalistas",
+                tutorialKey: "memberships",
                 href: mensalistasHref,
                 isActive: mensalistasActive,
             },
             {
                 icon: RefreshCw,
                 label: "Rotativo",
+                tutorialKey: "rotativo",
                 href: rotativoHref,
                 isActive: (p: string) => p.startsWith("/dashboard/rotativo/"),
             },
             {
                 icon: Star,
                 label: "Programa de fidelidade",
+                tutorialKey: "loyalty",
                 href: loyaltyHref,
                 isActive: (p: string) => p.startsWith("/dashboard/loyalty/"),
             },
             {
                 icon: DollarSign,
                 label: "Financeiro",
+                tutorialKey: "finance",
                 href: financeHref,
                 isActive: (p: string) => p.startsWith("/dashboard/finance/"),
             },
@@ -218,6 +229,7 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                                     <Link
                                         href={item.href}
                                         title={isCollapsed ? item.label : ""}
+                                        data-tutorial-menu={item.tutorialKey}
                                         className={cn(isCollapsed && "flex size-full items-center justify-center")}
                                     >
                                         <item.icon className={cn(
@@ -252,6 +264,7 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                                 )}
                                 onClick={() => !isCollapsed && setIsReportsOpen(!isReportsOpen)}
                                 title={isCollapsed ? "Relatórios" : ""}
+                                data-tutorial-menu="reports"
                             >
                                 <div
                                     className={cn(
@@ -337,6 +350,7 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                                 )}
                                 onClick={() => !isCollapsed && setIsSettingsOpen(!isSettingsOpen)}
                                 title={isCollapsed ? "Configurações" : ""}
+                                data-tutorial-menu="settings"
                             >
                                 <div
                                     className={cn(
