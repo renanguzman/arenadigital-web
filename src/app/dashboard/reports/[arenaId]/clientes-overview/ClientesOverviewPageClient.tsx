@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -67,8 +67,8 @@ function FunnelBar({
         <button
             onClick={onClick}
             className={cn(
-                "w-full text-left group transition-all duration-200",
-                isSelected && "scale-[1.01]"
+                "w-full rounded-md px-2 py-2 text-left transition-colors duration-200 hover:bg-slate-50",
+                isSelected && "bg-slate-50 ring-1 ring-slate-200"
             )}
         >
             <div className="flex items-center gap-3 mb-1">
@@ -86,24 +86,17 @@ function FunnelBar({
                 <div
                     className={cn(
                         "absolute inset-y-0 left-0 rounded-full flex items-center justify-end pr-3 transition-all duration-700 ease-out",
-                        isSelected && "brightness-90"
                     )}
                     style={{
                         width: `${width}%`,
                         backgroundColor: category.color,
-                        opacity: isSelected ? 1 : 0.75,
+                        opacity: isSelected ? 0.92 : 0.72,
                     }}
                 >
                     <span className="text-white text-xs font-black drop-shadow">
                         {category.count}
                     </span>
                 </div>
-                {isSelected && (
-                    <div
-                        className="absolute inset-0 rounded-full border-2 pointer-events-none"
-                        style={{ borderColor: category.color }}
-                    />
-                )}
             </div>
         </button>
     )
@@ -221,7 +214,7 @@ export function ClientesOverviewPageClient({ arenaId, initialCategories }: Props
             <div className="flex flex-col lg:flex-row gap-6">
                 {/* LEFT: Funnel bars */}
                 <div className="w-full lg:w-[360px] shrink-0">
-                    <div className="bg-white rounded-2xl shadow-sm border border-arena-navy-800/5 p-6">
+                    <div className="rounded-lg border border-slate-100 bg-white p-6 shadow-sm">
                         <h2 className="text-sm font-bold text-arena-navy-800/60 uppercase tracking-wider mb-5">
                             Funil de clientes
                         </h2>
@@ -255,9 +248,9 @@ export function ClientesOverviewPageClient({ arenaId, initialCategories }: Props
 
                 {/* RIGHT: Detail grid */}
                 <div className="flex-1 min-w-0">
-                    <div className="bg-white rounded-2xl shadow-sm border border-arena-navy-800/5 overflow-hidden">
+                    <div className="rounded-lg border border-slate-100 bg-white px-6 py-6 shadow-sm">
                         {/* Header */}
-                        <div className="px-6 py-4 border-b border-arena-navy-800/5 flex items-center gap-3">
+                        <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4">
                             {selected && (
                                 <div
                                     className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -323,16 +316,16 @@ export function ClientesOverviewPageClient({ arenaId, initialCategories }: Props
                                 </div>
 
                                 {/* Pagination */}
-                                <div className="px-4 py-3 border-t border-arena-navy-800/5 flex items-center justify-between">
+                                <div className="flex items-center justify-between border-t border-slate-100 pt-4">
                                     <span className="text-xs text-arena-navy-800/40">
                                         {sorted.length === 0 ? '0 resultados' :
                                             `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, sorted.length)} de ${sorted.length}`}
                                     </span>
                                     <div className="flex items-center gap-1">
                                         <Button
-                                            variant="ghost"
+                                            variant="outline"
                                             size="icon"
-                                            className="h-7 w-7"
+                                            className="h-8 w-8 bg-white"
                                             onClick={() => setPage(p => Math.max(1, p - 1))}
                                             disabled={page === 1}
                                         >
@@ -351,13 +344,13 @@ export function ClientesOverviewPageClient({ arenaId, initialCategories }: Props
                                                 ) : (
                                                     <Button
                                                         key={p}
-                                                        variant="ghost"
+                                                        variant="outline"
                                                         size="icon"
                                                         className={cn(
-                                                            "h-7 w-7 text-xs font-bold",
+                                                            "h-8 w-8 text-xs font-bold",
                                                             page === p
-                                                                ? "bg-arena-button text-white hover:bg-arena-button-hover"
-                                                                : "text-arena-navy-800/60 hover:bg-arena-navy-800/5"
+                                                                ? "border-transparent bg-arena-navy-800 text-white hover:bg-arena-navy-800/90 hover:text-white"
+                                                                : "bg-white text-arena-navy-800/60"
                                                         )}
                                                         onClick={() => setPage(p as number)}
                                                     >
@@ -366,9 +359,9 @@ export function ClientesOverviewPageClient({ arenaId, initialCategories }: Props
                                                 )
                                             )}
                                         <Button
-                                            variant="ghost"
+                                            variant="outline"
                                             size="icon"
-                                            className="h-7 w-7"
+                                            className="h-8 w-8 bg-white"
                                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                             disabled={page === totalPages}
                                         >
@@ -405,9 +398,6 @@ function AthleteRow({
         )}>
             <td className={arenaDataTable.tdBold}>
                 <div className="flex items-center gap-2">
-                    {isToday && (
-                        <span className="text-base" title="Aniversário hoje!">🎂</span>
-                    )}
                     <span className={cn(
                         "text-sm text-arena-navy-800",
                         isToday ? "font-black" : "font-semibold"
@@ -435,7 +425,7 @@ function AthleteRow({
                 <td className={arenaDataTable.td}>
                     {athlete.dias_ate_aniversario === 0 ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black bg-amber-400 text-white">
-                            🎂 Hoje
+                            Hoje
                         </span>
                     ) : (
                         <span className="text-sm font-semibold text-amber-600">

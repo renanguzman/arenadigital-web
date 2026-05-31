@@ -111,20 +111,25 @@ export function AthletesTable({ athletes, isLoading, arenaId }: Props) {
             </div>
 
             {!isLoading && athletes.length > 0 && (
-                <div className="flex items-center justify-center gap-2 border-t border-slate-100 p-4">
-                    <Button variant="outline" size="icon" className="h-9 w-9 bg-white" disabled>
+                <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+                    <p className="text-xs text-arena-navy-800/40">
+                        Exibindo 1–{athletes.length} de {athletes.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                    <Button variant="outline" size="icon" className="h-8 w-8 bg-white" disabled>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <Button
                         variant="outline"
                         size="sm"
-                        className="h-9 w-9 border-transparent bg-arena-navy-800 p-0 text-white hover:bg-arena-navy-800/90 hover:text-white"
+                        className="h-8 w-8 border-transparent bg-arena-navy-800 p-0 text-xs text-white hover:bg-arena-navy-800/90 hover:text-white"
                     >
                         01
                     </Button>
-                    <Button variant="outline" size="icon" className="h-9 w-9 bg-white" disabled>
+                    <Button variant="outline" size="icon" className="h-8 w-8 bg-white" disabled>
                         <ChevronRight className="h-4 w-4" />
                     </Button>
+                    </div>
                 </div>
             )}
         </div>

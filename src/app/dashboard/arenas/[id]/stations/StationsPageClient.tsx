@@ -221,7 +221,7 @@ export function StationsPageClient({ arenaId, initialStations }: Props) {
         </Dialog>
 
         {stations.length > 0 ? (
-          <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="mb-2 flex flex-col gap-3 pb-3 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="flex items-center gap-2 text-arena-navy-800/50">
               <Filter className="h-4 w-4 shrink-0" aria-hidden />
               <span className="text-xs font-semibold uppercase tracking-wide">Filtros</span>
