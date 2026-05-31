@@ -35,11 +35,12 @@ type Spotlight = {
 
 const steps: TutorialStep[] = [
   {
-    selector: '[data-tutorial="dashboard-content"]',
+    selector: '[data-tutorial="dashboard-main"]',
     eyebrow: 'Visão geral',
     title: 'Comece pelo Dashboard',
     description:
       'Seu dia começa aqui. Acompanhe reservas, receita, espaços ativos e o movimento da arena em uma única visão.',
+    preview: 'dashboard',
   },
   {
     selector: '[data-tutorial="arena-selector"]',
@@ -47,6 +48,7 @@ const steps: TutorialStep[] = [
     title: 'Alterne entre suas arenas',
     description:
       'Quando houver mais de uma unidade, use este seletor para mudar o contexto de trabalho sem perder tempo.',
+    preview: 'dashboard',
   },
   {
     selector: '[data-tutorial-menu="spaces"], [data-tutorial="mobile-menu"]',
@@ -136,7 +138,7 @@ function getPanelPosition(spotlight: Spotlight | null, hasPreview = false): CSSP
   }
 
   if (hasPreview) {
-    return { bottom: VIEWPORT_GAP, right: VIEWPORT_GAP }
+    return { right: VIEWPORT_GAP, top: VIEWPORT_GAP }
   }
 
   const availableRight = window.innerWidth - (spotlight.left + spotlight.width)
@@ -211,27 +213,13 @@ export function WelcomeTutorialDialog() {
       return
     }
 
-    let timer: number | undefined
-    const observer = new MutationObserver(() => showWhenDashboardIsReady())
-
-    function showWhenDashboardIsReady() {
-      const dashboard = document.querySelector('[data-tutorial="dashboard-content"]')
-      if (!(dashboard instanceof HTMLElement) || dashboard.getBoundingClientRect().height === 0) return
-      observer.disconnect()
-      timer = window.setTimeout(() => {
-        setStepIndex(0)
-        setOpen(true)
-      }, 350)
-    }
-
-    showWhenDashboardIsReady()
-    if (!timer) {
-      observer.observe(document.body, { childList: true, subtree: true })
-    }
+    const timer = window.setTimeout(() => {
+      setStepIndex(0)
+      setOpen(true)
+    }, 150)
 
     return () => {
-      observer.disconnect()
-      if (timer) window.clearTimeout(timer)
+      window.clearTimeout(timer)
     }
   }, [completedLocally, dbUser, pathname])
 
@@ -252,7 +240,10 @@ export function WelcomeTutorialDialog() {
       }
 
       const rect = target.getBoundingClientRect()
-      if (rect.top < VIEWPORT_GAP || rect.bottom > window.innerHeight - VIEWPORT_GAP) {
+      if (
+        rect.height <= window.innerHeight - VIEWPORT_GAP * 2 &&
+        (rect.top < VIEWPORT_GAP || rect.bottom > window.innerHeight - VIEWPORT_GAP)
+      ) {
         target.scrollIntoView({ block: 'center' })
         window.requestAnimationFrame(updateSpotlight)
         return
@@ -304,7 +295,7 @@ export function WelcomeTutorialDialog() {
       {!spotlight && <div className="absolute inset-0 z-[2] bg-slate-950/68" />}
 
       {step.preview && (
-        <div className="pointer-events-none absolute inset-x-4 bottom-[17.5rem] top-[4.5rem] z-[3] md:bottom-4 md:left-[17rem] md:right-[26rem] md:top-4">
+        <div className="pointer-events-none absolute inset-x-0 bottom-[17.5rem] top-0 z-[3] md:bottom-0 md:left-64 md:right-[26rem]">
           <TutorialScreenPreview previewKey={step.preview} />
         </div>
       )}
