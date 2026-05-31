@@ -376,14 +376,6 @@ export function SubscriptionPageClient({
                         {isCurrent && (
                           <Badge className="bg-teal-700 text-white">Plano atual</Badge>
                         )}
-                        {isSelected && !isCurrent && (
-                          <Badge
-                            variant="outline"
-                            className="border-arena-button/30 bg-orange-50 text-[#C65100]"
-                          >
-                            Selecionado
-                          </Badge>
-                        )}
                       </div>
                     </div>
 
