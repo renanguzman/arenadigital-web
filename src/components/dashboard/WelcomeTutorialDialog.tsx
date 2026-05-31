@@ -276,7 +276,7 @@ export function WelcomeTutorialDialog() {
       {spotlight && <div className={spotlightClassName} style={spotlight} />}
 
       <section
-        className="absolute bottom-4 left-4 z-[4] w-[min(390px,calc(100%-2rem))] rounded-md border border-slate-200 bg-white shadow-2xl"
+        className="absolute bottom-4 right-4 z-[4] w-[min(390px,calc(100%-2rem))] rounded-md border border-slate-200 bg-white shadow-2xl"
         aria-live="polite"
       >
         <header className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
