@@ -1,116 +1,37 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
-const TOTAL_FRAMES = 82;
-const DURATION_MS = 7000;
-const FRAME_TIME_MS = DURATION_MS / TOTAL_FRAMES;
+import { useEffect, useRef } from "react";
 
 export function HeroAnimation() {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const imagesRef = useRef<HTMLImageElement[]>([]);
-    // We don't strictly need to re-render on load, but we keep track internally
-    const [isLoaded, setIsLoaded] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     useEffect(() => {
-        let loaded = 0;
-        const images: HTMLImageElement[] = [];
-
-        for (let i = 0; i < TOTAL_FRAMES; i++) {
-            const img = new Image();
-            const frameNum = i.toString().padStart(3, '0');
-            const basePath = "/img/imgs_hero_landingpg/Video_de_Jogo_Animado_e_Torcida_";
-            img.src = `${basePath}${frameNum}.png`;
-
-            img.onload = () => {
-                loaded += 1;
-                if (loaded === Math.min(TOTAL_FRAMES, 5)) {
-                    // Consider it 'loaded' enough to start showing after the first few frames
-                    setIsLoaded(true);
-                }
-            };
-            images.push(img);
-        }
-
-        imagesRef.current = images;
-    }, []);
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        let currentFrame = 0;
-        let animationFrameId: number;
-        let lastTime = performance.now();
-
-        const render = (time: number) => {
-            const deltaTime = time - lastTime;
-
-            // Update frame if enough time has passed
-            if (deltaTime >= FRAME_TIME_MS) {
-                currentFrame = (currentFrame + 1) % TOTAL_FRAMES;
-                lastTime = time - (deltaTime % FRAME_TIME_MS);
-            }
-
-            const img = imagesRef.current[currentFrame];
-            if (img && img.complete && img.naturalHeight > 0) {
-                // Calculate object-fit: cover dimensions
-                const canvasRatio = canvas.width / canvas.height;
-                const imgRatio = img.width / img.height;
-
-                let drawWidth = canvas.width;
-                let drawHeight = canvas.height;
-                let offsetX = 0;
-                let offsetY = 0;
-
-                if (canvasRatio > imgRatio) {
-                    drawHeight = canvas.width / imgRatio;
-                    offsetY = (canvas.height - drawHeight) / 2;
-                } else {
-                    drawWidth = canvas.height * imgRatio;
-                    offsetX = (canvas.width - drawWidth) / 2;
-                }
-
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-            }
-
-            animationFrameId = requestAnimationFrame(render);
-        };
-
-        animationFrameId = requestAnimationFrame(render);
-
-        const resizeCanvas = () => {
-            const parent = canvas.parentElement;
-            if (parent) {
-                // Adjust for device pixel ratio for sharper rendering if needed, 
-                // but for a 1MB image sequence, 1x is usually better for performance.
-                canvas.width = parent.clientWidth;
-                canvas.height = parent.clientHeight;
-            }
-        };
-
-        window.addEventListener("resize", resizeCanvas);
-        resizeCanvas(); // Initial sizing
-
-        return () => {
-            window.removeEventListener("resize", resizeCanvas);
-            cancelAnimationFrame(animationFrameId);
-        };
+        const video = videoRef.current;
+        if (!video) return;
+        // Ensure muted autoplay works across all browsers
+        video.muted = true;
+        video.play().catch(() => {/* autoplay blocked, video stays paused */});
     }, []);
 
     return (
         <div className="absolute inset-0 z-0 overflow-hidden bg-[var(--arena-navy-900)]">
-            {!isLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-[var(--arena-navy-900)]">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#F97415] border-t-transparent opacity-50"></div>
-                </div>
-            )}
-            <canvas ref={canvasRef} className="h-full w-full opacity-[0.58]" />
+            <video
+                ref={videoRef}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                className="absolute inset-0 h-full w-full object-cover opacity-[0.58]"
+                aria-hidden="true"
+            >
+                {/* WebM first — smaller, better for Chrome/Firefox/Edge */}
+                <source src="/videos/hero01.webm" type="video/webm" />
+                {/* MP4 fallback — Safari, iOS, older browsers */}
+                <source src="/videos/hero01-opt.mp4" type="video/mp4" />
+            </video>
 
-            {/* Required Overlays */}
+            {/* Same overlays as before */}
             <div className="pointer-events-none absolute inset-0 bg-[rgba(0,29,45,0.62)] mix-blend-multiply" />
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,21,36,0.24)_0%,rgba(0,29,45,0.58)_55%,rgba(0,21,36,0.98)_100%)]" />
         </div>
