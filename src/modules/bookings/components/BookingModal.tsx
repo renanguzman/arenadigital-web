@@ -352,6 +352,7 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
             const endDateTime = new Date(selectedDate)
             const [eH, eM] = endTime.split(":").map(Number)
             endDateTime.setHours(eH, eM, 0, 0)
+            if (endDateTime <= startDateTime) endDateTime.setDate(endDateTime.getDate() + 1)
 
             if (existingBooking) {
                 const result = await updateBookingAction(arenaId, existingBooking.id, {
@@ -514,6 +515,7 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
         const endDateTime = new Date(selectedDate)
         const [eH, eM] = endTime.split(':').map(Number)
         endDateTime.setHours(eH, eM, 0, 0)
+        if (endDateTime <= startDateTime) endDateTime.setDate(endDateTime.getDate() + 1)
 
         if (!isRecurring) return [{ startTime: startDateTime.toISOString(), endTime: endDateTime.toISOString() }]
 

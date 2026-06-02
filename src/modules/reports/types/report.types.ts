@@ -2,7 +2,7 @@ export type PaymentStatusRow = {
   id: string
   data: string
   atleta: string | null
-  servico: 'Avulso' | 'Mensal' | 'Comanda' | 'Rotativo' | 'Crédito rotativo'
+  servico: 'Avulso' | 'Mensal' | 'Comanda' | 'Rotativo' | 'Crédito rotativo' | 'Mensalista' | 'Entrada Manual'
   espaco: string | null
   esporte: string | null
   valor: number | null

@@ -244,6 +244,7 @@ export async function createBookingAction(
         revalidatePath(`/dashboard/arenas/${arenaId}`)
         revalidatePath(`/dashboard/arenas/${arenaId}/courts`)
         revalidatePath(`/dashboard/finance/${arenaId}`)
+        revalidatePath(`/dashboard/reports/${arenaId}/status-pagamentos`)
         return { success: true, data }
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao criar reserva'
@@ -285,6 +286,7 @@ export async function createRecurringBookingsAction(
         revalidatePath(`/dashboard/arenas/${arenaId}`)
         revalidatePath(`/dashboard/arenas/${arenaId}/courts`)
         revalidatePath(`/dashboard/finance/${arenaId}`)
+        revalidatePath(`/dashboard/reports/${arenaId}/status-pagamentos`)
         return { success: true, data }
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao criar reservas recorrentes'

@@ -375,7 +375,27 @@ export function CourtCalendarPageClient({ arenaId, courtId, initialCourt, initia
         )
         return Array.from(map.values()).sort((a, b) => (a.hour * 60 + a.minute) - (b.hour * 60 + b.minute))
     })()
-    const slots = viewMode === 'day' ? slotsDay : slotsWeek
+
+    // Inclui slots extras para reservas fora dos horários configurados
+    const baseSlotsForView = viewMode === 'day' ? slotsDay : slotsWeek
+    const slotKeySet = new Set(baseSlotsForView.map(s => `${s.hour}:${s.minute}`))
+    const extraSlots: SlotTime[] = []
+    for (const b of bookings) {
+        if (b.status === 'cancelled') continue
+        const bStart = parseISO(b.start_time)
+        const isInView = viewMode === 'day'
+            ? isSameDay(bStart, currentDate)
+            : weekDays.some(d => isSameDay(d, bStart))
+        if (!isInView) continue
+        const key = `${getHours(bStart)}:${getMinutes(bStart)}`
+        if (!slotKeySet.has(key)) {
+            extraSlots.push({ hour: getHours(bStart), minute: getMinutes(bStart) })
+            slotKeySet.add(key)
+        }
+    }
+    const slots = extraSlots.length > 0
+        ? [...baseSlotsForView, ...extraSlots].sort((a, b) => (a.hour * 60 + a.minute) - (b.hour * 60 + b.minute))
+        : baseSlotsForView
 
     return (
         <div className="mx-auto flex h-[calc(100dvh-8.5rem)] min-h-0 w-full max-w-[1600px] flex-col gap-2 overflow-hidden md:h-[calc(100dvh-4.5rem)]">

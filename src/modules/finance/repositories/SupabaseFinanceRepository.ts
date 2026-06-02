@@ -23,7 +23,9 @@ export class SupabaseFinanceRepository implements IFinanceRepository {
       .from('transactions')
       .select(WITH_RELATIONS)
       .eq('arena_id', arenaId)
-      .order('launch_date', { ascending: false });
+      .order('launch_date', { ascending: false })
+      // launch_date é date-only (00:00) para muitos lançamentos; created_at desempata para manter os mais recentes no topo
+      .order('created_at', { ascending: false });
 
     if (type) query = query.eq('type', type);
     if (startDate) query = query.gte('launch_date', startDate);
@@ -40,7 +42,9 @@ export class SupabaseFinanceRepository implements IFinanceRepository {
       .select(WITH_RELATIONS)
       .eq('arena_id', arenaId)
       .eq('type', type)
-      .order('launch_date', { ascending: false })
+      // "Últimas entradas" = registradas mais recentemente. launch_date é date-only e gera empates,
+      // então ordena por created_at para que o lançamento mais novo nunca seja cortado pelo limit.
+      .order('created_at', { ascending: false })
       .limit(limit);
 
     if (error) throw new Error(`SupabaseFinanceRepository.findRecent: ${error.message}`);

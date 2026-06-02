@@ -95,7 +95,7 @@ export async function getPaymentStatusReportAction(
         quantidade,
         valor_pago,
         created_at,
-        atleta:id_atleta(nome_perfil),
+        atleta:atleta_id(nome_perfil),
         modo_pagamento:modo_pagamento_id(nome)
       `)
       .eq('arena_id', arenaId)
@@ -106,7 +106,26 @@ export async function getPaymentStatusReportAction(
     if (filters.startDate) rotativoCreditosQuery = rotativoCreditosQuery.gte('created_at', filters.startDate)
     if (filters.endDate) rotativoCreditosQuery = rotativoCreditosQuery.lte('created_at', filters.endDate + 'T23:59:59')
 
-    const [bookingsResult, courtsResult, sportsResult, stationPaymentsResult, rotativoInscricoesResult, rotativoCreditosResult] = await Promise.all([
+    let transactionsQuery = supabase
+      .from('transactions')
+      .select(`
+        id,
+        category,
+        description,
+        total_value,
+        launch_date,
+        atleta:atleta_id(nome_perfil),
+        modo_pagamento:modo_pagamento_id(nome)
+      `)
+      .eq('arena_id', arenaId)
+      .eq('type', 'entrada')
+      .neq('category', 'Reserva Avulsa')
+      .order('launch_date', { ascending: false })
+
+    if (filters.startDate) transactionsQuery = transactionsQuery.gte('launch_date', filters.startDate)
+    if (filters.endDate) transactionsQuery = transactionsQuery.lte('launch_date', filters.endDate)
+
+    const [bookingsResult, courtsResult, sportsResult, stationPaymentsResult, rotativoInscricoesResult, rotativoCreditosResult, transactionsResult] = await Promise.all([
       query,
       supabase.from('courts').select('id, name').eq('arena_id', arenaId).order('name'),
       supabase
@@ -118,12 +137,21 @@ export async function getPaymentStatusReportAction(
       includeExtraPayments ? stationPaymentsQuery : Promise.resolve({ data: [], error: null }),
       includeExtraPayments ? rotativoInscricoesQuery : Promise.resolve({ data: [], error: null }),
       includeExtraPayments ? rotativoCreditosQuery : Promise.resolve({ data: [], error: null }),
+      includeExtraPayments ? transactionsQuery : Promise.resolve({ data: [], error: null }),
     ])
 
+    // Bookings é a fonte principal e de onde vêm os filtros — se falhar, o relatório não tem como funcionar.
     if (bookingsResult.error) throw new Error(bookingsResult.error.message)
-    if (stationPaymentsResult.error) throw new Error(stationPaymentsResult.error.message)
-    if (rotativoInscricoesResult.error) throw new Error(rotativoInscricoesResult.error.message)
-    if (rotativoCreditosResult.error) throw new Error(rotativoCreditosResult.error.message)
+
+    // Fontes complementares: uma falha isolada (ex.: relacionamento inválido) não deve
+    // derrubar o relatório inteiro. Registra o erro e segue com as demais fontes.
+    const logSourceError = (source: string, error: { message: string } | null) => {
+      if (error) console.error(`[getPaymentStatusReportAction] Falha na fonte "${source}": ${error.message}`)
+    }
+    logSourceError('station_payments', stationPaymentsResult.error)
+    logSourceError('rotativo_inscricoes', rotativoInscricoesResult.error)
+    logSourceError('rotativo_creditos', rotativoCreditosResult.error)
+    logSourceError('transactions', transactionsResult.error)
 
     const bookingRows: PaymentStatusRow[] = (bookingsResult.data ?? []).map((b: any) => {
       let status: PaymentStatusRow['status'] = 'Pendente'
@@ -190,11 +218,23 @@ export async function getPaymentStatusReportAction(
       status: 'Pago' as const,
     }))
 
+    const transactionRows: PaymentStatusRow[] = (transactionsResult.data ?? []).map((t: any) => ({
+      id: `transaction-${t.id}`,
+      data: t.launch_date,
+      atleta: t.atleta?.nome_perfil ?? null,
+      servico: t.category === 'Mensalidade' ? 'Mensalista' : 'Entrada Manual',
+      espaco: t.category === 'Mensalidade' ? (t.description ?? null) : (t.category ?? null),
+      esporte: t.modo_pagamento?.nome ?? null,
+      valor: t.total_value ?? null,
+      status: 'Pago' as const,
+    }))
+
     const rows: PaymentStatusRow[] = [
       ...bookingRows,
       ...stationPaymentRows,
       ...rotativoInscricaoRows,
       ...rotativoCreditoRows,
+      ...transactionRows,
     ].sort(
       (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
     )
