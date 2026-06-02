@@ -87,7 +87,7 @@ export type Database = {
           plan_id: string | null
           plan_key: string
           status: string
-          gateway_customer_id: string
+          gateway_customer_id: string | null
           gateway_subscription_id: string | null
           gateway_checkout_id: string | null
           updated_at: string
@@ -104,7 +104,7 @@ export type Database = {
           plan_id?: string | null
           plan_key: string
           status?: string
-          gateway_customer_id: string
+          gateway_customer_id?: string | null
           gateway_subscription_id?: string | null
           gateway_checkout_id?: string | null
           updated_at?: string
@@ -121,7 +121,7 @@ export type Database = {
           plan_id?: string | null
           plan_key?: string
           status?: string
-          gateway_customer_id?: string
+          gateway_customer_id?: string | null
           gateway_subscription_id?: string | null
           gateway_checkout_id?: string | null
           updated_at?: string
@@ -1947,6 +1947,7 @@ export type Database = {
           features: Json | null
           id: string
           is_active: boolean
+          is_internal: boolean
           key: string
           label: string
           max_spaces: number
@@ -1960,6 +1961,7 @@ export type Database = {
           features?: Json | null
           id?: string
           is_active?: boolean
+          is_internal?: boolean
           key: string
           label: string
           max_spaces: number
@@ -1973,6 +1975,7 @@ export type Database = {
           features?: Json | null
           id?: string
           is_active?: boolean
+          is_internal?: boolean
           key?: string
           label?: string
           max_spaces?: number

@@ -9,12 +9,13 @@ export type SubscriptionPlanRow = {
   max_spaces: number
   gateway_price_id: string
   is_active: boolean
+  is_internal: boolean
   features: unknown | null
   sort_order: number
 }
 
 const PLAN_SELECT =
-  'id, key, label, price_cents, max_spaces, gateway_price_id, is_active, features, sort_order'
+  'id, key, label, price_cents, max_spaces, gateway_price_id, is_active, is_internal, features, sort_order'
 
 export async function fetchAllActivePlans(): Promise<SubscriptionPlanRow[]> {
   const supabase = getSupabaseAdmin()
@@ -22,6 +23,7 @@ export async function fetchAllActivePlans(): Promise<SubscriptionPlanRow[]> {
     .from('subscription_plans')
     .select(PLAN_SELECT)
     .eq('is_active', true)
+    .eq('is_internal', false)
     .order('sort_order', { ascending: true })
 
   if (error) throw new Error(`[subscription-plans] Falha ao buscar planos: ${error.message}`)
@@ -54,6 +56,7 @@ export async function fetchPlanByGatewayPriceId(
     .from('subscription_plans')
     .select(PLAN_SELECT)
     .eq('gateway_price_id', gatewayPriceId)
+    .eq('is_internal', false)
     .maybeSingle()
 
   if (error)
