@@ -24,6 +24,7 @@ export type CardInfo = CardDetails
 
 export type ArenaSubscription = {
   status: SubscriptionStatus
+  hasInternalAccess: boolean
   planKey: PlanKey | null
   planLabel: string | null
   priceCents: number | null
@@ -112,7 +113,7 @@ export async function getSubscription(arenaId: string): Promise<ArenaSubscriptio
   const { data } = await supabase
     .from('arena_subscriptions')
     .select(
-      'plan_key, status, current_period_end, cancel_at_period_end, canceled_at, gateway_subscription_id, billing_snapshot, subscription_plans(label, price_cents, max_spaces)'
+      'plan_key, status, current_period_end, cancel_at_period_end, canceled_at, gateway_subscription_id, billing_snapshot, subscription_plans(label, price_cents, max_spaces, is_internal)'
     )
     .eq('arena_id', arenaId)
     .maybeSingle()
@@ -120,6 +121,7 @@ export async function getSubscription(arenaId: string): Promise<ArenaSubscriptio
   if (!data) {
     return {
       status: 'none',
+      hasInternalAccess: false,
       planKey: null,
       planLabel: null,
       priceCents: null,
@@ -152,13 +154,14 @@ export async function getSubscription(arenaId: string): Promise<ArenaSubscriptio
 
   const fallbackPlan =
     !planJoin && parsedKey.success ? await fetchPlanByKey(parsedKey.data) : null
+  const hasInternalAccess = planJoin?.is_internal ?? fallbackPlan?.is_internal ?? false
 
   let gatewayData: GatewayEnrichedData = {
     paymentMethodLabel: null,
     card: null,
     currentPeriodEnd: null,
   }
-  if (gatewaySubscriptionId) {
+  if (gatewaySubscriptionId && !hasInternalAccess) {
     gatewayData = await fetchGatewayData(gatewaySubscriptionId)
   }
 
@@ -183,21 +186,26 @@ export async function getSubscription(arenaId: string): Promise<ArenaSubscriptio
       : null
 
   return {
-    status: (data.status as SubscriptionStatus) ?? 'none',
-    planKey: parsedKey.success ? parsedKey.data : null,
-    planLabel: planJoin?.label ?? fallbackPlan?.label ?? null,
-    priceCents: planJoin?.price_cents ?? fallbackPlan?.price_cents ?? null,
+    status: hasInternalAccess ? 'none' : ((data.status as SubscriptionStatus) ?? 'none'),
+    hasInternalAccess,
+    planKey: hasInternalAccess ? null : parsedKey.success ? parsedKey.data : null,
+    planLabel: hasInternalAccess ? null : planJoin?.label ?? fallbackPlan?.label ?? null,
+    priceCents: hasInternalAccess ? null : planJoin?.price_cents ?? fallbackPlan?.price_cents ?? null,
     maxSpaces: planJoin?.max_spaces ?? fallbackPlan?.max_spaces ?? null,
     currentPeriodEnd:
-      data.current_period_end ??
-      gatewayData.currentPeriodEnd ??
-      checkoutCorruptPeriodEnd,
-    cancelAtPeriodEnd: data.cancel_at_period_end ?? false,
-    canceledAt: data.canceled_at ?? null,
-    paymentMethod: paymentMethodLabel,
-    card,
-    lastPaymentValueCents,
-    installmentSummary: formatInstallmentSummary(snapshot),
-    lastPaymentConfirmedAt: snapshot?.lastPaymentConfirmedAt ?? null,
+      hasInternalAccess
+        ? null
+        : data.current_period_end ??
+          gatewayData.currentPeriodEnd ??
+          checkoutCorruptPeriodEnd,
+    cancelAtPeriodEnd: hasInternalAccess ? false : data.cancel_at_period_end ?? false,
+    canceledAt: hasInternalAccess ? null : data.canceled_at ?? null,
+    paymentMethod: hasInternalAccess ? null : paymentMethodLabel,
+    card: hasInternalAccess ? null : card,
+    lastPaymentValueCents: hasInternalAccess ? null : lastPaymentValueCents,
+    installmentSummary: hasInternalAccess ? null : formatInstallmentSummary(snapshot),
+    lastPaymentConfirmedAt: hasInternalAccess
+      ? null
+      : snapshot?.lastPaymentConfirmedAt ?? null,
   }
 }

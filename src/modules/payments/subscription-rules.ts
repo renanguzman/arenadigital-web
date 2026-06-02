@@ -37,12 +37,14 @@ export function isPeriodExpired(
 }
 
 export function hasUsableSubscription(input: {
+  hasInternalAccess?: boolean | null
   status: string | null | undefined
   currentPeriodEnd: string | null | undefined
 }) {
   return (
-    ACTIVE_STATUSES.has(input.status ?? '') &&
-    !isPeriodExpired(input.currentPeriodEnd)
+    input.hasInternalAccess === true ||
+    (ACTIVE_STATUSES.has(input.status ?? '') &&
+      !isPeriodExpired(input.currentPeriodEnd))
   )
 }
 

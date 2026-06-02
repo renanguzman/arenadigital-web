@@ -13,6 +13,7 @@ import {
 
 type SubscriptionSnapshot = {
   status: string
+  hasInternalAccess: boolean
   planKey: string | null
   currentPeriodEnd: string | null
   card: unknown | null
