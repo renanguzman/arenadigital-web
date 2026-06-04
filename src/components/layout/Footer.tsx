@@ -16,11 +16,11 @@ export function Footer() {
                     />
 
                     <div className="flex flex-col gap-4 text-sm leading-5 text-[#C2C7CE] md:mx-auto">
-                        <a href="#" className="flex items-center gap-2 transition-colors hover:text-white">
+                        <a href="https://www.instagram.com/arenadigital.app" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-colors hover:text-white">
                             <Instagram className="h-5 w-5" strokeWidth={1.8} />
                             Instagram
                         </a>
-                        <a href="#" className="flex items-center gap-2 transition-colors hover:text-white">
+                        <a href="https://www.facebook.com/people/Arena-Digital/61570866037820/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-colors hover:text-white">
                             <Facebook className="h-5 w-5" strokeWidth={1.8} />
                             Facebook
                         </a>

@@ -8,19 +8,9 @@ import {
 } from "@/lib/arena-users";
 import { assertArenaBackofficeAccess, assertStationAccess } from "@/lib/server-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { ensureExperimentalSubscription } from "@/modules/payments/usecases/ensure-experimental-subscription.usecase";
+import { getLocationPointFromAddress } from "@/lib/geocoding";
 import type { Database } from "@/types/supabase.types";
-
-async function getCoordinatesFromAddress(addressData: { street: string; number: string; neighborhood: string; city: string; state: string }) {
-    const query = `${addressData.street}, ${addressData.number}, ${addressData.city}, ${addressData.state}, Brasil`;
-    try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
-            headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'ArenaDigital-Web-Sync' }
-        });
-        const geoData = await res.json();
-        if (geoData?.[0]) return `POINT(${geoData[0].lon} ${geoData[0].lat})`;
-    } catch { /* geocoding is best-effort */ }
-    return null;
-}
 
 type OwnerArenaAddressData = {
     cep?: string;
@@ -88,6 +78,7 @@ export async function provisionOwnerArena(
 
     if (existingArena) {
         await ensureOwnerArenaUserLink(supabase, existingArena.id, ownerId);
+        await ensureExperimentalSubscription({ arenaId: existingArena.id, actorId: ownerId });
         return;
     }
 
@@ -102,7 +93,7 @@ export async function provisionOwnerArena(
         arenaInsertData.address = arenaAddress.street || undefined;
 
         if (arenaAddress.street && arenaAddress.city && arenaAddress.state) {
-            const locationPoint = await getCoordinatesFromAddress({
+            const locationPoint = await getLocationPointFromAddress({
                 street: arenaAddress.street, number: arenaAddress.number || '',
                 neighborhood: arenaAddress.neighborhood || '', city: arenaAddress.city, state: arenaAddress.state
             });
@@ -117,6 +108,7 @@ export async function provisionOwnerArena(
 
     if (newArena) {
         await ensureOwnerArenaUserLink(supabase, newArena.id, ownerId);
+        await ensureExperimentalSubscription({ arenaId: newArena.id, actorId: ownerId });
     }
 }
 

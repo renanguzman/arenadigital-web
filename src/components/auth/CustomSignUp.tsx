@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { Loader2, Check, ChevronsUpDown } from "lucide-react"
+import { Loader2, Check, ChevronsUpDown, Eye, EyeOff, X } from "lucide-react"
 import { supabase as supabasePublic } from "@/shared/database/supabaseClient"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
@@ -93,9 +93,21 @@ export function CustomSignUp() {
     const [emailAddress, setEmailAddress] = React.useState("")
     const [password, setPassword] = React.useState("")
     const [confirmPassword, setConfirmPassword] = React.useState("")
+    const [showPassword, setShowPassword] = React.useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
 
     const [pendingVerification, setPendingVerification] = React.useState(false)
     const [loading, setLoading] = React.useState(false)
+
+    const passwordRequirements = React.useMemo(() => ([
+        { label: "Mínimo de 8 caracteres", valid: password.length >= 8 },
+        { label: "Uma letra maiúscula", valid: /[A-Z]/.test(password) },
+        { label: "Uma letra minúscula", valid: /[a-z]/.test(password) },
+        { label: "Um número", valid: /\d/.test(password) },
+        { label: "Um caractere especial", valid: /[^A-Za-z0-9]/.test(password) },
+    ]), [password])
+
+    const isPasswordValid = passwordRequirements.every((req) => req.valid)
 
     const handleCepBlur = async () => {
         const cleanCep = cep.replace(/\D/g, '')
@@ -141,6 +153,11 @@ export function CustomSignUp() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        if (!isPasswordValid) {
+            toast.error("A senha não atende a todos os requisitos.")
+            return
+        }
 
         if (password !== confirmPassword) {
             toast.error("As senhas não coincidem.")
@@ -389,13 +406,59 @@ export function CustomSignUp() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="password" className="text-white/70">Senha</Label>
-                        <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black" required />
+                        <div className="relative">
+                            <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black pr-10" required />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword((prev) => !prev)}
+                                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            >
+                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="confirmPassword" className="text-white/70">Confirme a Senha</Label>
-                        <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black" required />
+                        <div className="relative">
+                            <Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black pr-10" required />
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                                aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            >
+                                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                        </div>
                     </div>
                 </div>
+
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-1">
+                    {passwordRequirements.map((req) => (
+                        <li
+                            key={req.label}
+                            className={cn(
+                                "flex items-center gap-2 text-sm transition-colors",
+                                req.valid ? "text-green-400" : "text-white/50"
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+                                    req.valid ? "bg-green-500 text-white" : "bg-white/15 text-white/50"
+                                )}
+                            >
+                                {req.valid ? <Check className="h-3 w-3" strokeWidth={3} /> : <X className="h-3 w-3" strokeWidth={3} />}
+                            </span>
+                            {req.label}
+                        </li>
+                    ))}
+                </ul>
+
+                {confirmPassword.length > 0 && password !== confirmPassword && (
+                    <p className="text-sm text-red-400">As senhas não coincidem.</p>
+                )}
             </div>
 
             <Button

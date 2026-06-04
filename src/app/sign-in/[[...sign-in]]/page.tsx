@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ArrowRight, Loader2 } from 'lucide-react'
+import { ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Logo } from '@/components/shared/Logo'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
@@ -32,6 +32,7 @@ export default function SignInPage() {
   const [mode, setMode] = React.useState<Mode>('password')
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
+  const [showPassword, setShowPassword] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
@@ -143,15 +144,25 @@ export default function SignInPage() {
                 placeholder="Digite seu e-mail"
                 className={inputLight}
               />
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className={inputLight}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={`${inputLight} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700"
+                >
+                  {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                </button>
+              </div>
               <button type="submit" disabled={loading} className={btnPrimary}>
                 {loading ? <Loader2 className="size-4 animate-spin" /> : <>Entrar <ArrowRight className="size-4" /></>}
               </button>

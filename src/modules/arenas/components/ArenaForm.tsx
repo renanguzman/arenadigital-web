@@ -302,25 +302,6 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
         }
     }
 
-    async function getCoordinatesFromAddress(addressData: { street: string, number: string, neighborhood: string, city: string, state: string }) {
-        const query = `${addressData.street}, ${addressData.number}, ${addressData.city}, ${addressData.state}, Brasil`;
-        const encodedQuery = encodeURIComponent(query);
-        try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodedQuery}&format=json&limit=1`, {
-                headers: {
-                    'Accept-Language': 'pt-BR'
-                }
-            });
-            const geoData = await res.json();
-            if (geoData && geoData.length > 0) {
-                return `POINT(${geoData[0].lon} ${geoData[0].lat})`;
-            }
-        } catch (error) {
-            console.error("Erro ao obter coordenadas Nominatim:", error);
-        }
-        return null;
-    }
-
     async function onSubmit(values: any) {
         try {
             setIsUploading(true)
@@ -334,29 +315,11 @@ export function ArenaForm({ initialData, ownerId }: ArenaFormProps) {
 
             const data = { ...values, banner_url: bannerUrl } as ArenaFormValues
 
-            // Tentar obter geolocalização se houver endereco e municipio preenchido
-            let locationPoint = null;
-            if (values.address && values.id_municipio) {
-                const munInfo = municipios.find(m => m.codigo_ibge === values.id_municipio);
-                const ufInfo = estados.find(e => e.codigo_uf === selectedEstadoId);
-
-                if (munInfo && ufInfo) {
-                    locationPoint = await getCoordinatesFromAddress({
-                        street: values.address,
-                        number: values.number || "",
-                        neighborhood: values.neighborhood || "",
-                        city: munInfo.nome,
-                        state: ufInfo.uf
-                    });
-                }
-            }
-
+            // A geolocalização é resolvida no servidor (createArenaAction/updateArenaAction)
+            // a partir do endereço + município — o Nominatim bloqueia chamadas do navegador.
             const payload: any = { ...data };
             const docDigits = onlyDigits(data.cpf_cnpj ?? "");
             payload.cpf_cnpj = docDigits.length > 0 ? docDigits : null;
-            if (locationPoint) {
-                payload.location = locationPoint;
-            }
             if (initialData) {
                 if (bannerFile) {
                     try {
