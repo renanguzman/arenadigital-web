@@ -2,7 +2,7 @@ import { requireAuthenticatedDbUser } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseArenaRepository } from '@/modules/arenas/repositories/SupabaseArenaRepository'
 import { SupabaseBookingRepository } from '@/modules/bookings/repositories/SupabaseBookingRepository'
-import { SchedulePageClient } from './SchedulePageClient'
+import { SchedulePageClient } from '@/modules/bookings/components/SchedulePageClient'
 
 export default async function SchedulePage() {
     const { dbUserId } = await requireAuthenticatedDbUser()

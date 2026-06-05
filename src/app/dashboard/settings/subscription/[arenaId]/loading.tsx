@@ -1,13 +1,11 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { DashboardBlocksLoading } from "@/components/dashboard/DashboardLoadingState"
 
 export default function Loading() {
     return (
-        <div className="space-y-6">
-            <Skeleton className="h-10 w-64" />
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-56 w-full" />)}
-            </div>
-            <Skeleton className="h-[400px] w-full" />
-        </div>
+        <DashboardBlocksLoading
+            cardCount={4}
+            gridClassName="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+            cardClassName="h-56 w-full"
+        />
     )
 }

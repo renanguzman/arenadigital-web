@@ -11,7 +11,7 @@ import { isPeriodExpired } from '@/modules/payments/subscription-rules'
 import { getArenaBillingAddress } from '@/modules/arenas/usecases/get-arena-billing-address.usecase'
 import { getPaymentHistory } from '@/modules/payments/usecases/get-payment-history.usecase'
 import { getSubscription } from '@/modules/payments/usecases/get-subscription.usecase'
-import { SubscriptionPageClient } from './SubscriptionPageClient'
+import { SubscriptionPageClient } from '@/modules/payments/components/SubscriptionPageClient'
 
 function normalizeFeatures(features: unknown) {
   if (!Array.isArray(features)) return []

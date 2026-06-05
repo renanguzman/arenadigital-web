@@ -1,7 +1,11 @@
 import { assertArenaBackofficeAccess, assertCourtAccess } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseBookingRepository } from '@/modules/bookings/repositories/SupabaseBookingRepository'
-import { CourtCalendarPageClient } from './CourtCalendarPageClient'
+import { CourtCalendarPageClient } from '@/modules/bookings/components/CourtCalendarPageClient'
+import {
+    normalizeCourtSports,
+    type CourtWithSportRelations,
+} from '@/modules/courts/utils/normalize-court-sports'
 import { redirect } from 'next/navigation'
 import { startOfDay, addDays, subDays } from 'date-fns'
 
@@ -33,17 +37,14 @@ export default async function CourtCalendarPage({ params }: { params: Promise<{ 
 
     if (courtRes.error || !courtRes.data) redirect(`/dashboard/arenas/${arenaId}`)
 
-    const court = {
-        ...courtRes.data,
-        sports: (courtRes.data.sports as any[]).map(s => s.sport),
-    }
+    const court = normalizeCourtSports(courtRes.data as CourtWithSportRelations)
 
     return (
         <CourtCalendarPageClient
             arenaId={arenaId}
             courtId={courtId}
             initialCourt={court}
-            initialBookings={bookings as any[]}
+            initialBookings={bookings}
             initialDate={now.toISOString()}
         />
     )

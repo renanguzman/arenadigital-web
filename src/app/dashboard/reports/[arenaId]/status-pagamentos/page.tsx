@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { assertArenaBackofficeAccess } from '@/lib/server-auth'
 import { getPaymentStatusReportAction } from '@/modules/reports/actions/reportActions'
-import { StatusPagamentosPageClient } from './StatusPagamentosPageClient'
+import { StatusPagamentosPageClient } from '@/modules/reports/components/StatusPagamentosPageClient'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 
 export default async function StatusPagamentosPage({

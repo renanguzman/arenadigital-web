@@ -33,7 +33,7 @@ export default function ScheduleLoading() {
           <div key={i} className="grid grid-cols-8 border-b p-3 gap-3">
             <Skeleton className="h-4 w-12" />
             {Array.from({ length: 7 }).map((_, j) => (
-              <Skeleton key={j} className={`h-10 rounded-lg ${Math.random() > 0.7 ? 'opacity-100' : 'opacity-20'}`} />
+              <Skeleton key={j} className={`h-10 rounded-lg ${(i + j) % 4 === 0 ? 'opacity-100' : 'opacity-20'}`} />
             ))}
           </div>
         ))}

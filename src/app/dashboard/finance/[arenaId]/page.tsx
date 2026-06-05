@@ -3,7 +3,7 @@ import { assertArenaBackofficeAccess } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseFinanceRepository } from '@/modules/finance/repositories/SupabaseFinanceRepository'
 import { format } from 'date-fns'
-import { FinanceDashboardClient } from './FinanceDashboardClient'
+import { FinanceDashboardClient } from '@/modules/finance/components/FinanceDashboardClient'
 import { buildTutorialFinance } from '@/lib/tutorial-mock-data'
 
 export default async function FinanceDashboard({

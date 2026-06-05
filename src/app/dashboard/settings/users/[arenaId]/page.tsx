@@ -1,7 +1,7 @@
 import { assertArenaBackofficeAccess } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { getArenaUsersAction } from '@/modules/users/actions/userActions'
-import { UsersPageClient } from './UsersPageClient'
+import { UsersPageClient } from '@/modules/users/components/UsersPageClient'
 import { redirect } from 'next/navigation'
 import { buildTutorialUsers } from '@/lib/tutorial-mock-data'
 
