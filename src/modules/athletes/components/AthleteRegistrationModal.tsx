@@ -287,7 +287,7 @@ export function AthleteRegistrationModal({
                 idMunicipio: municipioId ?? undefined,
             })
             if (result.success) {
-                toast.success("Atleta cadastrado, vinculado e convidado por e-mail.")
+                toast.success("Atleta cadastrado e vinculado com sucesso.")
                 onSuccess()
                 onOpenChange(false)
             } else {

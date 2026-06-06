@@ -31,13 +31,14 @@ function formatCpf(digits: string) {
     return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
 }
 
-function getAthleteInviteRedirectTo() {
-    return (
-        process.env.NEXT_PUBLIC_ATHLETE_APP_PASSWORD_REDIRECT_URL ||
-        process.env.NEXT_PUBLIC_APP_PASSWORD_REDIRECT_URL ||
-        'arenadigital://set-password'
-    )
-}
+// Redirect usado apenas no convite por email do atleta, atualmente desativado.
+// function getAthleteInviteRedirectTo() {
+//     return (
+//         process.env.NEXT_PUBLIC_ATHLETE_APP_PASSWORD_REDIRECT_URL ||
+//         process.env.NEXT_PUBLIC_APP_PASSWORD_REDIRECT_URL ||
+//         'arenadigital://set-password'
+//     )
+// }
 
 function normalizeLookupRow(row: AthleteLookupRow, arenaId: string) {
     const user = Array.isArray(row.users) ? row.users[0] : row.users
@@ -165,12 +166,27 @@ export async function linkAthlete(formData: {
             return { success: false, error: "Este e-mail já está cadastrado no sistema." };
         }
 
-        // 2. Create invited User in Supabase Auth. The athlete will set the password from the email link.
+        // 2. Create User in Supabase Auth without sending the athlete invite email.
         const firstName = formData.name.split(' ')[0]
         const lastName = formData.name.split(' ').slice(1).join(' ') || undefined
-        const { data: created, error: createErr } = await supabase.auth.admin.inviteUserByEmail(formData.email, {
-            redirectTo: getAthleteInviteRedirectTo(),
-            data: {
+
+        // Envio de convite por email desativado a pedido.
+        // const { data: created, error: createErr } = await supabase.auth.admin.inviteUserByEmail(formData.email, {
+        //     redirectTo: getAthleteInviteRedirectTo(),
+        //     data: {
+        //         firstName,
+        //         lastName,
+        //         name: formData.name,
+        //         role: 'atleta',
+        //         origem_cadastro: 'arena',
+        //         cpf: cleanCpf,
+        //     },
+        // })
+
+        const { data: created, error: createErr } = await supabase.auth.admin.createUser({
+            email: formData.email,
+            email_confirm: true,
+            user_metadata: {
                 firstName,
                 lastName,
                 name: formData.name,
@@ -180,7 +196,7 @@ export async function linkAthlete(formData: {
             },
         })
         if (createErr || !created.user) {
-            return { success: false, error: createErr?.message || 'Erro ao convidar usuário do atleta.' }
+            return { success: false, error: createErr?.message || 'Erro ao criar usuário do atleta.' }
         }
 
         const { error: metadataErr } = await supabase.auth.admin.updateUserById(created.user.id, {
