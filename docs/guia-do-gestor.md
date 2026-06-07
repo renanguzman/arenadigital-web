@@ -1,18 +1,20 @@
 # Arena Digital — Guia do Gestor
 
-Como usar o sistema no dia a dia: o que cada área faz, o que você pode criar ou alterar e o que o sistema faz sozinho em seguida.
+Como usar o sistema no dia a dia: o que cada área faz, **as regras que o sistema aplica** e o que acontece automaticamente em seguida.
+
+> Para a visão técnica (actions, banco, gateways), veja `visao-geral-modulos.md`.
 
 ---
 
 ## Sumário
 
-1. [Como o sistema se organiza](#como-o-sistema-se-organiza)
+1. [Regras gerais](#regras-gerais)
 2. [Primeiro acesso](#primeiro-acesso)
 3. [Dashboard](#dashboard)
-4. [Espaços](#espaços)
+4. [Espaços e reservas](#espaços-e-reservas)
 5. [Atletas](#atletas)
 6. [Estações e comandas](#estações-e-comandas)
-7. [Catálogo](#catálogo)
+7. [Catálogo e estoque](#catálogo-e-estoque)
 8. [Mensalistas](#mensalistas)
 9. [Rotativo](#rotativo)
 10. [Programa de fidelidade](#programa-de-fidelidade)
@@ -23,221 +25,438 @@ Como usar o sistema no dia a dia: o que cada área faz, o que você pode criar o
 
 ---
 
-## Como o sistema se organiza
+## Regras gerais
 
 ### Arena selecionada
 
 No topo da barra lateral há o **seletor de arena**. Quase tudo ocorre dentro da arena escolhida. Ao trocar de arena, os menus passam a mostrar os dados da nova unidade.
 
-### Quem vê o quê
+### Quem pode fazer o quê
 
 | Perfil | Acesso |
 |---|---|
-| **Dono / Gestor** | Menu completo, incluindo Relatórios e Configurações |
-| **Atendente** | Operação do dia a dia, sem Configurações |
-| **Caixa** | Apenas a estação vinculada a ele ("Minha estação") ou a lista de Estações, se ainda não tiver estação atribuída |
+| **Dono / Gestor** | Menu completo, incluindo Relatórios, Configurações e Assinatura |
+| **Atendente** | Operação do dia a dia (reservas, atletas, comandas, rotativo, etc.), **sem** Configurações |
+| **Caixa** | Apenas a **estação vinculada** a ele ("Minha estação"). Sem estação atribuída, vê só a lista de Estações |
+
+**Regras de permissão:**
+
+- **Caixa** não acessa: Espaços (cadastro), Mensalistas, Rotativo, Fidelidade, Financeiro, Relatórios, Configurações.
+- **Caixa** só opera comandas na **própria estação** — tentativa em outra estação é bloqueada.
+- **Atendente** não acessa Configurações nem Assinatura.
+- **Assinatura** (cadastro de cartão, troca de plano): apenas **Dono ou Gestor**.
 
 ### Assinatura e bloqueio de acesso
 
-Cada arena tem sua própria assinatura. Se o plano **experimental expirar** ou não houver assinatura válida, o gestor/dono é **redirecionado para Assinatura** ao tentar usar outras áreas. O limite de quadras do plano também bloqueia a criação de novos espaços quando o teto é atingido.
+Cada arena tem sua **própria assinatura**. Regras principais:
+
+- No cadastro, o sistema ativa automaticamente o **Plano Experimental (5 dias, grátis, sem cartão)**.
+- Quando o experimental **expira** ou não há assinatura válida, Dono/Gestor é **redirecionado para Assinatura** ao tentar usar outras áreas (exceto Dashboard durante o tutorial).
+- **Criar novo espaço** exige assinatura ativa e respeito ao **limite de quadras do plano**.
+- Pagamentos são processados via **Asaas** (checkout hospedado). A arena precisa ter **CPF/CNPJ** cadastrado para cobrança.
 
 ---
 
 ## Primeiro acesso
 
+### O que você faz
+
 | Etapa | O que acontece |
 |---|---|
-| **Cadastro** | Nome, CPF, telefone, e-mail, senha, nome da arena e endereço. Após confirmar o e-mail, o sistema cria a primeira arena, vincula o usuário como Gestor e ativa o **plano experimental (5 dias)**. |
-| **Login** | Entrada com e-mail e senha. |
-| **Recuperar senha** | Fluxo de redefinição por e-mail. |
-| **Tutorial** | No primeiro acesso, um passo a passo destaca Dashboard, seletor de arena, Espaços, Atletas e demais áreas. Pode reaparecer quando houver novidades. |
-| **Várias arenas** | O seletor lateral troca entre unidades. Hoje a edição e exclusão de arenas ficam em **Configurações → Perfil da Arena**; a criação de arenas adicionais ocorre no cadastro inicial. |
+| **Cadastro** | Nome, CPF, telefone, e-mail, senha, nome da arena e endereço |
+| **Confirmação de e-mail** | Sistema cria a arena, vincula como Gestor e ativa trial de 5 dias |
+| **Login / recuperar senha** | Acesso normal ou redefinição por e-mail |
+| **Tutorial** | Passo a passo no primeiro acesso; pode reaparecer com novidades |
+
+### Regras de negócio
+
+- Cada conta de gestor recebe **uma arena** no cadastro inicial (provisionamento automático).
+- O trial experimental é **único por arena** — não pode ser reativado depois de migrar para plano pago.
+- Edição e exclusão de arenas: **Configurações → Perfil da Arena**. Criação de arenas adicionais hoje ocorre só no cadastro inicial.
 
 ---
 
 ## Dashboard
 
-**Menu:** Dashboard
+**Menu:** Dashboard · **Quem:** Dono, Gestor, Atendente
 
-Painel somente leitura com visão consolidada da arena (ou de **todas** as arenas, se selecionado):
+### O que mostra
 
-- Receita do mês e variação % vs. mês anterior
-- Reservas confirmadas hoje
-- Quadras ativas
-- Atletas ativos no mês
-- Ocupação por quadra no dia
+Receita do mês (e variação % vs. mês anterior), reservas confirmadas hoje, quadras ativas, atletas ativos no mês, ocupação por quadra no dia. Pode filtrar uma arena ou **Todas** (arenas do dono + vinculadas).
 
-Nada é alterado aqui — os números vêm dos outros módulos.
+### Regras de negócio
+
+- **Somente leitura** — nada é alterado aqui.
+- **Receita:** soma de entradas do mês corrente. Variação % vs. mês anterior; se mês anterior = 0 e atual > 0, mostra 100%.
+- **Reservas hoje:** status `Confirmado`, no intervalo do dia.
+- **Atletas ativos:** atletas distintos com reserva confirmada no mês.
+- **Ocupação:** considera quadras ativas com horário habilitado no dia; percentual limitado a **100%**.
 
 ---
 
-## Espaços
+## Espaços e reservas
 
-**Menu:** Espaços → abas **Espaços** e **Cadastros**
+**Menu:** Espaços · **Quem:** Dono, Gestor, Atendente (Caixa **não** acessa cadastro de espaços)
 
-### Espaços (quadras)
+### O que você faz
 
 | Ação | Como fazer | Efeito |
 |---|---|---|
-| Cadastrar espaço | Cadastros → **Cadastrar Espaço +** | Espaço disponível para reservas. Bloqueado se o plano atingir o limite de quadras. |
-| Editar / excluir | Menu **⋮** no card ou na tabela | Exclusão é permanente. |
-| Ver agenda | Clique no card ou no ícone de calendário | Calendário com visão Dia/Semana, status por horário e selo de conflito. |
-| Cadastrar reserva | Horário vazio ou **Cadastrar reserva** | Reserva no calendário. Confirmada com valor → entrada no Financeiro. Serviços do catálogo entram no total. Recorrência gera semanas seguintes com checagem de conflitos. |
-| Gerenciar reserva | Clique na reserva → Detalhes | Editar (avulsas), anexar serviços, recalcular valor ou cancelar. |
-| Operação do dia | **Ver operação do dia**, **Horários disponíveis**, **Ver oportunidades do dia** | Ajuda a identificar horários livres para vender. |
+| Cadastrar espaço | Cadastros → **Cadastrar Espaço +** | Espaço disponível para reservas |
+| Editar / excluir | Menu **⋮** no card ou tabela | Exclusão permanente |
+| Ver agenda | Card ou ícone de calendário | Calendário Dia/Semana |
+| Cadastrar reserva | Horário vazio ou **Cadastrar reserva** | Reserva no calendário |
+| Gerenciar reserva | Clique na reserva → Detalhes | Editar, serviços, cancelar |
+| Operação do dia | **Ver operação do dia**, **Horários disponíveis** | Identificar horários livres |
 
-**Status no calendário:** Disponível · Confirmado · Ag. Confirmação (mensalista pendente) · Conflito
+### Regras de negócio — Espaços
+
+- Nome mínimo: **2 caracteres**.
+- Status possíveis: Ativo, Inativo, Em manutenção, Desativado.
+- Tipos: Quadra ou Espaço social.
+- Capacidade mínima: **1** (se informada).
+- Esportes vinculados opcionalmente; ao editar, substitui todos os vínculos.
+- **Criar espaço** exige assinatura ativa + limite do plano não atingido.
+- Endereço da arena alimenta geolocalização no mapa (geocodificação automática).
+
+### Regras de negócio — Reservas avulsas
+
+- **Conflito de horário:** na mesma quadra, não pode haver sobreposição com reservas **Confirmadas** ou **Reservadas** (mensalista pendente). O sistema **avisa** conflitos antes de salvar, mas na gravação **bloqueia** se houver conflito.
+- Reservas **confirmadas com valor > 0** geram entrada automática no Financeiro (categoria **Reserva Avulsa**).
+- **Recorrência:** gera semanas seguintes; conflitos são verificados; transação financeira única com quantidade = número de sessões confirmadas.
+- **Serviços anexados:** só itens do catálogo com tipo **serviço** (produtos físicos não entram). Preço = preço atual do catálogo. Total = locação + serviços.
+- Reservas de **mensalista** não podem ser editadas pelo calendário — gerenciadas em Mensalistas.
+- Reservas mensalista com status **Ag. Confirmação** (`reservado`) têm ações limitadas no calendário.
+- Cancelar reserva: status → **Cancelado** (some das contagens e relatórios como ativo).
+
+### Status no calendário
+
+| Status | Significado |
+|---|---|
+| Disponível | Horário livre |
+| Confirmado | Reserva paga/confirmada |
+| Ag. Confirmação | Mensalista com mês ainda não pago |
+| Conflito | Sobreposição detectada |
+
+### Efeitos automáticos
+
+- Reserva confirmada com valor → Financeiro.
+- Recorrência confirmada → Financeiro consolidado.
+- Geocodificação ao salvar arena/endereço.
 
 ---
 
 ## Atletas
 
-**Menu:** Atletas
+**Menu:** Atletas · **Quem:** Dono, Gestor, Atendente
+
+### O que você faz
 
 | Ação | Como fazer | Efeito |
 |---|---|---|
-| Vincular existente | **Cadastrar atleta** → buscar CPF → **Vincular** | Atleta passa a operar na sua arena. |
-| Cadastrar novo | CPF não encontrado → preencher dados → **Salvar e enviar convite** | Conta criada; e-mail de convite para definir senha do app. |
-| Perfil 360º | Clique no atleta na lista | Visão consolidada: fidelidade, reservas, rotativos, comandas e pagamentos (somente leitura). |
+| Vincular existente | **Cadastrar atleta** → CPF → **Vincular** | Atleta passa a operar na arena |
+| Cadastrar novo | CPF não encontrado → dados → **Salvar e enviar convite** | Conta criada + e-mail de convite |
+| Perfil 360º | Clique na lista | Visão consolidada (somente leitura) |
+
+### Regras de negócio
+
+- **CPF** deve ser válido (dígitos verificadores).
+- Nome mínimo: **2 caracteres**; telefone mínimo: **10 caracteres**; e-mail com formato válido.
+- Esporte obrigatório no cadastro.
+- **CPF já existente** no Arena Digital → orienta vincular em vez de duplicar.
+- **E-mail já cadastrado** → bloqueado.
+- Novo atleta recebe **convite por e-mail** para definir senha do app.
+- Vincular atleta existente é **idempotente** (vincular de novo não gera erro).
+- Perfil 360º agrega: fidelidade, reservas, rotativos, comandas e pagamentos — **sem alteração** de dados.
 
 ---
 
 ## Estações e comandas
 
-**Menu:** Estações (ou **Minha estação** para o Caixa)
+**Menu:** Estações · **Quem:** Dono, Gestor, Atendente, Caixa (só sua estação)
+
+### O que você faz
 
 | Ação | Como fazer | Efeito |
 |---|---|---|
-| Cadastrar / editar estação | **Cadastrar Estação** ou editar pelo card | Estação pronta para comandas; exibe métricas do dia. |
-| Abrir comanda | **Abrir comanda** → cliente (atleta ou balcão) → itens → **Abrir** | Comanda em aberto; estoque dos produtos é baixado. |
-| Lançar item | **Lançar item +** na comanda aberta | Soma ao total e baixa estoque. |
-| Registrar pagamento | **Registrar pagamento** → forma, valor → **Salvar** | Registra o pagamento; sistema pergunta se fecha a comanda. |
-| Fechar comanda | Confirmar fechamento após pagamento | Comanda fechada; cada pagamento gera entrada no Financeiro. |
-| Cancelar comanda | Ação na tela da comanda | Itens voltam ao estoque. |
+| Cadastrar / editar estação | **Cadastrar Estação** ou editar pelo card | Estação pronta para comandas |
+| Abrir comanda | **Abrir comanda** → cliente → itens → **Abrir** | Comanda em aberto |
+| Lançar item | **Lançar item +** | Soma ao total |
+| Registrar pagamento | **Registrar pagamento** | Registra pagamento; pergunta se fecha |
+| Fechar comanda | Confirmar após pagamento | Comanda fechada + Financeiro |
+| Cancelar comanda | Ação na tela da comanda | Estoque devolvido |
+
+### Regras de negócio — Estações
+
+- Cadastro/edição de estações: **Dono, Gestor, Atendente** (Caixa não).
+- Caixa **sem estação vinculada** não consegue operar comandas.
+- Métricas do dia: comandas abertas, abertas hoje, fechadas hoje (desde meia-noite).
+
+### Regras de negócio — Comandas
+
+- Cliente: **atleta vinculado à arena** ou **cliente de balcão** (`station_customers`).
+- **Produtos** debitam estoque; **serviços** não debitam estoque.
+- Estoque insuficiente → operação **bloqueada**; se falhar no meio, sistema **desfaz** baixa e comanda criada.
+- Total da comanda = soma dos itens.
+- **Fechar comanda:** status → Fechada; gera **uma entrada no Financeiro por pagamento** (categoria = tipo da estação, ex.: "Bar - Comanda #007").
+- Se falhar ao gerar financeiro no fechamento, comanda **volta para aberta**.
+- **Cancelar comanda:** status → Cancelada; produtos **voltam ao estoque**. Comanda cancelada **não** gera financeiro.
+- Caixa só acessa comandas da **própria estação**.
 
 ---
 
-## Catálogo
+## Catálogo e estoque
 
-**Menu:** Catálogo → abas **Produtos** e **Serviços**
+**Menu:** Catálogo · **Quem:** Dono, Gestor, Atendente (Caixa vê produtos ao lançar itens)
+
+### O que você faz
 
 | Ação | Como fazer | Efeito |
 |---|---|---|
-| Cadastrar produto / serviço | **Cadastrar produto** ou **Cadastrar serviço** | Produtos entram no estoque; serviços não controlam estoque e podem ir para reservas e comandas. |
-| Editar / excluir | Menu de ações na linha | — |
-| Entrada de estoque | **Lançar entrada** | Aumenta saldo; histórico registra a movimentação. |
-| Histórico | Ícone de histórico no produto | Entradas, saídas (vendas/cancelamentos) e saldo após cada operação. |
+| Cadastrar produto / serviço | **Cadastrar produto** ou **Cadastrar serviço** | Item no catálogo |
+| Editar / excluir | Menu de ações | — |
+| Entrada de estoque | **Lançar entrada** | Aumenta saldo |
+| Histórico | Ícone de histórico | Movimentações com saldo após cada operação |
+
+### Regras de negócio
+
+- **Produtos** controlam estoque; **serviços** não.
+- Serviços podem ser anexados a **reservas** e **comandas**.
+- Produtos vinculados a uma **estação** (tipo) para filtragem nas comandas.
+- **Entrada manual:** incrementa saldo + registra movimento.
+- **Saída manual:** bloqueada se estoque < quantidade solicitada.
+- Vendas em comandas: saída automática; cancelamento de comanda: **devolução** automática.
+- Toda movimentação registra saldo após a operação no histórico.
+- Criar/editar/excluir produtos e lançar entradas/saídas manuais: **Dono, Gestor, Atendente**.
 
 ---
 
 ## Mensalistas
 
-**Menu:** Mensalistas
+**Menu:** Mensalistas · **Quem:** Dono, Gestor, Atendente
+
+### O que você faz
 
 | Ação | Como fazer | Efeito |
 |---|---|---|
-| Criar plano | **Novo mensalista** → atleta, espaço, dia, horário, sessões/mês, valor | Gera reservas dos próximos 3 meses (atual confirmada, demais Ag. Confirmação) e lança a 1ª mensalidade no Financeiro. |
-| Confirmar mês | **Confirmar** → **Confirmar pagamento** (valor ajustável) | Confirma reservas do mês pendente, lança mensalidade e gera o próximo mês. |
-| Cancelar plano | **Cancelar** / **Cancelar plano** | Plano cancelado; reservas futuras não confirmadas são canceladas. |
+| Criar plano | **Novo mensalista** | Reservas + 1ª mensalidade no Financeiro |
+| Confirmar mês | **Confirmar** → **Confirmar pagamento** | Confirma mês + gera próximo |
+| Cancelar plano | **Cancelar plano** | Cancela reservas futuras pendentes |
 
-No calendário, mensalistas pendentes aparecem como **Ag. Confirmação**.
+### Regras de negócio
+
+- Plano criado com status **Ativo** e data de início = hoje.
+- Ao criar, gera reservas para **3 meses à frente** (mês atual + 2):
+  - **Mês atual:** reservas **Confirmadas**, preço por sessão = valor mensal ÷ sessões/mês.
+  - **Meses futuros:** reservas **Ag. Confirmação** (`reservado`), sem preço definido.
+- Sessões com horário **no passado** não são criadas.
+- Dia da semana e horário fixos; até **N sessões por mês** (intervalo semanal).
+- Na criação, registra **mensalidade integral do mês 1** no Financeiro.
+- **Confirmar pagamento:** confirma **todo o mês calendário** da reserva pendente mais antiga; valor pode ser ajustado; gera reservas do **próximo mês** em Ag. Confirmação.
+- **Cancelar plano:** plano → Cancelado; reservas futuras **Ag. Confirmação** → Canceladas. Reservas já **Confirmadas** permanecem.
+- Reservas de mensalista **não são editáveis** pelo calendário de reservas avulsas.
+
+### Status
+
+| Entidade | Status | Significado |
+|---|---|---|
+| Plano | Ativo / Cancelado | Plano vigente ou encerrado |
+| Reserva | Confirmado | Mês pago |
+| Reserva | Ag. Confirmação | Mês futuro/não pago |
+| Reserva | Cancelado | Cancelada |
 
 ---
 
 ## Rotativo
 
-**Menu:** Rotativo → abas **Cadastrados** e **Gestão de créditos**
+**Menu:** Rotativo · **Quem:** Dono, Gestor, Atendente
 
-### Sessões (Cadastrados)
-
-| Ação | Como fazer | Efeito |
-|---|---|---|
-| Criar sessão | **Cadastrar rotativo** | Sessão ativa para inscrições. |
-| Editar sessão | Editar na sessão | Atualiza dados da sessão. |
-| Ativar / desativar | Toggle na sessão | Desativada não aceita inscrições; pode **reativar** antes da data. Após a data, não reativa. |
-| Inscrever atleta | Inscrever → avulso (forma de pagamento) ou crédito | Avulso → Financeiro. Crédito → consome 1 crédito do atleta. |
-
-### Créditos (Gestão de créditos)
+### O que você faz — Sessões
 
 | Ação | Como fazer | Efeito |
 |---|---|---|
-| Configurar pacotes | **Adicionar pacote** → **Salvar** | Define preços por quantidade de créditos. |
-| Vender créditos | **Lançar crédito** → atleta, quantidade, validade, pagamento | Credita o atleta com validade; entrada no Financeiro. Créditos vencidos são processados automaticamente. |
+| Criar sessão | **Cadastrar rotativo** | Sessão ativa para inscrições |
+| Editar | Editar na sessão | Atualiza dados |
+| Ativar / desativar | Toggle | Controla inscrições |
+| Inscrever atleta | Inscrever → avulso ou crédito | Financeiro ou consumo de crédito |
+
+### O que você faz — Créditos
+
+| Ação | Como fazer | Efeito |
+|---|---|---|
+| Configurar pacotes | **Adicionar pacote** → **Salvar** | Preços por quantidade |
+| Vender créditos | **Lançar crédito** | Credita atleta + Financeiro |
+
+### Regras de negócio — Sessões
+
+- Sessão criada como **Ativa**.
+- **Desativar:** não aceita novas inscrições.
+- **Reativar:** só se a **data da sessão ≥ hoje**. Após a data passar, **não reativa**.
+- Sessão com **limite de vagas:** bloqueia inscrições quando lotada.
+- Atleta **já inscrito** na mesma sessão → erro.
+- Atleta deve estar **vinculado à arena**.
+- Pagamento **avulso** → entrada no Financeiro (categoria **Rotativo**).
+- Pagamento **crédito** → consome **1 crédito** do lote mais antigo não vencido (FIFO). Exige saldo ≥ 1.
+
+### Regras de negócio — Créditos
+
+- Pacotes devem estar **configurados** antes de vender créditos.
+- Valor: se quantidade = pacote cadastrado, usa preço do pacote; senão, proporcional ao primeiro pacote.
+- Créditos têm **validade**; vencidos são **zerados automaticamente** (movimento de vencimento).
+- Venda de crédito → lote creditado + entrada no Financeiro.
 
 ---
 
 ## Programa de fidelidade
 
-**Menu:** Programa de fidelidade
+**Menu:** Programa de fidelidade · **Quem:** Dono, Gestor, Atendente
+
+### O que você faz
 
 | Ação | Como fazer | Efeito |
 |---|---|---|
-| Configurar moeda | Nome da moeda virtual → **Salvar** | Define como os pontos são chamados na arena. |
-| Enviar pontos | **Novo envio** → atleta, valor, validade, descrição | Saldo do atleta sobe. |
-| Resgatar pontos | **Novo resgate** → atleta, valor, descrição | Saldo do atleta desce. |
-| Extrato | Link **ver extrato** | Histórico com filtros por atleta e período. |
-| Ranking | Link **ver ranking** | Top atletas por saldo. |
+| Configurar moeda | Nome da moeda → **Salvar** | Nome dos pontos na arena |
+| Enviar pontos | **Novo envio** | Saldo sobe |
+| Resgatar pontos | **Novo resgate** | Saldo desce |
+| Extrato / ranking | Links na tela | Histórico e top atletas |
 
-O saldo também aparece no perfil 360º do atleta.
+### Regras de negócio
+
+- Nome da moeda virtual editável por arena.
+- **Envio** com validade opcional: 1 mês (+30d), 2 meses (+60d), 3 meses, 6 meses, 1 ano ou 2 anos.
+- **Resgate** sem data de vencimento.
+- Saldo agregado por atleta (`athlete_loyalty_balance`); aparece no perfil 360º.
+- Extrato paginado (10 itens/página); ranking padrão top **5** atletas.
+- Movimentos registrados com usuário que executou a ação.
 
 ---
 
 ## Financeiro
 
-**Menu:** Financeiro → abas **Entradas** e **Saídas**
+**Menu:** Financeiro · **Quem:** Dono, Gestor, Atendente
+
+### O que você faz
 
 | Ação | Como fazer | Efeito |
 |---|---|---|
-| Ver resumo | Painel e gráfico dos últimos 30 dias | Somente leitura. |
-| Lançar manualmente | **Nova entrada** ou **Nova saída** | Para receitas/despesas fora dos fluxos automáticos. |
-| Editar / excluir | Ações na linha do lançamento | — |
+| Ver resumo | Painel + gráfico 30 dias | Somente leitura |
+| Lançar manualmente | **Nova entrada** ou **Nova saída** | Registro manual |
+| Editar / excluir | Ações na linha | — |
 
-**Entradas automáticas** (não precisam ser lançadas à mão): reservas confirmadas, mensalidades, fechamento de comandas, rotativo avulso e venda de créditos.
+### Regras de negócio
+
+- Lançamento manual: descrição mín. **3 caracteres**; valor mín. **R$ 0,01**; quantidade mín. **1**; desconto ≥ 0.
+- Tipos: **Entrada** ou **Saída**.
+- Registra quem fez o lançamento (`registered_by`).
+
+### Entradas automáticas (não lançar à mão)
+
+| Origem | Categoria | Condição |
+|---|---|---|
+| Reserva avulsa confirmada | Reserva Avulsa | valor > 0 |
+| Mensalista (criação ou confirmação) | Mensalidade | sempre |
+| Comanda fechada | Tipo da estação (ex.: Bar) | se houver pagamento |
+| Rotativo avulso | Rotativo | inscrição |
+| Venda de crédito rotativo | Rotativo | compra de créditos |
+
+Reservas avulsas automáticas **não** duplicam no relatório de pagamentos (filtro anti-duplicação).
 
 ---
 
 ## Relatórios
 
-**Menu:** Relatórios (apenas Dono / Gestor)
+**Menu:** Relatórios · **Quem:** Dono, Gestor
 
-| Relatório | O que mostra |
+### Pagamentos (Status de pagamentos)
+
+Consolida **5 fontes:** reservas, pagamentos de comanda, inscrições rotativo avulso, compras de crédito rotativo e lançamentos manuais.
+
+**Mapeamento de status:**
+
+| Origem | Pago | Pendente | Cancelado |
+|---|---|---|---|
+| Reserva confirmada | ✓ | | |
+| Reserva cancelada | | | ✓ |
+| Reserva pendente | | ✓ | |
+| Comanda fechada | ✓ | | |
+| Comanda cancelada | | | ✓ |
+| Rotativo desativado | | | ✓ (inscrição) |
+| Crédito rotativo | ✓ | | |
+
+Filtros: período, espaço, esporte, tipo. Resumo: Pago / Pendente / Cancelado.
+
+### Atletas e clientes
+
+Segmentação de atletas vinculados (reservas **canceladas não contam**):
+
+| Segmento | Regra |
 |---|---|
-| **Pagamentos** | Lista unificada de reservas, comandas, rotativo (inscrições e créditos) e lançamentos manuais. Filtros por período, espaço, esporte e tipo. Resumo Pago / Pendente / Cancelado. |
-| **Atletas e clientes** | Segmentação: sem reserva, 1 reserva, ativos (30 dias), frequentes (5+), inativos (90 dias) e aniversariantes (7 dias). Atalho para WhatsApp. |
+| Sem reserva | 0 reservas |
+| 1 reserva | exatamente 1 |
+| Ativos recentes | última reserva nos **30 dias** |
+| Frequentes | ≥ **5** reservas |
+| Inativos | tem reservas, mas última há **> 90 dias** |
+| Aniversariantes | aniversário nos próximos **7 dias** |
 
-Somente leitura — serve para decisão e ação comercial.
+Atalho para WhatsApp — somente leitura, sem alterar dados.
 
 ---
 
 ## Configurações
 
-**Menu:** Configurações (apenas Dono / Gestor)
+**Menu:** Configurações · **Quem:** Dono, Gestor
 
 ### Usuários
 
-| Ação | Como fazer | Efeito |
-|---|---|---|
-| Cadastrar | **Cadastrar Usuário** → papel (Gestor / Atendente / Caixa) | Caixa exige estação vinculada. Usuário entra com a senha definida. |
-| Editar / excluir | Ações na lista | Excluir remove o vínculo; se for o último, a conta é removida. |
+| Ação | Regra |
+|---|---|
+| Cadastrar | Papel: Gestor, Atendente ou Caixa. **Caixa exige estação vinculada.** Senha obrigatória na criação. |
+| Editar | Pode trocar senha e estação (Caixa). |
+| Excluir | Remove vínculo com a arena; se for o **último vínculo**, apaga a conta. |
 
-### Assinatura
+### Assinatura (Asaas)
 
-| Ação | Como fazer | Efeito |
-|---|---|---|
-| Cadastrar cartão / escolher plano | Fluxo na tela de assinatura | Define limites (ex.: quadras) e libera o uso do sistema. |
-| Trocar plano | Seleção de plano disponível | Atualiza limites e cobrança. |
-| Cancelar renovação | **Cancelar assinatura** | Acesso continua até o fim do período pago. |
+Pagamentos processados via **Asaas** — checkout hospedado externo. Após pagamento, retorno automático para tela de status (sem item no menu).
 
-Após checkout hospedado, o retorno cai automaticamente na tela de status — não é um menu separado.
+#### Planos
+
+| Plano | Preço | Espaços | Regras |
+|---|---|---|---|
+| **Experimental** | Grátis | Até 5 | **5 dias**, uso **único**; ativado automaticamente no cadastro |
+| **Starter** | R$ 249/mês | Até 10 | Contrato anual, cobrança mensal |
+| **Max** | R$ 549/mês | Até 20 | Contrato anual, cobrança mensal |
+| **PRO** | R$ 949/mês | Até 30 | Contrato anual, cobrança mensal |
+| **Parceiro** | R$ 249/mês | Ilimitados | Atribuído manualmente; exige cartão para liberar recursos |
+
+> Planos pagos: contrato de **365 dias**, cobrança **mensal** recorrente via Asaas.
+
+#### Fluxo de assinatura
+
+1. Dono/Gestor escolhe plano em **Configurações → Assinatura**.
+2. Sistema redireciona para **checkout Asaas** (cadastro de cartão/pagamento).
+3. Retorno automático com status (sucesso, cancelado ou expirado).
+4. Webhooks do Asaas sincronizam status, plano e histórico de cobranças.
+
+#### Regras de negócio
+
+- **CPF/CNPJ da arena obrigatório** para cobrança no Asaas.
+- Assinatura **utilizável:** status ativo e período não expirado.
+- **Experimental expirado:** redirecionamento forçado para Assinatura.
+- **Experimental:** não pode reassinar depois de usado ou migrado para plano pago.
+- **Trocar plano:** upgrade/downgrade na mesma assinatura.
+- **Cancelar renovação:** acesso continua até fim do período pago (`cancel_at_period_end`).
+- **Reativar:** remove cancelamento programado antes do vencimento.
+- **Criar espaço:** bloqueado sem assinatura ativa ou acima do limite do plano.
+- Histórico de pagamentos disponível na aba **Histórico** da tela de Assinatura.
 
 ### Perfil da Arena
 
-| Ação | Como fazer | Efeito |
-|---|---|---|
-| Editar dados | **Editar Arena** no card da unidade | Nome, endereço, comodidades, esportes, telefone, e-mail. Endereço alimenta o mapa. |
-| Busca por CNPJ | Botão **Preencher com CNPJ (Receita)** no formulário | Preenche razão social e dados cadastrais automaticamente. |
-| Imagem da arena | Upload no formulário | Atualiza a foto da unidade. |
-| Excluir arena | Ícone de lixeira no card | Remove a arena e quadras associadas (permanente). |
+| Ação | Regra |
+|---|---|
+| Editar dados | Nome, endereço, comodidades, esportes, telefone, e-mail. Endereço → mapa. |
+| Busca por CNPJ | Preenche razão social e dados cadastrais (Receita Federal). |
+| Imagem | Upload no formulário. |
+| Excluir arena | Permanente — remove arena e quadras associadas. |
 
 ---
 
@@ -253,7 +472,7 @@ Atleta ──┬── Reserva (Espaços) ──────────► Fina
 Catálogo ──► Produtos nas comandas (baixa estoque)
           └► Serviços nas reservas e comandas
 
-Assinatura ──► Limite de espaços + acesso ao sistema
+Assinatura (Asaas) ──► Limite de espaços + acesso ao sistema
 
 Tudo acima ──► Dashboard e Relatórios (leitura consolidada)
 ```
@@ -267,6 +486,7 @@ Tudo acima ──► Dashboard e Relatórios (leitura consolidada)
 | Comanda cancelada | Estoque devolvido |
 | Rotativo avulso / crédito vendido | Financeiro |
 | Fidelidade (envio/resgate) | Saldo do atleta |
-| Novo espaço | Verifica limite do plano |
+| Novo espaço | Verifica assinatura + limite do plano |
+| Trial expirado | Bloqueio → Assinatura |
 
-**Resumo:** Espaços, Estações, Rotativo e Mensalistas geram receita. Financeiro acumula tudo. Dashboard e Relatórios mostram o resultado. Catálogo abastece comandas. Atletas circulam por todos os módulos. Configurações controlam equipe, arena e plano.
+**Resumo:** Espaços, Estações, Rotativo e Mensalistas geram receita. Financeiro acumula tudo. Dashboard e Relatórios mostram o resultado. Catálogo abastece comandas. Atletas circulam por todos os módulos. Configurações controlam equipe, arena e plano (via Asaas).

@@ -9,6 +9,18 @@ import type {
   SportFilter,
   PaymentStatusFilters,
 } from '@/modules/reports/types/report.types'
+import {
+  resolveReportSourceFlags,
+  shouldIncludeBookingRow,
+  shouldIncludeTransactionRow,
+} from '@/modules/reports/payment-report-sources'
+
+async function getStationTypeNames(supabase: ReturnType<typeof getSupabaseAdmin>): Promise<string[]> {
+  const { data: stationTypes } = await supabase.from('station_types').select('name')
+  return (stationTypes ?? [])
+    .map((row) => row.name)
+    .filter((name): name is string => typeof name === 'string' && name.length > 0)
+}
 
 export async function getPaymentStatusReportAction(
   arenaId: string,
@@ -37,9 +49,6 @@ export async function getPaymentStatusReportAction(
     if (filters.sportId) query = query.eq('sport_id', filters.sportId)
     if (filters.tipo === 'avulso') query = query.is('plano_mensalista_id', null)
     if (filters.tipo === 'mensal') query = query.not('plano_mensalista_id', 'is', null)
-
-    const includeExtraPayments =
-      !filters.courtId && !filters.sportId && (!filters.tipo || filters.tipo === 'todos')
 
     let stationPaymentsQuery = supabase
       .from('station_payments')
@@ -106,6 +115,9 @@ export async function getPaymentStatusReportAction(
     if (filters.startDate) rotativoCreditosQuery = rotativoCreditosQuery.gte('created_at', filters.startDate)
     if (filters.endDate) rotativoCreditosQuery = rotativoCreditosQuery.lte('created_at', filters.endDate + 'T23:59:59')
 
+    const sourceFlags = resolveReportSourceFlags(filters)
+    const stationTypeNames = await getStationTypeNames(supabase)
+
     let transactionsQuery = supabase
       .from('transactions')
       .select(`
@@ -119,7 +131,6 @@ export async function getPaymentStatusReportAction(
       `)
       .eq('arena_id', arenaId)
       .eq('type', 'entrada')
-      .neq('category', 'Reserva Avulsa')
       .order('launch_date', { ascending: false })
 
     if (filters.startDate) transactionsQuery = transactionsQuery.gte('launch_date', filters.startDate)
@@ -134,10 +145,10 @@ export async function getPaymentStatusReportAction(
         .in('court_id',
           (await supabase.from('courts').select('id').eq('arena_id', arenaId)).data?.map(c => c.id) ?? []
         ),
-      includeExtraPayments ? stationPaymentsQuery : Promise.resolve({ data: [], error: null }),
-      includeExtraPayments ? rotativoInscricoesQuery : Promise.resolve({ data: [], error: null }),
-      includeExtraPayments ? rotativoCreditosQuery : Promise.resolve({ data: [], error: null }),
-      includeExtraPayments ? transactionsQuery : Promise.resolve({ data: [], error: null }),
+      sourceFlags.includeStationPayments ? stationPaymentsQuery : Promise.resolve({ data: [], error: null }),
+      sourceFlags.includeRotativoInscricoes ? rotativoInscricoesQuery : Promise.resolve({ data: [], error: null }),
+      sourceFlags.includeRotativoCreditos ? rotativoCreditosQuery : Promise.resolve({ data: [], error: null }),
+      sourceFlags.includeTransactions ? transactionsQuery : Promise.resolve({ data: [], error: null }),
     ])
 
     // Bookings é a fonte principal e de onde vêm os filtros — se falhar, o relatório não tem como funcionar.
@@ -153,22 +164,24 @@ export async function getPaymentStatusReportAction(
     logSourceError('rotativo_creditos', rotativoCreditosResult.error)
     logSourceError('transactions', transactionsResult.error)
 
-    const bookingRows: PaymentStatusRow[] = (bookingsResult.data ?? []).map((b: any) => {
-      let status: PaymentStatusRow['status'] = 'Pendente'
-      if (b.status === 'confirmed') status = 'Pago'
-      else if (b.status === 'cancelled') status = 'Cancelado'
+    const bookingRows: PaymentStatusRow[] = (bookingsResult.data ?? [])
+      .filter((b: any) => shouldIncludeBookingRow(b))
+      .map((b: any) => {
+        let status: PaymentStatusRow['status'] = 'Pendente'
+        if (b.status === 'confirmed') status = 'Pago'
+        else if (b.status === 'cancelled') status = 'Cancelado'
 
-      return {
-        id: b.id,
-        data: b.start_time,
-        atleta: b.atleta?.nome_perfil ?? null,
-        servico: b.plano_mensalista_id ? 'Mensal' : 'Avulso',
-        espaco: b.courts?.name ?? null,
-        esporte: b.sports?.name ?? null,
-        valor: b.price ?? null,
-        status,
-      }
-    })
+        return {
+          id: b.id,
+          data: b.start_time,
+          atleta: b.atleta?.nome_perfil ?? null,
+          servico: b.plano_mensalista_id ? 'Mensal' : 'Avulso',
+          espaco: b.courts?.name ?? null,
+          esporte: b.sports?.name ?? null,
+          valor: b.price ?? null,
+          status,
+        }
+      })
 
     const stationPaymentRows: PaymentStatusRow[] = (stationPaymentsResult.data ?? []).map((payment: any) => {
       const order = payment.station_orders
@@ -218,7 +231,11 @@ export async function getPaymentStatusReportAction(
       status: 'Pago' as const,
     }))
 
-    const transactionRows: PaymentStatusRow[] = (transactionsResult.data ?? []).map((t: any) => ({
+    const transactionRows: PaymentStatusRow[] = (transactionsResult.data ?? [])
+      .filter((t: any) =>
+        shouldIncludeTransactionRow(t.category ?? '', t.description, sourceFlags.mode, stationTypeNames)
+      )
+      .map((t: any) => ({
       id: `transaction-${t.id}`,
       data: t.launch_date,
       atleta: t.atleta?.nome_perfil ?? null,
