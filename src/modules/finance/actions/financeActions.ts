@@ -133,3 +133,33 @@ export async function getMensalistasComPendenciaAction(arenaId: string) {
         return { success: false, error: message, data: [] }
     }
 }
+
+export async function getAvulsosComPendenciaAction(arenaId: string) {
+    try {
+        await assertArenaBackofficeAccess(arenaId)
+        const supabase = getSupabaseAdmin()
+
+        const { data, error } = await supabase
+            .from('bookings')
+            .select(`
+                id,
+                start_time,
+                end_time,
+                price,
+                athlete_name,
+                atleta:athlete_id(id, nome_perfil, telefone),
+                court:court_id(id, name),
+                sports:sport_id(id, name)
+            `)
+            .eq('arena_id', arenaId)
+            .is('plano_mensalista_id', null)
+            .eq('status', 'reservado')
+            .order('start_time', { ascending: true })
+
+        if (error) throw new Error(error.message)
+        return { success: true, data: data ?? [] }
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erro ao buscar cobranças avulsas'
+        return { success: false, error: message, data: [] }
+    }
+}

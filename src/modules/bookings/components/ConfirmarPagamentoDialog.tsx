@@ -22,6 +22,8 @@ interface ConfirmarPagamentoDialogProps {
   mesDevido: string
   valorPadrao: number
   isLoading?: boolean
+  /** mensalista (padrão) ou reserva avulsa */
+  tipo?: "mensalista" | "avulso"
 }
 
 export function ConfirmarPagamentoDialog({
@@ -32,6 +34,7 @@ export function ConfirmarPagamentoDialog({
   mesDevido,
   valorPadrao,
   isLoading = false,
+  tipo = "mensalista",
 }: ConfirmarPagamentoDialogProps) {
   const [valor, setValor] = useState(valorPadrao.toString())
 
@@ -58,8 +61,17 @@ export function ConfirmarPagamentoDialog({
             </DialogTitle>
           </div>
           <DialogDescription className="text-sm text-arena-navy-800/60 font-medium pl-[52px]">
-            Mensalidade de <span className="font-bold text-arena-navy-800">{atletaNome}</span> referente a{" "}
-            <span className="font-bold text-arena-navy-800 capitalize">{mesDevido}</span>.
+            {tipo === "avulso" ? (
+              <>
+                Reserva avulsa de <span className="font-bold text-arena-navy-800">{atletaNome}</span> em{" "}
+                <span className="font-bold text-arena-navy-800">{mesDevido}</span>.
+              </>
+            ) : (
+              <>
+                Mensalidade de <span className="font-bold text-arena-navy-800">{atletaNome}</span> referente a{" "}
+                <span className="font-bold text-arena-navy-800 capitalize">{mesDevido}</span>.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -83,7 +95,7 @@ export function ConfirmarPagamentoDialog({
           </div>
           {valorNum !== valorPadrao && valorPadrao > 0 && (
             <p className="text-[11px] text-amber-600 font-bold">
-              Valor padrão do plano: R$ {valorPadrao.toFixed(2).replace(".", ",")}
+              Valor padrão{tipo === "avulso" ? " da reserva" : " do plano"}: R$ {valorPadrao.toFixed(2).replace(".", ",")}
             </p>
           )}
         </div>

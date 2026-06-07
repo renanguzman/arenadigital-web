@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Calendar as CalendarIcon, Clock, Trash2, Loader2 } from "lucide-react"
+import { Calendar as CalendarIcon, Clock, Trash2, Loader2, CheckCircle2 } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label"
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-import { updateBookingStatusAction } from "@/modules/bookings/actions/bookingActions"
+import { confirmarPagamentoAvulsoAction, updateBookingStatusAction } from "@/modules/bookings/actions/bookingActions"
+import { ConfirmarPagamentoDialog } from "@/modules/bookings/components/ConfirmarPagamentoDialog"
 import { syncBookingServicesAndTotalAction } from "@/modules/bookings/actions/bookingServiceActions"
 import { getProductsByArenaAction } from "@/modules/products/actions/stockActions"
 import { isCatalogService, type Product } from "@/modules/products/types/product.types"
@@ -50,6 +51,8 @@ function statusPresentation(status: string | null | undefined) {
 
 export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, booking, court }: BookingDetailsModalProps) {
     const [isCancelling, setIsCancelling] = useState(false)
+    const [showConfirmPayment, setShowConfirmPayment] = useState(false)
+    const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
     const [isSavingServices, setIsSavingServices] = useState(false)
     const [courtPortion, setCourtPortion] = useState("")
     const [serviceLines, setServiceLines] = useState<BookingServiceLineLocal[]>([])
@@ -97,6 +100,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
     const isMensalista = booking.booking_type === "mensalista" || !!booking.plano_mensalista_id
     const canEdit = Boolean(onEdit) && !isMensalista && booking.status !== "cancelled"
     const mensalistaReservadoBlock = isMensalista && booking.status === "reservado"
+    const avulsoReservado = !isMensalista && booking.status === "reservado"
 
     const handleCancel = async () => {
         if (!confirm("Tem certeza que deseja cancelar esta reserva?")) return
@@ -112,6 +116,23 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
             toast.error("Erro ao cancelar reserva.")
         } finally {
             setIsCancelling(false)
+        }
+    }
+
+    const handleConfirmarPagamento = async (valor: number) => {
+        if (!arenaId) return
+        setIsConfirmingPayment(true)
+        try {
+            const res = await confirmarPagamentoAvulsoAction(arenaId, booking.id, valor)
+            if (!res.success) throw new Error(res.error)
+            toast.success("Pagamento confirmado!")
+            setShowConfirmPayment(false)
+            onSuccess()
+            onClose()
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Erro ao confirmar pagamento")
+        } finally {
+            setIsConfirmingPayment(false)
         }
     }
 
@@ -381,6 +402,21 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                             Editar
                         </Button>
                     )}
+                    {avulsoReservado && (
+                        <Button
+                            type="button"
+                            onClick={() => setShowConfirmPayment(true)}
+                            disabled={isConfirmingPayment}
+                            className="h-11 w-full rounded-xl bg-emerald-500 font-semibold text-white shadow-sm hover:bg-emerald-600 sm:w-auto sm:min-w-[200px] gap-2"
+                        >
+                            {isConfirmingPayment ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <CheckCircle2 className="h-4 w-4" />
+                            )}
+                            Confirmar pagamento
+                        </Button>
+                    )}
                     {mensalistaReservadoBlock ? (
                         <div className="flex w-full min-w-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs font-medium text-amber-800 sm:w-auto sm:max-w-md">
                             Gerencie via &quot;Mensalistas&quot; no calendário
@@ -400,6 +436,17 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                     )}
                 </div>
             </DialogContent>
+
+            <ConfirmarPagamentoDialog
+                isOpen={showConfirmPayment}
+                onClose={() => setShowConfirmPayment(false)}
+                onConfirm={handleConfirmarPagamento}
+                atletaNome={booking.athlete_name ?? "Atleta"}
+                mesDevido={format(startTime, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                valorPadrao={booking.price ?? 0}
+                isLoading={isConfirmingPayment}
+                tipo="avulso"
+            />
         </Dialog>
     )
 }

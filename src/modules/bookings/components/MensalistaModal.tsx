@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { searchAthletesAction } from "@/modules/loyalty/actions/loyaltyActions"
-import { getArenaByIdAction } from "@/modules/arenas/actions/arenaActions"
+import { getCourtByIdAction } from "@/modules/courts/actions/courtActions"
 import { createPlanoMensalistaAction } from "@/modules/bookings/actions/mensalistaActions"
 import { toast } from "sonner"
 import { normalizeString } from "@/lib/utils"
@@ -72,7 +71,7 @@ export function MensalistaModal({
   const [sessoesPorMes, setSessoesPorMes] = useState("4")
   const [valorMensal, setValorMensal] = useState("")
   const [selectedSport, setSelectedSport] = useState("")
-  const [arenaSports, setArenaSports] = useState<Sport[]>([])
+  const [courtSports, setCourtSports] = useState<Sport[]>([])
   const [isLoadingSports, setIsLoadingSports] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -80,18 +79,18 @@ export function MensalistaModal({
 
   useEffect(() => {
     if (isOpen) {
-      loadArenaSports()
+      loadCourtSports()
     }
-  }, [isOpen])
+  }, [isOpen, arenaId, courtId])
 
-  async function loadArenaSports() {
+  async function loadCourtSports() {
     try {
       setIsLoadingSports(true)
-      const res = await getArenaByIdAction(arenaId)
-      if (res.data?.sports) {
-        setArenaSports(res.data.sports)
-        if (res.data.sports.length > 0) setSelectedSport(res.data.sports[0].id)
-      }
+      const res = await getCourtByIdAction(arenaId, courtId)
+      const sports = res.data?.sports ?? []
+      setCourtSports(sports)
+      if (sports.length > 0) setSelectedSport(sports[0].id)
+      else setSelectedSport("")
     } finally {
       setIsLoadingSports(false)
     }
@@ -184,7 +183,7 @@ export function MensalistaModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+      <DialogContent className="!z-[60] sm:max-w-[480px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
         <DialogHeader className="p-8 pb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-arena-button/10">
@@ -196,7 +195,7 @@ export function MensalistaModal({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[70vh] px-8">
+        <div className="max-h-[70vh] overflow-y-auto overscroll-contain px-8">
           <div className="space-y-5 pb-8">
             {/* Atleta */}
             <div className="space-y-2 relative">
@@ -317,12 +316,16 @@ export function MensalistaModal({
               <Label className="text-xs font-bold uppercase text-arena-navy-800/40 tracking-wider">
                 Esporte
               </Label>
-              <Select value={selectedSport} onValueChange={setSelectedSport}>
+              <Select
+                value={selectedSport || undefined}
+                onValueChange={setSelectedSport}
+                disabled={isLoadingSports}
+              >
                 <SelectTrigger className="h-14 border-arena-navy-800/10 focus:ring-arena-button rounded-xl font-bold text-arena-navy-800">
-                  <SelectValue placeholder="Selecione o esporte" />
+                  <SelectValue placeholder={isLoadingSports ? "Carregando..." : "Selecione o esporte"} />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-arena-navy-800/10 p-2">
-                  {arenaSports.map((sport) => (
+                  {courtSports.map((sport) => (
                     <SelectItem
                       key={sport.id}
                       value={sport.id}
@@ -331,10 +334,10 @@ export function MensalistaModal({
                       {sport.name}
                     </SelectItem>
                   ))}
-                  {arenaSports.length === 0 && !isLoadingSports && (
-                    <div className="p-4 text-center text-xs text-muted-foreground">
-                      Nenhum esporte vinculado
-                    </div>
+                  {courtSports.length === 0 && !isLoadingSports && (
+                    <SelectItem value="__no_sports" disabled>
+                      Nenhum esporte cadastrado neste espaço
+                    </SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -388,7 +391,7 @@ export function MensalistaModal({
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         <div className="flex w-full shrink-0 flex-row items-stretch gap-3 border-t border-slate-100 px-6 py-4">
           <Button

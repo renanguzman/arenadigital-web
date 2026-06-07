@@ -108,7 +108,7 @@ export function MensalistasView({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <Dialog open={isOpen} modal={!isMensalistaModalOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-[680px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl bg-arena-soft">
           <DialogHeader className="p-8 pb-4 bg-white border-b border-arena-navy-800/5 flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">

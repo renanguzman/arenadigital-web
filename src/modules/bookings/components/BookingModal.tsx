@@ -31,7 +31,7 @@ import {
     SelectValue
 } from "@/components/ui/select"
 import { searchAthletesAction } from "@/modules/loyalty/actions/loyaltyActions"
-import { getArenaByIdAction } from "@/modules/arenas/actions/arenaActions"
+import { getCourtByIdAction } from "@/modules/courts/actions/courtActions"
 import { createBookingAction, createRecurringBookingsAction, checkBookingConflictsAction, updateBookingAction } from "@/modules/bookings/actions/bookingActions"
 import type { BookingConflict } from "@/modules/bookings/actions/bookingActions"
 import { replaceBookingServicesAction } from "@/modules/bookings/actions/bookingServiceActions"
@@ -185,7 +185,7 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
     const [athletes, setAthletes] = useState<Athlete[]>([])
     const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null)
     const [isSearching, setIsSearching] = useState(false)
-    const [arenaSports, setArenaSports] = useState<Sport[]>([])
+    const [courtSports, setCourtSports] = useState<Sport[]>([])
     const [selectedSport, setSelectedSport] = useState<string>("")
     const [isLoadingSports, setIsLoadingSports] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
@@ -213,20 +213,20 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
 
     const searchTimeout = useRef<NodeJS.Timeout | null>(null)
 
-    async function loadArenaSports(preferredSportId?: string | null) {
+    async function loadCourtSports(preferredSportId?: string | null) {
         try {
             setIsLoadingSports(true)
-            const res = await getArenaByIdAction(arenaId)
-            if (res.data?.sports) {
-                const sports = res.data.sports
-                setArenaSports(sports)
-                if (sports.length > 0) {
-                    const pick =
-                        preferredSportId && sports.some((s) => s.id === preferredSportId)
-                            ? preferredSportId
-                            : sports[0].id
-                    setSelectedSport(pick)
-                }
+            const res = await getCourtByIdAction(arenaId, courtId)
+            const sports = res.data?.sports ?? []
+            setCourtSports(sports)
+            if (sports.length > 0) {
+                const pick =
+                    preferredSportId && sports.some((s) => s.id === preferredSportId)
+                        ? preferredSportId
+                        : sports[0].id
+                setSelectedSport(pick)
+            } else {
+                setSelectedSport("")
             }
         } finally {
             setIsLoadingSports(false)
@@ -255,7 +255,7 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                 setSelectedAthlete(null)
                 setSearch(existingBooking.athlete_name ?? "")
             }
-            void loadArenaSports(existingBooking.sport_id ?? null)
+            void loadCourtSports(existingBooking.sport_id ?? null)
             const raw = existingBooking.booking_services
             const mapped: BookingServiceLineLocal[] = (raw ?? []).map((s) => ({
                 productId: s.product_id,
@@ -284,8 +284,8 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
         setServiceLines([])
         setIncludeServices(false)
         setDiaSemana(String(selectedDate.getDay()))
-        void loadArenaSports()
-    }, [isOpen, existingBooking, selectedDate, selectedHour, selectedMinute, defaultPrice, arenaId])
+        void loadCourtSports()
+    }, [isOpen, existingBooking, selectedDate, selectedHour, selectedMinute, defaultPrice, arenaId, courtId])
 
     // Limpa conflitos quando qualquer campo relevante muda
     useEffect(() => {
@@ -392,7 +392,7 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                         sport_id: selectedSport || undefined,
                         start_time: addWeeks(startDateTime, i).toISOString(),
                         end_time: addWeeks(endDateTime, i).toISOString(),
-                        status: "confirmed" as const,
+                        status: "reservado" as const,
                         price: totalPrice,
                         recurrence_id: recurrenceId,
                     })
@@ -420,7 +420,7 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                     sport_id: selectedSport || undefined,
                     start_time: startDateTime.toISOString(),
                     end_time: endDateTime.toISOString(),
-                    status: "confirmed",
+                    status: "reservado",
                     price: totalPrice,
                 })
                 if (!created.success) {
@@ -436,7 +436,11 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                 }
             }
 
-            toast.success(isRecurring ? "Agenda recorrente criada com sucesso!" : "Reserva criada com sucesso!")
+            toast.success(
+                isRecurring
+                    ? "Agenda criada! Confirme os pagamentos em Financeiro → Cobranças Avulsas."
+                    : "Reserva criada! Confirme o pagamento em Financeiro → Cobranças Avulsas."
+            )
             onSuccess()
             onClose()
             resetForm()
@@ -647,7 +651,7 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
 
     return (
         <>
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <Dialog open={isOpen} modal={!isAthleteModalOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
                 className={cn(
                     "!flex max-h-[90vh] min-h-0 w-full max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-3xl border-none bg-white p-0 shadow-2xl",
@@ -738,12 +742,16 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                                         <Label className="text-xs font-bold uppercase text-arena-navy-800/40 tracking-wider">
                                             Esporte
                                         </Label>
-                                        <Select value={selectedSport} onValueChange={setSelectedSport}>
+                                        <Select
+                                            value={selectedSport || undefined}
+                                            onValueChange={setSelectedSport}
+                                            disabled={isLoadingSports}
+                                        >
                                             <SelectTrigger className="h-14 rounded-xl border-arena-navy-800/10 font-bold text-arena-navy-800 focus:border-arena-button focus:ring-arena-button">
-                                                <SelectValue placeholder="Selecione o tipo de esporte" />
+                                                <SelectValue placeholder={isLoadingSports ? "Carregando..." : "Selecione o tipo de esporte"} />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-2xl border-arena-navy-800/10 p-2">
-                                                {arenaSports.map((sport) => (
+                                                {courtSports.map((sport) => (
                                                     <SelectItem
                                                         key={sport.id}
                                                         value={sport.id}
@@ -752,10 +760,10 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                                                         {sport.name}
                                                     </SelectItem>
                                                 ))}
-                                                {arenaSports.length === 0 && !isLoadingSports && (
-                                                    <div className="p-4 text-center text-xs text-muted-foreground">
-                                                        Nenhum esporte vinculado à arena
-                                                    </div>
+                                                {courtSports.length === 0 && !isLoadingSports && (
+                                                    <SelectItem value="__no_sports" disabled>
+                                                        Nenhum esporte cadastrado neste espaço
+                                                    </SelectItem>
                                                 )}
                                             </SelectContent>
                                         </Select>
@@ -1006,16 +1014,22 @@ export function BookingModal({ isOpen, onClose, onSuccess, arenaId, courtId, sel
                                 {/* Esporte */}
                                 <div className="space-y-2">
                                     <Label className="text-xs font-bold uppercase text-arena-navy-800/40 tracking-wider">Esporte</Label>
-                                    <Select value={selectedSport} onValueChange={setSelectedSport}>
+                                    <Select
+                                        value={selectedSport || undefined}
+                                        onValueChange={setSelectedSport}
+                                        disabled={isLoadingSports}
+                                    >
                                         <SelectTrigger className="h-14 border-arena-navy-800/10 focus:ring-arena-button focus:border-arena-button rounded-xl font-bold text-arena-navy-800">
-                                            <SelectValue placeholder="Selecione o esporte" />
+                                            <SelectValue placeholder={isLoadingSports ? "Carregando..." : "Selecione o esporte"} />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-2xl border-arena-navy-800/10 p-2">
-                                            {arenaSports.map((sport) => (
+                                            {courtSports.map((sport) => (
                                                 <SelectItem key={sport.id} value={sport.id} className="rounded-xl py-3 font-bold text-arena-navy-800">{sport.name}</SelectItem>
                                             ))}
-                                            {arenaSports.length === 0 && !isLoadingSports && (
-                                                <div className="p-4 text-center text-xs text-muted-foreground">Nenhum esporte vinculado</div>
+                                            {courtSports.length === 0 && !isLoadingSports && (
+                                                <SelectItem value="__no_sports" disabled>
+                                                    Nenhum esporte cadastrado neste espaço
+                                                </SelectItem>
                                             )}
                                         </SelectContent>
                                     </Select>
