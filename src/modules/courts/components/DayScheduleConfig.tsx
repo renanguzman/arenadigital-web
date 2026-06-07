@@ -8,6 +8,7 @@ import { Plus, Trash2, Copy } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 export interface CustomPrice {
+    id?: string
     start: string
     end: string
     price: number
@@ -30,15 +31,33 @@ interface DayScheduleConfigProps {
     onReplicate?: () => void
 }
 
+interface PriceBand {
+    id: string
+    from: string
+    price: number
+}
+
+function createBandId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID()
+    }
+    return `band-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
 function parseHHMM(t: string): number {
     const [h, m] = (t || "00:00").split(':').map(Number)
     return (h || 0) * 60 + (m || 0)
 }
 
 function minsToHHMM(mins: number): string {
-    const h = Math.floor(mins / 60) % 24
-    const m = mins % 60
+    const normalized = ((mins % (24 * 60)) + 24 * 60) % (24 * 60)
+    const h = Math.floor(normalized / 60)
+    const m = normalized % 60
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+function sortBands(bands: PriceBand[]): PriceBand[] {
+    return [...bands].sort((a, b) => parseHHMM(a.from) - parseHHMM(b.from))
 }
 
 function countSlots(config: DayConfig): number {
@@ -67,22 +86,88 @@ function countSlots(config: DayConfig): number {
     return count
 }
 
-// Internal band representation: only "from" + price (end is derived)
-interface PriceBand { from: string; price: number }
-
 function bandsFromCustomPrices(customPrices: CustomPrice[]): PriceBand[] {
     return [...customPrices]
         .sort((a, b) => parseHHMM(a.start) - parseHHMM(b.start))
-        .map(cp => ({ from: cp.start, price: cp.price }))
+        .map((cp, index) => ({
+            id: cp.id ?? `legacy-${index}-${cp.start}`,
+            from: cp.start,
+            price: cp.price,
+        }))
 }
 
 function customPricesFromBands(bands: PriceBand[], endTime: string): CustomPrice[] {
-    const sorted = [...bands].sort((a, b) => parseHHMM(a.from) - parseHHMM(b.from))
-    return sorted.map((band, i) => ({
+    return sortBands(bands).map((band, i, sorted) => ({
+        id: band.id,
         start: band.from,
         end: sorted[i + 1]?.from ?? endTime,
         price: band.price,
     }))
+}
+
+function getOperatingEndMins(config: DayConfig): number {
+    const startMins = parseHHMM(config.startTime)
+    let endMins = parseHHMM(config.endTime)
+    if (endMins <= startMins) endMins += 24 * 60
+    return endMins
+}
+
+function clampBandFrom(from: string, config: DayConfig): string {
+    const startMins = parseHHMM(config.startTime)
+    const endMins = getOperatingEndMins(config)
+    let fromMins = parseHHMM(from)
+
+    if (fromMins <= startMins) fromMins = startMins + 60
+    if (fromMins >= endMins) fromMins = Math.max(startMins + 60, endMins - 60)
+
+    return minsToHHMM(fromMins)
+}
+
+function ensureUniqueFrom(bands: PriceBand[], bandId: string, from: string, config: DayConfig): string {
+    let candidate = clampBandFrom(from, config)
+    const used = new Set(
+        bands
+            .filter((b) => b.id !== bandId)
+            .map((b) => parseHHMM(b.from))
+    )
+
+    let candidateMins = parseHHMM(candidate)
+    const endMins = getOperatingEndMins(config)
+    const startMins = parseHHMM(config.startTime)
+
+    while (used.has(candidateMins) && candidateMins < endMins) {
+        candidateMins += 60
+    }
+
+    if (candidateMins >= endMins) {
+        candidateMins = startMins + 60
+        while (used.has(candidateMins) && candidateMins < endMins) {
+            candidateMins += 60
+        }
+    }
+
+    return minsToHHMM(candidateMins)
+}
+
+function suggestNextBandFrom(config: DayConfig, sortedBands: PriceBand[]): string {
+    const startMins = parseHHMM(config.startTime)
+    const endMins = getOperatingEndMins(config)
+
+    const lastFrom = sortedBands.length > 0
+        ? parseHHMM(sortedBands[sortedBands.length - 1].from)
+        : startMins
+
+    let candidate = sortedBands.length > 0 ? lastFrom + 60 : startMins + 60
+    if (candidate >= endMins) {
+        candidate = Math.max(startMins + 60, endMins - 60)
+    }
+
+    const used = new Set(sortedBands.map((b) => parseHHMM(b.from)))
+    while (used.has(candidate) && candidate < endMins) {
+        candidate += 60
+    }
+
+    return minsToHHMM(candidate)
 }
 
 export function DayScheduleConfig({ day, config, onChange, onReplicate }: DayScheduleConfigProps) {
@@ -91,43 +176,81 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
         parseHHMM(config.endTime) < parseHHMM(config.startTime)
 
     const slotCount = countSlots(config)
-    const bands = bandsFromCustomPrices(config.customPrices)
+    const sortedBands = sortBands(bandsFromCustomPrices(config.customPrices))
 
     const handleToggle = (checked: boolean) => onChange({ ...config, enabled: checked })
 
-    const handleChange = (field: keyof DayConfig, value: any) =>
-        onChange({ ...config, [field]: value })
+    const applyCustomPrices = (bands: PriceBand[], patch: Partial<DayConfig> = {}) => {
+        onChange({
+            ...config,
+            ...patch,
+            customPrices: customPricesFromBands(bands, patch.endTime ?? config.endTime),
+        })
+    }
 
-    const handleEndTimeChange = (newEndTime: string) =>
-        onChange({ ...config, endTime: newEndTime, customPrices: customPricesFromBands(bands, newEndTime) })
+    const handleStartTimeChange = (newStartTime: string) => {
+        const updatedConfig = { ...config, startTime: newStartTime }
+        const used = new Set<number>()
+        const bands = sortBands(bandsFromCustomPrices(config.customPrices)).map((band) => {
+            let fromMins = parseHHMM(
+                ensureUniqueFrom(bandsFromCustomPrices(config.customPrices), band.id, band.from, updatedConfig)
+            )
+            while (used.has(fromMins)) fromMins += 60
+            used.add(fromMins)
+            return { ...band, from: minsToHHMM(fromMins) }
+        })
+        applyCustomPrices(bands, { startTime: newStartTime })
+    }
+
+    const handleEndTimeChange = (newEndTime: string) => {
+        applyCustomPrices(bandsFromCustomPrices(config.customPrices), { endTime: newEndTime })
+    }
+
+    const handleChange = (field: keyof DayConfig, value: DayConfig[keyof DayConfig]) => {
+        if (field === 'startTime' && typeof value === 'string') {
+            handleStartTimeChange(value)
+            return
+        }
+        if (field === 'endTime' && typeof value === 'string') {
+            handleEndTimeChange(value)
+            return
+        }
+        onChange({ ...config, [field]: value })
+    }
 
     const addBand = () => {
-        const lastMins = bands.length > 0
-            ? parseHHMM(bands[bands.length - 1].from) + 60
-            : parseHHMM(config.startTime) + 60
-        const newBands = [...bands, { from: minsToHHMM(lastMins), price: config.price || 0 }]
-        onChange({ ...config, customPrices: customPricesFromBands(newBands, config.endTime) })
+        const nextFrom = suggestNextBandFrom(config, sortedBands)
+        const newBands = [
+            ...bandsFromCustomPrices(config.customPrices),
+            { id: createBandId(), from: nextFrom, price: config.price || 0 },
+        ]
+        applyCustomPrices(newBands)
     }
 
-    const removeBand = (index: number) => {
-        const newBands = bands.filter((_, i) => i !== index)
-        onChange({ ...config, customPrices: customPricesFromBands(newBands, config.endTime) })
+    const removeBand = (bandId: string) => {
+        const newBands = bandsFromCustomPrices(config.customPrices).filter((b) => b.id !== bandId)
+        applyCustomPrices(newBands)
     }
 
-    const updateBand = (index: number, field: keyof PriceBand, value: any) => {
-        const newBands = bands.map((b, i) => i === index ? { ...b, [field]: value } : b)
-        onChange({ ...config, customPrices: customPricesFromBands(newBands, config.endTime) })
+    const updateBand = (bandId: string, field: 'from' | 'price', value: string | number) => {
+        const currentBands = bandsFromCustomPrices(config.customPrices)
+        const newBands = currentBands.map((band) => {
+            if (band.id !== bandId) return band
+            if (field === 'from' && typeof value === 'string') {
+                return { ...band, from: ensureUniqueFrom(currentBands, bandId, value, config) }
+            }
+            return { ...band, [field]: value }
+        })
+        applyCustomPrices(newBands)
     }
 
-    // Label for the end of a band: next band's "from", or the operating end time
-    const bandUntilLabel = (index: number): string => {
-        const sorted = [...bands].sort((a, b) => parseHHMM(a.from) - parseHHMM(b.from))
-        const next = sorted[index + 1]
+    const bandUntilLabel = (bandId: string): string => {
+        const index = sortedBands.findIndex((b) => b.id === bandId)
+        const next = sortedBands[index + 1]
         if (next) return next.from
         return isOvernight ? `${config.endTime} (+1 dia)` : config.endTime
     }
 
-    // Example text for the slot-shift setting
     const shiftExample = config.slotShiftTime
         ? (() => {
             const sm = parseHHMM(config.slotShiftTime)
@@ -159,7 +282,7 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
                     {config.enabled && slotCount > 0 && (
                         <span className="text-[11px] text-arena-navy-800/40 font-medium bg-arena-navy-800/5 px-2 py-0.5 rounded-full">
                             {slotCount} {slotCount === 1 ? 'slot' : 'slots'}
-                            {bands.length > 0 && ` · ${bands.length + 1} faixa${bands.length + 1 > 1 ? 's' : ''} de preço`}
+                            {sortedBands.length > 0 && ` · ${sortedBands.length + 1} faixa${sortedBands.length + 1 > 1 ? 's' : ''} de preço`}
                         </span>
                     )}
                     {config.enabled && onReplicate && (
@@ -209,7 +332,7 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
                             <Input
                                 type="time"
                                 value={config.endTime}
-                                onChange={(e) => handleEndTimeChange(e.target.value)}
+                                onChange={(e) => handleChange("endTime", e.target.value)}
                                 className="h-9"
                             />
                         </div>
@@ -285,8 +408,8 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
                                 <span className="font-semibold text-arena-navy-800">{config.startTime}</span>
                                 <span className="text-arena-navy-800/40">até</span>
                                 <span className="font-semibold text-arena-navy-800">
-                                    {bands.length > 0
-                                        ? [...bands].sort((a, b) => parseHHMM(a.from) - parseHHMM(b.from))[0].from
+                                    {sortedBands.length > 0
+                                        ? sortedBands[0].from
                                         : isOvernight ? `${config.endTime} (+1 dia)` : config.endTime}
                                 </span>
                                 <span className="flex-1" />
@@ -294,21 +417,19 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
                                 <span className="font-bold text-arena-button ml-1">R$ {(config.price || 0).toFixed(2)}/h</span>
                             </div>
 
-                            {/* Faixas adicionais */}
-                            {[...bands]
-                                .sort((a, b) => parseHHMM(a.from) - parseHHMM(b.from))
-                                .map((band, index) => (
-                                    <div key={index} className="flex items-center gap-2 bg-orange-50/60 border border-orange-100 px-3 py-2 rounded-md">
+                            {/* Faixas adicionais — ordenadas por horário, identificadas por id estável */}
+                            {sortedBands.map((band) => (
+                                    <div key={band.id} className="flex items-center gap-2 bg-orange-50/60 border border-orange-100 px-3 py-2 rounded-md">
                                         <span className="text-xs text-arena-navy-800/50 w-6 shrink-0">Das</span>
                                         <Input
                                             type="time"
                                             value={band.from}
-                                            onChange={(e) => updateBand(index, 'from', e.target.value)}
+                                            onChange={(e) => updateBand(band.id, 'from', e.target.value)}
                                             className="h-8 w-24 text-xs bg-white shrink-0"
                                         />
                                         <span className="text-xs text-arena-navy-800/40 shrink-0">até</span>
                                         <span className="text-xs font-semibold text-arena-navy-800/60 min-w-[72px] shrink-0">
-                                            {bandUntilLabel(index)}
+                                            {bandUntilLabel(band.id)}
                                         </span>
                                         <div className="relative w-28 shrink-0">
                                             <span className="absolute left-2 top-[9px] text-muted-foreground text-xs">R$</span>
@@ -317,7 +438,7 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
                                                 value={band.price || 0}
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value)
-                                                    updateBand(index, 'price', isNaN(val) ? 0 : val)
+                                                    updateBand(band.id, 'price', isNaN(val) ? 0 : val)
                                                 }}
                                                 className="h-8 pl-7 text-xs bg-white"
                                                 step="0.01"
@@ -329,7 +450,7 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
                                             type="button"
                                             variant="ghost"
                                             size="icon"
-                                            onClick={() => removeBand(index)}
+                                            onClick={() => removeBand(band.id)}
                                             className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50 ml-auto shrink-0"
                                         >
                                             <Trash2 className="h-3 w-3" />
@@ -337,7 +458,7 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
                                     </div>
                                 ))}
 
-                            {bands.length === 0 && (
+                            {sortedBands.length === 0 && (
                                 <p className="text-xs text-muted-foreground italic pt-0.5">
                                     Mesmo preço em todos os horários. Use "Adicionar faixa" para criar preços diferenciados.
                                 </p>
