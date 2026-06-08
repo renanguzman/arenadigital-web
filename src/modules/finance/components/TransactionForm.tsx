@@ -178,7 +178,7 @@ export function TransactionForm({
     };
 
     const categories = effectiveType === "entrada"
-        ? ["Mensalidade", "Bar", "Loja", "Aluguel"]
+        ? ["Mensalidade", "Bar", "Loja", "Aluguel", "Serviços da Arena"]
         : ["Salário", "Manutenção", "Fornecedores", "Contas Fixas"];
 
     return (
