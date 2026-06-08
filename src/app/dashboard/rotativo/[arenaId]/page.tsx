@@ -2,7 +2,7 @@ import { assertArenaBackofficeAccess } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseArenaRepository } from '@/modules/arenas/repositories/SupabaseArenaRepository'
 import { SupabaseRotativoRepository } from '@/modules/rotativos/repositories/SupabaseRotativoRepository'
-import { RotativoPageClient } from './RotativoPageClient'
+import { RotativoPageClient } from '@/modules/rotativos/components/RotativoPageClient'
 import { redirect } from 'next/navigation'
 import { buildTutorialRotativos } from '@/lib/tutorial-mock-data'
 

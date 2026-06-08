@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { requireAuthenticatedDbUser } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseArenaRepository } from '@/modules/arenas/repositories/SupabaseArenaRepository'
-import { ArenasSettingsClient } from './ArenasSettingsClient'
+import { ArenasSettingsClient } from '@/modules/arenas/components/ArenasSettingsClient'
 
 export default async function SettingsArenasPage() {
     const { dbUserId } = await requireAuthenticatedDbUser()

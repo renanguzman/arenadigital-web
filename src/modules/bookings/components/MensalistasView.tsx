@@ -1,36 +1,45 @@
-"use client"
+'use client';
 
-import { useState, useEffect, useCallback } from "react"
-import { Users, Plus, Loader2, CheckCircle2, XCircle, Calendar, Clock, X } from "lucide-react"
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Users,
+  Plus,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Calendar,
+  Clock,
+  X,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { format, parseISO } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { toast } from "sonner"
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 import {
   getPlanosMensalistaAction,
   cancelPlanoMensalistaAction,
   confirmarMesMensalistaAction,
-} from "@/modules/bookings/actions/mensalistaActions"
-import { MensalistaModal } from "@/modules/bookings/components/MensalistaModal"
-import { ConfirmarPagamentoDialog } from "@/modules/bookings/components/ConfirmarPagamentoDialog"
-import type { PlanoMensalistaComDetalhes } from "@/modules/bookings/types/booking.types"
+} from '@/modules/bookings/actions/mensalistaActions';
+import { MensalistaModal } from '@/modules/bookings/components/MensalistaModal';
+import { ConfirmarPagamentoDialog } from '@/modules/bookings/components/ConfirmarPagamentoDialog';
+import type { PlanoMensalistaComDetalhes } from '@/modules/bookings/types/booking.types';
 
-const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 interface MensalistasViewProps {
-  isOpen: boolean
-  onClose: () => void
-  onSuccess: () => void
-  arenaId: string
-  courtId: string
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  arenaId: string;
+  courtId: string;
 }
 
 export function MensalistasView({
@@ -40,43 +49,50 @@ export function MensalistasView({
   arenaId,
   courtId,
 }: MensalistasViewProps) {
-  const [planos, setPlanos] = useState<PlanoMensalistaComDetalhes[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isMensalistaModalOpen, setIsMensalistaModalOpen] = useState(false)
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
-  const [cancellingId, setCancellingId] = useState<string | null>(null)
-  const [confirmDialog, setConfirmDialog] = useState<PlanoMensalistaComDetalhes | null>(null)
+  const [planos, setPlanos] = useState<PlanoMensalistaComDetalhes[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isMensalistaModalOpen, setIsMensalistaModalOpen] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] =
+    useState<PlanoMensalistaComDetalhes | null>(null);
 
   const loadPlanos = useCallback(async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const res = await getPlanosMensalistaAction(arenaId, courtId)
-      if (res.success && res.data) setPlanos(res.data)
+      const res = await getPlanosMensalistaAction(arenaId, courtId);
+      if (res.success && res.data) setPlanos(res.data);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [arenaId, courtId])
+  }, [arenaId, courtId]);
 
   useEffect(() => {
-    if (isOpen) loadPlanos()
-  }, [isOpen, loadPlanos])
+    if (isOpen) loadPlanos();
+  }, [isOpen, loadPlanos]);
 
   const handleConfirmarPagamento = async (valor: number) => {
-    if (!confirmDialog) return
-    setConfirmingId(confirmDialog.id)
+    if (!confirmDialog) return;
+    setConfirmingId(confirmDialog.id);
     try {
-      const res = await confirmarMesMensalistaAction(arenaId, confirmDialog.id, valor)
-      if (!res.success) throw new Error(res.error)
-      toast.success("Pagamento confirmado! Próximo mês gerado.")
-      setConfirmDialog(null)
-      await loadPlanos()
-      onSuccess()
+      const res = await confirmarMesMensalistaAction(
+        arenaId,
+        confirmDialog.id,
+        valor
+      );
+      if (!res.success) throw new Error(res.error);
+      toast.success('Pagamento confirmado! Próximo mês gerado.');
+      setConfirmDialog(null);
+      await loadPlanos();
+      onSuccess();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao confirmar pagamento")
+      toast.error(
+        err instanceof Error ? err.message : 'Erro ao confirmar pagamento'
+      );
     } finally {
-      setConfirmingId(null)
+      setConfirmingId(null);
     }
-  }
+  };
 
   const handleCancelar = async (planoId: string, nome: string) => {
     if (
@@ -84,31 +100,37 @@ export function MensalistasView({
         `Tem certeza que deseja cancelar o plano de ${nome}? Todas as reservas futuras "Ag. Confirmação" serão canceladas.`
       )
     )
-      return
+      return;
 
-    setCancellingId(planoId)
+    setCancellingId(planoId);
     try {
-      const res = await cancelPlanoMensalistaAction(arenaId, planoId)
-      if (!res.success) throw new Error(res.error)
-      toast.success("Plano mensalista cancelado.")
-      await loadPlanos()
-      onSuccess()
+      const res = await cancelPlanoMensalistaAction(arenaId, planoId);
+      if (!res.success) throw new Error(res.error);
+      toast.success('Plano mensalista cancelado.');
+      await loadPlanos();
+      onSuccess();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao cancelar plano")
+      toast.error(
+        err instanceof Error ? err.message : 'Erro ao cancelar plano'
+      );
     } finally {
-      setCancellingId(null)
+      setCancellingId(null);
     }
-  }
+  };
 
   const formatNextMonth = (dateStr: string | null) => {
-    if (!dateStr) return "Sem reservas pendentes"
-    const date = parseISO(dateStr)
-    return format(date, "MMMM/yyyy", { locale: ptBR })
-  }
+    if (!dateStr) return 'Sem reservas pendentes';
+    const date = parseISO(dateStr);
+    return format(date, 'MMMM/yyyy', { locale: ptBR });
+  };
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <Dialog
+        open={isOpen}
+        modal={!isMensalistaModalOpen}
+        onOpenChange={(open) => !open && onClose()}
+      >
         <DialogContent className="sm:max-w-[680px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl bg-arena-soft">
           <DialogHeader className="p-8 pb-4 bg-white border-b border-arena-navy-800/5 flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">
@@ -120,7 +142,8 @@ export function MensalistasView({
                   Mensalistas
                 </DialogTitle>
                 <p className="text-xs text-arena-navy-800/50 font-medium">
-                  {planos.length} plano{planos.length !== 1 ? "s" : ""} ativo{planos.length !== 1 ? "s" : ""}
+                  {planos.length} plano{planos.length !== 1 ? 's' : ''} ativo
+                  {planos.length !== 1 ? 's' : ''}
                 </p>
               </div>
             </div>
@@ -144,7 +167,9 @@ export function MensalistasView({
                   <div className="h-16 w-16 rounded-3xl bg-amber-100 flex items-center justify-center mx-auto">
                     <Users className="h-8 w-8 text-amber-500" />
                   </div>
-                  <p className="font-bold text-arena-navy-800">Nenhum mensalista ativo</p>
+                  <p className="font-bold text-arena-navy-800">
+                    Nenhum mensalista ativo
+                  </p>
                   <p className="text-sm text-arena-navy-800/50">
                     Clique em "Novo mensalista" para criar o primeiro plano
                   </p>
@@ -166,16 +191,20 @@ export function MensalistasView({
                           </Badge>
                         </div>
                         {plano.atleta?.telefone && (
-                          <p className="text-xs text-arena-navy-800/50">{plano.atleta.telefone}</p>
+                          <p className="text-xs text-arena-navy-800/50">
+                            {plano.atleta.telefone}
+                          </p>
                         )}
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-black text-arena-button">
-                          {new Intl.NumberFormat("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
                           }).format(plano.valor_mensal)}
-                          <span className="text-xs font-medium text-arena-navy-800/40">/mês</span>
+                          <span className="text-xs font-medium text-arena-navy-800/40">
+                            /mês
+                          </span>
                         </p>
                         <p className="text-xs text-arena-navy-800/40">
                           {plano.sessoes_por_mes}x por mês
@@ -205,7 +234,7 @@ export function MensalistasView({
                           Esporte
                         </p>
                         <p className="text-sm font-bold text-arena-navy-800">
-                          {plano.sports?.name || "—"}
+                          {plano.sports?.name || '—'}
                         </p>
                       </div>
                     </div>
@@ -287,8 +316,8 @@ export function MensalistasView({
         isOpen={isMensalistaModalOpen}
         onClose={() => setIsMensalistaModalOpen(false)}
         onSuccess={async () => {
-          await loadPlanos()
-          onSuccess()
+          await loadPlanos();
+          onSuccess();
         }}
         arenaId={arenaId}
         courtId={courtId}
@@ -298,13 +327,23 @@ export function MensalistasView({
         isOpen={!!confirmDialog}
         onClose={() => setConfirmDialog(null)}
         onConfirm={handleConfirmarPagamento}
-        atletaNome={confirmDialog?.atleta?.nome_perfil ?? confirmDialog?.athlete_name ?? ""}
-        mesDevido={confirmDialog?.proximo_mes_reservado
-          ? format(parseISO(confirmDialog.proximo_mes_reservado), "MMMM/yyyy", { locale: ptBR })
-          : ""}
+        atletaNome={
+          confirmDialog?.atleta?.nome_perfil ??
+          confirmDialog?.athlete_name ??
+          ''
+        }
+        mesDevido={
+          confirmDialog?.proximo_mes_reservado
+            ? format(
+                parseISO(confirmDialog.proximo_mes_reservado),
+                'MMMM/yyyy',
+                { locale: ptBR }
+              )
+            : ''
+        }
         valorPadrao={confirmDialog?.valor_mensal ?? 0}
         isLoading={confirmingId !== null}
       />
     </>
-  )
+  );
 }

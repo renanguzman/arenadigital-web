@@ -41,7 +41,6 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/shared/database/supabaseClient"
@@ -108,6 +107,7 @@ export function AthleteRegistrationModal({
     onSuccess
 }: AthleteRegistrationModalProps) {
     const [sports, setSports] = useState<{ id: string; name: string }[]>([])
+    const [isLoadingSports, setIsLoadingSports] = useState(false)
     const [niveis, setNiveis] = useState<{ id: string; nivel: string }[]>([])
     const [isLoadingNiveis, setIsLoadingNiveis] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -148,10 +148,20 @@ export function AthleteRegistrationModal({
             .then(({ data }) => { if (data) setMunicipios(data) })
     }, [selectedEstadoId])
 
-    // Load sports on modal open
+    // Catálogo global de esportes (não filtra por arena nem por espaço)
     useEffect(() => {
         if (open) {
-            getSportsAction().then(r => setSports(r.data))
+            setIsLoadingSports(true)
+            getSportsAction()
+                .then((r) => {
+                    if (r.success && r.data) {
+                        setSports(r.data)
+                    } else {
+                        setSports([])
+                        toast.error(r.error ?? "Não foi possível carregar os esportes.")
+                    }
+                })
+                .finally(() => setIsLoadingSports(false))
         } else {
             resetAll()
         }
@@ -309,10 +319,12 @@ export function AthleteRegistrationModal({
         controlCls,
         "flex items-center justify-between gap-2 font-normal text-left data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground"
     )
+    const dropdownContentCls =
+        "z-[100] rounded-lg border-border bg-popover text-popover-foreground shadow-md"
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="!w-[70vw] !max-w-[70vw] p-0 border-none rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <DialogContent className="!z-[60] !w-[70vw] !max-w-[70vw] p-0 border-none rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="bg-white flex flex-col flex-1 min-h-0">
 
                     {/* Header */}
@@ -322,8 +334,8 @@ export function AthleteRegistrationModal({
                         </DialogTitle>
                     </DialogHeader>
 
-                    {/* Scrollable body */}
-                    <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
+                    {/* Corpo rolável — overflow nativo evita conflito do ScrollArea com Select/Popover */}
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                         {step === "lookup" ? (
                             <form id="athlete-lookup-form" onSubmit={handleLookupSubmit} className="px-8 py-6 space-y-5">
                                 <div className="space-y-2">
@@ -441,16 +453,31 @@ export function AthleteRegistrationModal({
                                         <FormField control={form.control} name="sport" render={({ field }) => (
                                             <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Esporte</FormLabel>
-                                                <Select value={field.value} onValueChange={v => handleSportChange(v, field.onChange)}>
+                                                <Select
+                                                    value={field.value || undefined}
+                                                    onValueChange={(v) => handleSportChange(v, field.onChange)}
+                                                    disabled={isLoadingSports}
+                                                >
                                                     <FormControl>
                                                         <SelectTrigger className={selectTriggerCls}>
-                                                            <SelectValue placeholder="Selecione o esporte" />
+                                                            <SelectValue
+                                                                placeholder={
+                                                                    isLoadingSports
+                                                                        ? "Carregando esportes..."
+                                                                        : "Selecione o esporte"
+                                                                }
+                                                            />
                                                         </SelectTrigger>
                                                     </FormControl>
-                                                    <SelectContent className="rounded-lg border-border">
-                                                        {sports.map(s => (
+                                                    <SelectContent position="popper" className={dropdownContentCls}>
+                                                        {sports.map((s) => (
                                                             <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                                                         ))}
+                                                        {sports.length === 0 && !isLoadingSports && (
+                                                            <SelectItem value="__no_sports" disabled>
+                                                                Nenhum esporte cadastrado no sistema
+                                                            </SelectItem>
+                                                        )}
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />
@@ -459,17 +486,20 @@ export function AthleteRegistrationModal({
                                         <FormField control={form.control} name="nivelHabilidade" render={({ field }) => (
                                             <FormItem className="min-w-0">
                                                 <FormLabel className={labelCls}>Nível de habilidade</FormLabel>
-                                                <Select value={field.value ?? ""} onValueChange={field.onChange}
-                                                    disabled={niveis.length === 0}>
+                                                <Select
+                                                    value={field.value || undefined}
+                                                    onValueChange={field.onChange}
+                                                    disabled={niveis.length === 0 && !isLoadingNiveis}
+                                                >
                                                     <FormControl>
-                                                        <SelectTrigger className={cn(selectTriggerCls, niveis.length === 0 && "opacity-50")}>
+                                                        <SelectTrigger className={cn(selectTriggerCls, niveis.length === 0 && !isLoadingNiveis && "opacity-50")}>
                                                             {isLoadingNiveis
                                                                 ? <span className="flex min-w-0 flex-1 items-center gap-2 truncate text-muted-foreground"><Loader2 className="h-3 w-3 shrink-0 animate-spin" />Carregando...</span>
                                                                 : <SelectValue placeholder="Selecione o nível" />}
                                                         </SelectTrigger>
                                                     </FormControl>
-                                                    <SelectContent className="rounded-lg border-border">
-                                                        {niveis.map(n => (
+                                                    <SelectContent position="popper" className={dropdownContentCls}>
+                                                        {niveis.map((n) => (
                                                             <SelectItem key={n.id} value={n.id}>{n.nivel}</SelectItem>
                                                         ))}
                                                     </SelectContent>
@@ -552,7 +582,7 @@ export function AthleteRegistrationModal({
                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                     </Button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-[260px] p-0" align="start">
+                                                <PopoverContent className={cn("w-[260px] p-0", dropdownContentCls)} align="start">
                                                     <Command>
                                                         <CommandInput placeholder="Buscar estado..." />
                                                         <CommandList>
@@ -601,7 +631,7 @@ export function AthleteRegistrationModal({
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-[340px] p-0" align="start">
+                                                <PopoverContent className={cn("w-[340px] p-0", dropdownContentCls)} align="start">
                                                     <Command>
                                                         <CommandInput placeholder="Buscar cidade..." />
                                                         <CommandList>
@@ -631,7 +661,7 @@ export function AthleteRegistrationModal({
                             </form>
                         </Form>
                         )}
-                    </ScrollArea>
+                    </div>
 
                     {/* Footer — fora do ScrollArea para não ficar sobreposto */}
                     <div className="px-8 py-5 border-t border-arena-navy-800/10 flex gap-3 justify-end shrink-0 bg-white">

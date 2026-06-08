@@ -2,7 +2,7 @@ import { assertArenaBackofficeAccess } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseArenaRepository } from '@/modules/arenas/repositories/SupabaseArenaRepository'
 import { SupabaseProductRepository } from '@/modules/products/repositories/SupabaseProductRepository'
-import { ProductsPageClient } from './ProductsPageClient'
+import { ProductsPageClient } from '@/modules/products/components/ProductsPageClient'
 import { redirect } from 'next/navigation'
 import { buildTutorialProducts } from '@/lib/tutorial-mock-data'
 

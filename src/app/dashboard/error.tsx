@@ -1,32 +1,24 @@
 "use client";
 
-import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { AlertCircle } from "lucide-react";
+import { DashboardErrorState, type DashboardRouteError } from "@/components/dashboard/DashboardErrorState";
 
 export default function DashboardError({
   error,
   reset,
 }: {
-  error: Error & { digest?: string };
+  error: DashboardRouteError;
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error("[dashboard] Unhandled error:", error);
-  }, [error]);
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 p-8">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <AlertCircle className="h-12 w-12 text-destructive" />
-        <h2 className="text-xl font-semibold text-arena-navy-800">Algo deu errado</h2>
-        <p className="text-muted-foreground max-w-sm">
-          {error.message || "Ocorreu um erro inesperado. Tente novamente."}
-        </p>
-      </div>
-      <Button onClick={reset} className="bg-arena-button hover:bg-arena-button-hover text-white">
-        Tentar novamente
-      </Button>
-    </div>
+    <DashboardErrorState
+      error={error}
+      reset={reset}
+      logLabel="dashboard"
+      fallbackMessage="Ocorreu um erro inesperado. Tente novamente."
+      className="gap-6"
+      iconClassName="h-12 w-12"
+      titleClassName="text-xl"
+      messageClassName="max-w-sm text-base"
+    />
   );
 }

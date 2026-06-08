@@ -18,6 +18,7 @@ async function createAvulsoTransaction(
         quantity,
         startTime,
         registeredBy,
+        modoPagamentoId,
     }: {
         arenaId: string
         athleteId?: string
@@ -26,6 +27,7 @@ async function createAvulsoTransaction(
         quantity: number
         startTime: string
         registeredBy: string
+        modoPagamentoId?: string | null
     }
 ) {
     const date = format(new Date(startTime), 'dd/MM/yyyy', { locale: ptBR })
@@ -47,9 +49,68 @@ async function createAvulsoTransaction(
         launch_date: today,
         registration_date: today,
         registered_by: registeredBy,
-        modo_pagamento_id: null,
+        modo_pagamento_id: modoPagamentoId ?? null,
     })
     if (error) throw new Error(`Erro ao registrar transação: ${error.message}`)
+}
+
+export async function confirmarPagamentoAvulsoAction(
+    arenaId: string,
+    bookingId: string,
+    valorOverride?: number,
+    modoPagamentoId?: string | null
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        await assertBookingAccess(bookingId, arenaId)
+        const { dbUserId } = await requireAuthenticatedDbUser()
+        const supabase = getSupabaseAdmin()
+
+        const { data: booking, error: fetchError } = await supabase
+            .from('bookings')
+            .select('id, arena_id, athlete_id, athlete_name, start_time, price, status, plano_mensalista_id')
+            .eq('id', bookingId)
+            .eq('arena_id', arenaId)
+            .single()
+
+        if (fetchError || !booking) throw new Error('Reserva não encontrada')
+        if (booking.plano_mensalista_id) throw new Error('Esta reserva é de mensalista')
+        if (booking.status !== 'reservado') throw new Error('Esta reserva não está aguardando pagamento')
+
+        const valorEfetivo =
+            valorOverride !== undefined && valorOverride > 0
+                ? valorOverride
+                : Number(booking.price ?? 0)
+
+        const { error: updateError } = await supabase
+            .from('bookings')
+            .update({ status: 'confirmed', price: valorEfetivo })
+            .eq('id', bookingId)
+            .eq('arena_id', arenaId)
+
+        if (updateError) throw new Error(updateError.message)
+
+        if (valorEfetivo > 0) {
+            await createAvulsoTransaction(supabase, {
+                arenaId,
+                athleteId: booking.athlete_id ?? undefined,
+                athleteName: booking.athlete_name ?? 'Atleta',
+                price: valorEfetivo,
+                quantity: 1,
+                startTime: booking.start_time,
+                registeredBy: dbUserId,
+                modoPagamentoId,
+            })
+        }
+
+        revalidatePath(`/dashboard/arenas/${arenaId}`)
+        revalidatePath(`/dashboard/arenas/${arenaId}/courts`)
+        revalidatePath(`/dashboard/finance/${arenaId}`)
+        revalidatePath(`/dashboard/reports/${arenaId}/status-pagamentos`)
+        return { success: true }
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erro ao confirmar pagamento'
+        return { success: false, error: message }
+    }
 }
 
 export interface BookingConflict {
