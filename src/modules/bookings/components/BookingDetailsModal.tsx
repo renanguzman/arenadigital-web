@@ -97,6 +97,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
     const isMensalista = booking.booking_type === "mensalista" || !!booking.plano_mensalista_id
     const canEdit = Boolean(onEdit) && !isMensalista && booking.status !== "cancelled"
     const mensalistaReservadoBlock = isMensalista && booking.status === "reservado"
+    const canCancel = !isMensalista && booking.status === "reservado"
 
     const handleCancel = async () => {
         if (!confirm("Tem certeza que deseja cancelar esta reserva?")) return
@@ -385,19 +386,19 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                         <div className="flex w-full min-w-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs font-medium text-amber-800 sm:w-auto sm:max-w-md">
                             Gerencie via &quot;Mensalistas&quot; no calendário
                         </div>
-                    ) : (
+                    ) : canCancel ? (
                         <Button
                             type="button"
                             variant="outline"
                             size="icon"
                             onClick={handleCancel}
-                            disabled={isCancelling || booking.status === "cancelled"}
+                            disabled={isCancelling}
                             className="h-11 w-11 shrink-0 rounded-xl border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
                             title="Cancelar reserva"
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>
-                    )}
+                    ) : null}
                 </div>
             </DialogContent>
         </Dialog>

@@ -168,10 +168,34 @@ export async function updateBookingStatusAction(
 ): Promise<{ success: boolean; error?: string }> {
     try {
         await assertBookingAccess(bookingId, arenaId)
-        const repo = new SupabaseBookingRepository(getSupabaseAdmin())
+        const supabase = getSupabaseAdmin()
+
+        if (status === 'cancelled') {
+            const { data: existing, error: fetchError } = await supabase
+                .from('bookings')
+                .select('status, plano_mensalista_id')
+                .eq('id', bookingId)
+                .eq('arena_id', arenaId)
+                .single()
+
+            if (fetchError || !existing) throw new Error('Reserva não encontrada')
+            if (existing.status === 'confirmed') {
+                throw new Error('Não é possível cancelar uma reserva já paga')
+            }
+            if (existing.plano_mensalista_id) {
+                throw new Error('Reservas de mensalista devem ser gerenciadas em Mensalistas')
+            }
+            if (existing.status === 'cancelled') {
+                throw new Error('Esta reserva já está cancelada')
+            }
+        }
+
+        const repo = new SupabaseBookingRepository(supabase)
         await repo.updateStatus(bookingId, status)
         revalidatePath(`/dashboard/arenas/${arenaId}`)
         revalidatePath(`/dashboard/arenas/${arenaId}/courts`)
+        revalidatePath(`/dashboard/finance/${arenaId}`)
+        revalidatePath(`/dashboard/reports/${arenaId}/status-pagamentos`)
         return { success: true }
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao atualizar reserva'
