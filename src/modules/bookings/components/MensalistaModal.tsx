@@ -21,6 +21,10 @@ import {
 import { searchAthletesAction } from '@/modules/loyalty/actions/loyaltyActions';
 import { getCourtByIdAction } from '@/modules/courts/actions/courtActions';
 import { createPlanoMensalistaAction } from '@/modules/bookings/actions/mensalistaActions';
+import {
+  BookingParticipantsField,
+  type BookingAthleteOption,
+} from '@/modules/bookings/components/BookingParticipantsField';
 import { toast } from 'sonner';
 import { normalizeString } from '@/lib/utils';
 
@@ -74,6 +78,9 @@ export function MensalistaModal({
   const [courtSports, setCourtSports] = useState<Sport[]>([]);
   const [isLoadingSports, setIsLoadingSports] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [additionalParticipants, setAdditionalParticipants] = useState<
+    BookingAthleteOption[]
+  >([]);
 
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -150,6 +157,7 @@ export function MensalistaModal({
         horario_fim: horarioFim,
         sessoes_por_mes: Number(sessoesPorMes),
         valor_mensal: Number(valorMensal),
+        additional_athlete_ids: additionalParticipants.map((p) => p.id),
       });
 
       if (!result.success) throw new Error(result.error);
@@ -177,6 +185,7 @@ export function MensalistaModal({
     setSessoesPorMes('4');
     setValorMensal('');
     setSelectedSport('');
+    setAdditionalParticipants([]);
   };
 
   const valorPorSessao =
@@ -268,6 +277,14 @@ export function MensalistaModal({
                 </div>
               )}
             </div>
+
+            <BookingParticipantsField
+              arenaId={arenaId}
+              participants={additionalParticipants}
+              excludeAthleteId={selectedAthlete?.id}
+              onChange={setAdditionalParticipants}
+              disabled={isSaving}
+            />
 
             {/* Dia da semana */}
             <div className="space-y-2">

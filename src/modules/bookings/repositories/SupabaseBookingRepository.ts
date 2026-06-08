@@ -3,7 +3,7 @@ import type { IBookingRepository } from './IBookingRepository';
 import type { Booking, CreateBookingDTO, UpdateBookingDTO } from '../types/booking.types';
 
 const WITH_RELATIONS =
-    '*, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil, telefone), booking_services(id, booking_id, product_id, quantity, unit_price, products(id, name))' as const;
+    '*, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil, telefone), booking_services(id, booking_id, product_id, quantity, unit_price, products(id, name)), booking_participants(id, atleta_id, funcao, status, atleta:atleta_id(id, nome_perfil, telefone))' as const;
 
 export class SupabaseBookingRepository implements IBookingRepository {
   constructor(private readonly client: SupabaseClient) {}

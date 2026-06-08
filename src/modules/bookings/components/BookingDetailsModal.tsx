@@ -101,6 +101,13 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
         0
     )
     const courtPortionDisplay = Math.max(0, (booking.price ?? 0) - servicesSum)
+    const additionalNames: string[] = (booking.booking_participants ?? [])
+        .filter(
+            (p: { funcao?: string; atleta_id?: string }) =>
+                p.funcao === "convidado" && p.atleta_id !== booking.athlete_id
+        )
+        .map((p: { atleta?: { nome_perfil?: string } | null }) => p.atleta?.nome_perfil ?? "")
+        .filter((name: string) => name.length > 0)
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -147,7 +154,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                                     Responsável
                                 </p>
                                 <p className="mt-1 text-sm font-semibold text-arena-navy-800">
-                                    {booking.athlete_name ?? "—"}
+                                    {booking.athlete_name ?? booking.atleta?.nome_perfil ?? "—"}
                                 </p>
                             </div>
                             <div>
@@ -175,6 +182,24 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                                 <p className="mt-1 text-sm font-semibold text-arena-navy-800">{court.name}</p>
                             </div>
                         </div>
+
+                        {additionalNames.length > 0 && (
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
+                                    Participantes
+                                </p>
+                                <ul className="mt-2 space-y-1.5">
+                                    {additionalNames.map((name, index) => (
+                                        <li
+                                            key={`${name}-${index}`}
+                                            className="text-sm font-semibold text-arena-navy-800"
+                                        >
+                                            {name}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
 
                         <div className="border-t border-slate-200 pt-6" />
 

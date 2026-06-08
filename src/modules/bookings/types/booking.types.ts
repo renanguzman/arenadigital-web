@@ -5,11 +5,20 @@ type Row = Database['public']['Tables']['bookings']['Row'];
 export type CreateBookingDTO = Database['public']['Tables']['bookings']['Insert'];
 export type UpdateBookingDTO = Database['public']['Tables']['bookings']['Update'];
 
+export type BookingParticipantEmbed = {
+  id: string
+  atleta_id: string
+  funcao: string
+  status: string
+  atleta?: { id: string; nome_perfil: string; telefone: string | null } | null
+}
+
 export type Booking = Row & {
   courts?: { id: string; name: string } | null
   sports?: { id: string; name: string } | null
   atleta?: { id: string; nome_perfil: string; telefone: string } | null
   booking_services?: BookingServiceEmbed[] | null
+  booking_participants?: BookingParticipantEmbed[] | null
 }
 
 export type BookingServiceEmbed = {

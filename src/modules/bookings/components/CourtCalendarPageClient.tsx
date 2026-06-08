@@ -15,6 +15,7 @@ import { BookingDetailsModal } from "@/modules/bookings/components/BookingDetail
 import { DayOpportunitiesModal } from "@/modules/bookings/components/DayOpportunitiesModal"
 import { getBookingsByCourtAction } from "@/modules/bookings/actions/bookingActions"
 import type { Booking } from "@/modules/bookings/types/booking.types"
+import { formatBookingParticipantLabel } from "@/modules/bookings/utils/booking-participants"
 import type { Json } from '@/types/supabase.types'
 import { arenaDashboardPath } from "@/lib/arena-dashboard-navigation"
 
@@ -121,7 +122,7 @@ function SingleBookingCard({ booking, court, slot, isEnd, onClick }: {
                         {isReservado ? 'Ag. Confirmação' : 'Confirmado'}
                     </span>
                     <span className={cn("text-[11px] font-bold text-center line-clamp-1 px-1", styles.text)}>
-                        {booking.athlete_name} {!isReservado && booking.price !== undefined && `| R$ ${booking.price}`}
+                        {formatBookingParticipantLabel(booking)}{!isReservado && booking.price !== undefined && ` | R$ ${booking.price}`}
                     </span>
                     <span className={cn("text-[9px] font-bold leading-none", styles.textSecondary)}>{booking.sports?.name || court.sports?.[0]?.name || 'Esporte'}</span>
                 </>
@@ -207,7 +208,7 @@ function TimeSlot({ slot, bookings: slotBookings, available, court, className, o
                                     Próximo evento
                                 </p>
                                 <p className="text-[12px] font-bold leading-tight">
-                                    {futureBooking.athlete_name ?? 'Atleta'}
+                                    {formatBookingParticipantLabel(futureBooking)}
                                 </p>
                                 <p className="text-[10px] text-white/70 font-medium">
                                     {format(futureStart, "EEE, dd/MM", { locale: ptBR })} &middot; {format(futureStart, "HH:mm")}–{format(futureEnd, "HH:mm")}

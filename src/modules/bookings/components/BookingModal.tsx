@@ -52,6 +52,11 @@ import {
   type BookingServiceLineLocal,
 } from '@/modules/bookings/components/BookingServicesSection';
 import { createPlanoMensalistaAction } from '@/modules/bookings/actions/mensalistaActions';
+import { syncBookingParticipantsAction } from '@/modules/bookings/actions/bookingParticipantActions';
+import {
+  BookingParticipantsField,
+  type BookingAthleteOption,
+} from '@/modules/bookings/components/BookingParticipantsField';
 import { AthleteRegistrationModal } from '@/modules/athletes/components/AthleteRegistrationModal';
 import { toast } from 'sonner';
 import {
@@ -257,6 +262,9 @@ export function BookingModal({
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceWeeks, setRecurrenceWeeks] = useState(2);
   const [includeServices, setIncludeServices] = useState(false);
+  const [additionalParticipants, setAdditionalParticipants] = useState<
+    BookingAthleteOption[]
+  >([]);
 
   // Mensal
   const [diaSemana, setDiaSemana] = useState<string>(
@@ -323,6 +331,14 @@ export function BookingModal({
       setIncludeServices(mapped.length > 0);
       const svcSum = mapped.reduce((a, l) => a + l.quantity * l.unitPrice, 0);
       setCourtPrice(String(Math.max(0, (existingBooking.price ?? 0) - svcSum)));
+      const extra = (existingBooking.booking_participants ?? [])
+        .filter((p) => p.funcao === 'convidado')
+        .map((p) => ({
+          id: p.atleta_id,
+          nome_perfil: p.atleta?.nome_perfil ?? 'Atleta',
+          telefone: p.atleta?.telefone ?? '',
+        }));
+      setAdditionalParticipants(extra);
       return;
     }
 
@@ -339,6 +355,7 @@ export function BookingModal({
     setCourtPrice(defaultPrice.toString());
     setServiceLines([]);
     setIncludeServices(false);
+    setAdditionalParticipants([]);
     setDiaSemana(String(selectedDate.getDay()));
     void loadCourtSports();
   }, [
@@ -407,6 +424,31 @@ export function BookingModal({
     }, 500);
   };
 
+  const persistParticipants = async (
+    bookingIds: string[],
+    options?: { always?: boolean }
+  ) => {
+    const additionalIds = additionalParticipants.map((p) => p.id);
+    const responsibleId = selectedAthlete?.id ?? null;
+    if (
+      !options?.always &&
+      !responsibleId &&
+      additionalIds.length === 0
+    ) {
+      return;
+    }
+
+    for (const bookingId of bookingIds) {
+      const res = await syncBookingParticipantsAction(arenaId, bookingId, {
+        responsibleAthleteId: responsibleId,
+        additionalAthleteIds: additionalIds,
+      });
+      if (!res.success) {
+        throw new Error(res.error ?? 'Erro ao salvar participantes da reserva');
+      }
+    }
+  };
+
   const handleSaveAvulso = async () => {
     if (!selectedAthlete && !search) {
       toast.error('Informe o nome do responsável');
@@ -454,6 +496,14 @@ export function BookingModal({
         );
         if (!sRes.success) {
           toast.error(sRes.error ?? 'Erro ao salvar serviços da reserva');
+          return;
+        }
+        try {
+          await persistParticipants([existingBooking.id], { always: true });
+        } catch (err) {
+          toast.error(
+            err instanceof Error ? err.message : 'Erro ao salvar participantes'
+          );
           return;
         }
         toast.success('Reserva atualizada com sucesso!');
@@ -506,6 +556,16 @@ export function BookingModal({
             }
           }
         }
+        if (recRes.data?.length) {
+          try {
+            await persistParticipants(recRes.data.map((b) => b.id));
+          } catch (err) {
+            toast.error(
+              err instanceof Error ? err.message : 'Erro ao salvar participantes'
+            );
+            return;
+          }
+        }
       } else {
         const created = await createBookingAction(arenaId, {
           arena_id: arenaId,
@@ -530,6 +590,16 @@ export function BookingModal({
           );
           if (!sRes.success) {
             toast.error(sRes.error ?? 'Erro ao salvar serviços da reserva');
+            return;
+          }
+        }
+        if (created.data?.id) {
+          try {
+            await persistParticipants([created.data.id]);
+          } catch (err) {
+            toast.error(
+              err instanceof Error ? err.message : 'Erro ao salvar participantes'
+            );
             return;
           }
         }
@@ -576,6 +646,7 @@ export function BookingModal({
         horario_fim: horarioFim,
         sessoes_por_mes: Number(sessoesPorMes),
         valor_mensal: Number(valorMensal),
+        additional_athlete_ids: additionalParticipants.map((p) => p.id),
       });
 
       if (!result.success) throw new Error(result.error);
@@ -610,6 +681,7 @@ export function BookingModal({
     setCourtPrice(defaultPrice.toString());
     setServiceLines([]);
     setIncludeServices(false);
+    setAdditionalParticipants([]);
   };
 
   // ── Helpers para gerar slots a verificar ────────────────────────────────
@@ -753,6 +825,9 @@ export function BookingModal({
       setSelectedAthlete(athlete);
       setSearch(athlete.nome_perfil);
       setAthletes([]);
+      setAdditionalParticipants((prev) =>
+        prev.filter((p) => p.id !== athlete.id)
+      );
     },
     onClearAthlete: () => setSelectedAthlete(null),
     onRegisterNew: () => setIsAthleteModalOpen(true),
@@ -853,8 +928,16 @@ export function BookingModal({
               {bookingType === 'avulso' && (
                 <>
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-                    <div className="min-w-0 lg:col-span-6">
+                    <div className="min-w-0 space-y-4 lg:col-span-6">
                       <AthleteSearchField {...athleteSearchProps} />
+                      <BookingParticipantsField
+                        arenaId={arenaId}
+                        participants={additionalParticipants}
+                        excludeAthleteId={selectedAthlete?.id}
+                        onChange={setAdditionalParticipants}
+                        onRegisterNew={() => setIsAthleteModalOpen(true)}
+                        disabled={isSaving}
+                      />
                     </div>
                     <div className="space-y-2 lg:col-span-3">
                       <Label className="text-xs font-bold uppercase text-arena-navy-800/40 tracking-wider">
@@ -1130,6 +1213,15 @@ export function BookingModal({
               {bookingType === 'mensal' && (
                 <>
                   <AthleteSearchField {...athleteSearchProps} mensalista />
+
+                  <BookingParticipantsField
+                    arenaId={arenaId}
+                    participants={additionalParticipants}
+                    excludeAthleteId={selectedAthlete?.id}
+                    onChange={setAdditionalParticipants}
+                    onRegisterNew={() => setIsAthleteModalOpen(true)}
+                    disabled={isSaving}
+                  />
 
                   {/* Dia da semana */}
                   <div className="space-y-2">

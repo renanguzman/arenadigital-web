@@ -9,6 +9,10 @@ import { revalidatePath } from 'next/cache';
 import { addDays, addMonths, startOfMonth, endOfMonth, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { PlanoMensalistaComDetalhes } from '@/modules/bookings/types/booking.types';
+import {
+  getParticipantSyncInputFromBooking,
+  syncBookingParticipantsForBooking,
+} from '@/modules/bookings/actions/bookingParticipantActions';
 
 export interface CreatePlanoMensalistaInput {
   court_id: string;
@@ -20,6 +24,7 @@ export interface CreatePlanoMensalistaInput {
   horario_fim: string;
   sessoes_por_mes: number;
   valor_mensal: number;
+  additional_athlete_ids?: string[];
 }
 
 function generateDatesForMonth(
@@ -166,10 +171,21 @@ export async function createPlanoMensalistaAction(
     }
 
     if (bookingsToCreate.length > 0) {
-      const { error: bookingsError } = await supabase
+      const { data: createdBookings, error: bookingsError } = await supabase
         .from('bookings')
-        .insert(bookingsToCreate);
+        .insert(bookingsToCreate)
+        .select('id');
       if (bookingsError) throw new Error(bookingsError.message);
+
+      const additionalIds = input.additional_athlete_ids ?? [];
+      if (createdBookings?.length && (input.athlete_id || additionalIds.length > 0)) {
+        for (const row of createdBookings) {
+          await syncBookingParticipantsForBooking(supabase, row.id, {
+            responsibleAthleteId: input.athlete_id,
+            additionalAthleteIds: additionalIds,
+          });
+        }
+      }
     }
 
     // Register payment for month 1 (current month — assumed received when plan is created)
@@ -361,10 +377,37 @@ export async function confirmarMesMensalistaAction(
     });
 
     if (newBookings.length > 0) {
-      const { error: insertError } = await supabase
+      const { data: createdRows, error: insertError } = await supabase
         .from('bookings')
-        .insert(newBookings);
+        .insert(newBookings)
+        .select('id');
       if (insertError) throw new Error(insertError.message);
+
+      const { data: templateBooking } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('plano_mensalista_id', planoId)
+        .neq('status', 'cancelled')
+        .order('start_time', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      const participantInput = templateBooking?.id
+        ? await getParticipantSyncInputFromBooking(
+            supabase,
+            templateBooking.id,
+            plano.athlete_id
+          )
+        : {
+            responsibleAthleteId: plano.athlete_id,
+            additionalAthleteIds: [],
+          };
+
+      if (createdRows?.length) {
+        for (const row of createdRows) {
+          await syncBookingParticipantsForBooking(supabase, row.id, participantInput);
+        }
+      }
     }
 
     revalidatePath(`/dashboard/arenas/${arenaId}`);
