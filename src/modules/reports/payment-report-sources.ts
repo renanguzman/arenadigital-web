@@ -63,12 +63,19 @@ export function resolveReportSourceFlags(filters: PaymentStatusFilters = {}): Re
 
 /**
  * - Mensalista confirmado: só via transação Mensalidade (sessão não entra).
- * - Avulso reservado (não pago): não entra — cobrança fica no Financeiro.
- * - Avulso confirmado / mensalista reservado ou cancelado: entra no relatório.
+ * - Avulso confirmado: Pago no relatório.
+ * - Avulso reservado (não pago): Pendente no relatório (também gerenciável no Financeiro).
+ * - Mensalista reservado ou cancelado: entra no relatório.
  */
 export function shouldIncludeBookingRow(booking: BookingLike): boolean {
   if (booking.plano_mensalista_id && booking.status === 'confirmed') return false
-  if (!booking.plano_mensalista_id && booking.status !== 'confirmed') return false
+  if (
+    !booking.plano_mensalista_id &&
+    booking.status !== 'confirmed' &&
+    booking.status !== 'reservado'
+  ) {
+    return false
+  }
   return true
 }
 

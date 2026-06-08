@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useState } from "react"
 import { Calendar as CalendarIcon, Clock, Trash2, Loader2, CheckCircle2 } from "lucide-react"
 import {
     Dialog,
@@ -10,21 +10,11 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { confirmarPagamentoAvulsoAction, updateBookingStatusAction } from "@/modules/bookings/actions/bookingActions"
 import { ConfirmarPagamentoDialog } from "@/modules/bookings/components/ConfirmarPagamentoDialog"
-import { syncBookingServicesAndTotalAction } from "@/modules/bookings/actions/bookingServiceActions"
-import { getProductsByArenaAction } from "@/modules/products/actions/stockActions"
-import { isCatalogService, type Product } from "@/modules/products/types/product.types"
-import {
-    BookingServicesSection,
-    sumBookingServiceLines,
-    type BookingServiceLineLocal,
-} from "@/modules/bookings/components/BookingServicesSection"
 import { toast } from "sonner"
 
 interface BookingDetailsModalProps {
@@ -53,42 +43,9 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
     const [isCancelling, setIsCancelling] = useState(false)
     const [showConfirmPayment, setShowConfirmPayment] = useState(false)
     const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
-    const [isSavingServices, setIsSavingServices] = useState(false)
-    const [courtPortion, setCourtPortion] = useState("")
-    const [serviceLines, setServiceLines] = useState<BookingServiceLineLocal[]>([])
-    const [catalogServiceProducts, setCatalogServiceProducts] = useState<Product[]>([])
-    const [includeServices, setIncludeServices] = useState(false)
 
     const arenaId = booking?.arena_id as string | undefined
 
-    useEffect(() => {
-        if (!isOpen || !booking) return
-        const raw = booking.booking_services
-        const mapped: BookingServiceLineLocal[] = (raw ?? []).map((s: any) => ({
-            productId: s.product_id,
-            quantity: s.quantity,
-            unitPrice: Number(s.unit_price),
-            name: s.products?.name ?? "Serviço",
-        }))
-        setServiceLines(mapped)
-        setIncludeServices(mapped.length > 0)
-        const svcSum = mapped.reduce((a, l) => a + l.quantity * l.unitPrice, 0)
-        setCourtPortion(String(Math.max(0, (booking.price ?? 0) - svcSum)))
-    }, [isOpen, booking?.id, booking?.price, booking?.booking_services])
-
-    useEffect(() => {
-        if (!isOpen || !arenaId) return
-        getProductsByArenaAction(arenaId).then((r) => {
-            if (r.success && r.data) {
-                setCatalogServiceProducts((r.data as Product[]).filter((p) => isCatalogService(p)))
-            } else {
-                setCatalogServiceProducts([])
-            }
-        })
-    }, [isOpen, arenaId])
-
-    const servicesSum = useMemo(() => sumBookingServiceLines(serviceLines), [serviceLines])
-    const totalDisplay = (Number(courtPortion) || 0) + servicesSum
     const fmtBrl = (n: number) =>
         new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n)
 
@@ -136,36 +93,13 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
         }
     }
 
-    const handleSaveServices = async () => {
-        if (!arenaId) return
-        const courtAmount = Number(courtPortion)
-        if (Number.isNaN(courtAmount) || courtAmount < 0) {
-            toast.error("Informe um valor válido para a locação")
-            return
-        }
-        setIsSavingServices(true)
-        try {
-            const payload = serviceLines.map((l) => ({ product_id: l.productId, quantity: l.quantity }))
-            const res = await syncBookingServicesAndTotalAction(
-                arenaId,
-                booking.id,
-                payload,
-                courtAmount + sumBookingServiceLines(serviceLines)
-            )
-            if (!res.success) {
-                toast.error(res.error ?? "Erro ao salvar")
-                return
-            }
-            toast.success("Serviços e valor atualizados!")
-            onSuccess()
-            onClose()
-        } finally {
-            setIsSavingServices(false)
-        }
-    }
-
     const sportName = booking.sports?.name || court.sports?.[0]?.name || "—"
     const wideLayout = canEdit
+    const servicesSum = (booking.booking_services as any[] | undefined ?? []).reduce(
+        (acc, s) => acc + s.quantity * Number(s.unit_price),
+        0
+    )
+    const courtPortionDisplay = Math.max(0, (booking.price ?? 0) - servicesSum)
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -207,175 +141,130 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                                 wideLayout ? "lg:grid-cols-4 lg:gap-5" : "sm:gap-x-6"
                             )}
                         >
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
-                                Responsável
-                            </p>
-                            <p className="mt-1 text-sm font-semibold text-arena-navy-800">
-                                {booking.athlete_name ?? "—"}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Status</p>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                <Badge variant="outline" className={cn("text-xs font-medium", status.className)}>
-                                    {status.label}
-                                </Badge>
-                                {booking.booking_type === "mensalista" && (
-                                    <Badge
-                                        variant="outline"
-                                        className="border-transparent bg-amber-50 text-xs font-medium text-amber-800"
-                                    >
-                                        Mensalista
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
+                                    Responsável
+                                </p>
+                                <p className="mt-1 text-sm font-semibold text-arena-navy-800">
+                                    {booking.athlete_name ?? "—"}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Status</p>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                    <Badge variant="outline" className={cn("text-xs font-medium", status.className)}>
+                                        {status.label}
                                     </Badge>
-                                )}
+                                    {booking.booking_type === "mensalista" && (
+                                        <Badge
+                                            variant="outline"
+                                            className="border-transparent bg-amber-50 text-xs font-medium text-amber-800"
+                                        >
+                                            Mensalista
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Esporte</p>
+                                <p className="mt-1 text-sm font-semibold text-arena-navy-800">{sportName}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Espaço</p>
+                                <p className="mt-1 text-sm font-semibold text-arena-navy-800">{court.name}</p>
                             </div>
                         </div>
+
+                        <div className="border-t border-slate-200 pt-6" />
+
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Esporte</p>
-                            <p className="mt-1 text-sm font-semibold text-arena-navy-800">{sportName}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Espaço</p>
-                            <p className="mt-1 text-sm font-semibold text-arena-navy-800">{court.name}</p>
-                        </div>
-                    </div>
-
-                    <div className="border-t border-slate-200 pt-6" />
-
-                    <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Período</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <div className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-arena-navy-800">
-                                <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />
-                                {format(startTime, "dd/MM/yyyy", { locale: ptBR })}
-                            </div>
-                            <div className="inline-flex items-center gap-1.5 rounded-lg bg-[#FFF5EF] px-3 py-1.5 text-sm font-semibold text-arena-button">
-                                <Clock className="h-3.5 w-3.5 text-arena-button/70" />
-                                <span>{format(startTime, "HH:mm")}</span>
-                                <span className="text-arena-button/50">→</span>
-                                <span>{format(endTime, "HH:mm")}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="border-t border-slate-200 pt-6" />
-
-                    {canEdit ? (
-                        <div className="space-y-6">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
-                                    Valor pago
-                                </Label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-arena-navy-800/40">
-                                        R$
-                                    </span>
-                                    <Input
-                                        value={courtPortion}
-                                        onChange={(e) => setCourtPortion(e.target.value)}
-                                        className="h-14 rounded-xl border-arena-navy-800/10 pl-12 font-bold text-arena-navy-800 focus:border-arena-button focus:ring-arena-button"
-                                    />
+                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Período</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <div className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-arena-navy-800">
+                                    <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />
+                                    {format(startTime, "dd/MM/yyyy", { locale: ptBR })}
+                                </div>
+                                <div className="inline-flex items-center gap-1.5 rounded-lg bg-[#FFF5EF] px-3 py-1.5 text-sm font-semibold text-arena-button">
+                                    <Clock className="h-3.5 w-3.5 text-arena-button/70" />
+                                    <span>{format(startTime, "HH:mm")}</span>
+                                    <span className="text-arena-button/50">→</span>
+                                    <span>{format(endTime, "HH:mm")}</span>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-4 border-t border-slate-200 pt-6">
-                                <div className="flex items-start gap-3 border-b border-slate-200 pb-4">
-                                    <button
-                                        type="button"
-                                        disabled={isSavingServices}
-                                        onClick={() => {
-                                            setIncludeServices((prev) => {
-                                                if (prev) setServiceLines([])
-                                                return !prev
-                                            })
-                                        }}
-                                        className={cn(
-                                            "relative mt-0.5 h-6 w-12 shrink-0 rounded-full transition-colors",
-                                            includeServices ? "bg-arena-button" : "bg-gray-200",
-                                            isSavingServices && "pointer-events-none opacity-60"
-                                        )}
-                                        aria-pressed={includeServices}
-                                    >
-                                        <div
-                                            className={cn(
-                                                "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
-                                                includeServices ? "left-7" : "left-1"
-                                            )}
-                                        />
-                                    </button>
-                                    <div className="min-w-0 flex-1 space-y-0.5">
-                                        <Label className="text-sm font-bold text-arena-navy-800">Adicionar serviço</Label>
-                                        <p className="text-[10px] font-medium leading-snug text-arena-navy-800/40">
-                                            Inclua serviços nessa reserva e já calcule o valor de forma única
-                                        </p>
-                                    </div>
-                                </div>
-                                {includeServices && (
-                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <BookingServicesSection
-                                            compact
-                                            catalogServices={catalogServiceProducts.map((p) => ({
-                                                id: p.id,
-                                                name: p.name,
-                                                price: p.price,
-                                            }))}
-                                            lines={serviceLines}
-                                            onLinesChange={setServiceLines}
-                                            disabled={isSavingServices}
-                                        />
-                                    </div>
-                                )}
-                            </div>
+                        </div>
 
-                            <div className="border-t border-slate-200 pt-6">
-                                <div className="flex flex-wrap items-baseline justify-between gap-3">
-                                    <span className="text-sm font-medium text-arena-navy-800/70">Total da reserva</span>
-                                    <span className="text-2xl font-black tracking-tight text-arena-button">
-                                        {fmtBrl(totalDisplay)}
-                                    </span>
-                                </div>
-                                {serviceLines.length > 0 && (
-                                    <p className="mt-2 text-[11px] font-medium text-arena-navy-800/45">
-                                        Locação {fmtBrl(Number(courtPortion) || 0)} + serviços {fmtBrl(servicesSum)}
+                        <div className="border-t border-slate-200 pt-6" />
+
+                        {wideLayout ? (
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
+                                        {avulsoReservado ? "Valor da reserva" : "Valor pago"}
                                     </p>
+                                    <div className="flex h-14 items-center rounded-xl border border-arena-navy-800/10 bg-slate-50/80 px-4">
+                                        <span className="text-2xl font-black text-arena-button">
+                                            {fmtBrl(booking.price ?? 0)}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {booking.booking_services?.length > 0 && (
+                                    <div className="border-t border-slate-200 pt-6">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40 mb-3">
+                                            Serviços
+                                        </p>
+                                        <ul className="space-y-2 text-sm text-arena-navy-800/80">
+                                            {(booking.booking_services as any[]).map((s: any) => (
+                                                <li
+                                                    key={s.id}
+                                                    className="flex justify-between gap-2 rounded-xl border border-arena-navy-800/8 bg-[#FFF8F1] px-4 py-3"
+                                                >
+                                                    <span>
+                                                        {s.quantity}× {s.products?.name ?? "Serviço"}
+                                                    </span>
+                                                    <span className="font-semibold">
+                                                        {fmtBrl(s.quantity * Number(s.unit_price))}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                <div className="border-t border-slate-200 pt-6">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-3">
+                                        <span className="text-sm font-medium text-arena-navy-800/70">Total da reserva</span>
+                                        <span className="text-2xl font-black tracking-tight text-arena-button">
+                                            {fmtBrl(booking.price ?? 0)}
+                                        </span>
+                                    </div>
+                                    {booking.booking_services?.length > 0 && (
+                                        <p className="mt-2 text-[11px] font-medium text-arena-navy-800/45">
+                                            Locação {fmtBrl(courtPortionDisplay)} + serviços {fmtBrl(servicesSum)}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Valor</p>
+                                <p className="mt-1 text-2xl font-black text-arena-button">{fmtBrl(booking.price ?? 0)}</p>
+                                {booking.booking_services?.length > 0 && (
+                                    <ul className="mt-3 space-y-1.5 text-sm text-arena-navy-800/80">
+                                        {(booking.booking_services as any[]).map((s: any) => (
+                                            <li key={s.id} className="flex justify-between gap-2">
+                                                <span>
+                                                    {s.quantity}× {s.products?.name ?? "Serviço"}
+                                                </span>
+                                                <span className="font-semibold">
+                                                    {fmtBrl(s.quantity * Number(s.unit_price))}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 )}
                             </div>
-                            <Button
-                                type="button"
-                                onClick={handleSaveServices}
-                                disabled={isSavingServices}
-                                className="h-11 w-full rounded-xl bg-arena-button font-semibold text-white shadow-sm hover:bg-arena-button-hover sm:mx-auto sm:max-w-md"
-                            >
-                                {isSavingServices ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Salvando…
-                                    </>
-                                ) : (
-                                    "Salvar serviços e valor"
-                                )}
-                            </Button>
-                        </div>
-                    ) : (
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">Valor</p>
-                            <p className="mt-1 text-2xl font-black text-arena-button">{fmtBrl(booking.price ?? 0)}</p>
-                            {booking.booking_services?.length > 0 && (
-                                <ul className="mt-3 space-y-1.5 text-sm text-arena-navy-800/80">
-                                    {(booking.booking_services as any[]).map((s: any) => (
-                                        <li key={s.id} className="flex justify-between gap-2">
-                                            <span>
-                                                {s.quantity}× {s.products?.name ?? "Serviço"}
-                                            </span>
-                                            <span className="font-semibold">
-                                                {fmtBrl(s.quantity * Number(s.unit_price))}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    )}
+                        )}
                     </div>
                 </div>
 
