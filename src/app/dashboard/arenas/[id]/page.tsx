@@ -2,7 +2,11 @@ import { assertArenaBackofficeAccess } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseArenaRepository } from '@/modules/arenas/repositories/SupabaseArenaRepository'
 import { SupabaseBookingRepository } from '@/modules/bookings/repositories/SupabaseBookingRepository'
-import { ArenaDetailPageClient } from './ArenaDetailPageClient'
+import { ArenaDetailPageClient } from '@/modules/arenas/components/ArenaDetailPageClient'
+import {
+    normalizeCourtSports,
+    type CourtWithSportRelations,
+} from '@/modules/courts/utils/normalize-court-sports'
 import { parseArenaDashboardTab } from '@/lib/arena-dashboard-navigation'
 import { redirect } from 'next/navigation'
 import { buildTutorialBookings, buildTutorialCourts } from '@/lib/tutorial-mock-data'
@@ -52,10 +56,9 @@ export default async function ArenaDetailPage({
 
     if (!arena) redirect('/dashboard/settings/arenas')
 
-    const courts = (courtsRaw.data ?? []).map(court => ({
-        ...court,
-        sports: (court.sports as any[]).map(s => s.sport)
-    }))
+    const courts = (courtsRaw.data ?? []).map((court) =>
+        normalizeCourtSports(court as CourtWithSportRelations)
+    )
 
     return (
         <ArenaDetailPageClient

@@ -11,6 +11,7 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -320,136 +321,145 @@ export function StatusPagamentosPageClient({
       </Card>
 
       {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between px-5 py-4 border-b">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">Lançamentos</h2>
-              <p className="text-xs text-gray-400">{monthLabel}</p>
-            </div>
+      <Card className="rounded-lg border border-slate-100 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div>
+            <h2 className="text-base font-bold text-arena-navy-800">Lançamentos</h2>
+            <p className="text-xs text-arena-navy-800/40">{monthLabel}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={handleExportExcel}
+            disabled={rows.length === 0}
+          >
+            <FileSpreadsheet className="h-4 w-4 text-green-600" />
+            Exportar Excel
+          </Button>
+        </div>
+
+        <div className="overflow-x-auto px-6">
+          <table className={arenaDataTable.table}>
+            <thead>
+              <tr className={arenaDataTable.theadRow}>
+                <th className={arenaDataTable.th}>Data</th>
+                <th className={arenaDataTable.th}>Atleta</th>
+                <th className={arenaDataTable.th}>Serviço</th>
+                <th className={arenaDataTable.th}>Espaço</th>
+                <th className={arenaDataTable.th}>Esporte</th>
+                <th className={cn(arenaDataTable.th, "text-arena-button")}>Valor</th>
+                <th className={cn(arenaDataTable.thRight, "w-28")}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isPending ? (
+                <tr>
+                  <td colSpan={7} className={arenaDataTable.emptyCell}>
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-arena-button" />
+                      Carregando lançamentos...
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className={arenaDataTable.emptyCell}>
+                    Nenhum lançamento encontrado para os filtros selecionados.
+                  </td>
+                </tr>
+              ) : (
+                paginatedRows.map((row) => {
+                  const sc = statusConfig[row.status]
+                  return (
+                    <tr key={row.id} className={arenaDataTable.tbodyRow}>
+                      <td className={cn(arenaDataTable.td, "whitespace-nowrap text-arena-navy-800/60")}>
+                        {formatDateTime(row.data)}
+                      </td>
+                      <td className={arenaDataTable.tdBold}>
+                        {row.atleta ?? <span className="text-arena-navy-800/30">—</span>}
+                      </td>
+                      <td className={arenaDataTable.td}>
+                        <span className="inline-flex items-center rounded-full bg-arena-navy-800/5 px-2.5 py-0.5 text-xs font-medium text-arena-navy-800">
+                          {row.servico}
+                        </span>
+                      </td>
+                      <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>
+                        {row.espaco ?? <span className="text-arena-navy-800/30">—</span>}
+                      </td>
+                      <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>
+                        {row.esporte ?? <span className="text-arena-navy-800/30">—</span>}
+                      </td>
+                      <td className={cn(arenaDataTable.td, "whitespace-nowrap text-arena-button font-black")}>
+                        {row.valor != null ? formatCurrency(row.valor) : <span className="text-arena-navy-800/30 font-medium">—</span>}
+                      </td>
+                      <td className={arenaDataTable.tdRight}>
+                        <Badge variant="outline" className={sc.className}>
+                          {sc.label}
+                        </Badge>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+          <p className="text-xs text-arena-navy-800/40">
+            {rows.length === 0
+              ? '0 resultados'
+              : `Exibindo ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, rows.length)} de ${rows.length}`}
+          </p>
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={handleExportExcel}
-              disabled={rows.length === 0}
+              size="icon"
+              className="h-8 w-8 bg-white"
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
             >
-              <FileSpreadsheet className="h-4 w-4 text-green-600" />
-              Exportar Excel
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce<(number | 'ellipsis')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('ellipsis')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((p, i) =>
+                p === 'ellipsis' ? (
+                  <span key={`e-${i}`} className="px-1 text-xs text-arena-navy-800/30">…</span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant="outline"
+                    size="icon"
+                    className={cn(
+                      "h-8 w-8 text-xs font-bold",
+                      page === p
+                        ? "border-transparent bg-arena-navy-800 text-white hover:bg-arena-navy-800/90 hover:text-white"
+                        : "bg-white text-arena-navy-800/60"
+                    )}
+                    onClick={() => setPage(p as number)}
+                  >
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 bg-white"
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className={arenaDataTable.table}>
-              <thead>
-                <tr className={arenaDataTable.theadRow}>
-                  <th className={arenaDataTable.th}>Data</th>
-                  <th className={arenaDataTable.th}>Atleta</th>
-                  <th className={arenaDataTable.th}>Serviço</th>
-                  <th className={arenaDataTable.th}>Espaço</th>
-                  <th className={arenaDataTable.th}>Esporte</th>
-                  <th className={arenaDataTable.th}>Valor</th>
-                  <th className={arenaDataTable.th}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isPending ? (
-                  <tr>
-                    <td colSpan={7} className={arenaDataTable.emptyCell}>
-                      Carregando...
-                    </td>
-                  </tr>
-                ) : paginatedRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className={arenaDataTable.emptyCell}>
-                      Nenhum lançamento encontrado para os filtros selecionados.
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedRows.map((row) => {
-                    const sc = statusConfig[row.status]
-                    return (
-                      <tr key={row.id} className={arenaDataTable.tbodyRow}>
-                        <td className={cn(arenaDataTable.td, "whitespace-nowrap text-arena-navy-800/60")}>
-                          {formatDateTime(row.data)}
-                        </td>
-                        <td className={arenaDataTable.tdBold}>
-                          {row.atleta ?? <span className="text-arena-navy-800/30">—</span>}
-                        </td>
-                        <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>
-                          {row.servico}
-                        </td>
-                        <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>
-                          {row.espaco ?? <span className="text-arena-navy-800/30">—</span>}
-                        </td>
-                        <td className={cn(arenaDataTable.td, "text-arena-navy-800/60")}>
-                          {row.esporte ?? <span className="text-arena-navy-800/30">—</span>}
-                        </td>
-                        <td className={cn(arenaDataTable.td, "whitespace-nowrap")}>
-                          {row.valor != null ? formatCurrency(row.valor) : <span className="text-arena-navy-800/30">—</span>}
-                        </td>
-                        <td className={arenaDataTable.td}>
-                          <Badge variant="outline" className={sc.className}>
-                            {sc.label}
-                          </Badge>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between px-5 py-4 border-t">
-            <p className="text-xs text-gray-500">
-              Exibindo {rows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, rows.length)} de {rows.length}
-            </p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                .reduce<(number | 'ellipsis')[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('ellipsis')
-                  acc.push(p)
-                  return acc
-                }, [])
-                .map((p, i) =>
-                  p === 'ellipsis' ? (
-                    <span key={`e-${i}`} className="px-1 text-gray-400 text-sm">...</span>
-                  ) : (
-                    <Button
-                      key={p}
-                      variant={p === page ? 'default' : 'outline'}
-                      size="icon"
-                      className="h-8 w-8 text-xs"
-                      onClick={() => setPage(p as number)}
-                    >
-                      {p}
-                    </Button>
-                  )
-                )}
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                disabled={page === totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
+        </div>
       </Card>
     </div>
   )

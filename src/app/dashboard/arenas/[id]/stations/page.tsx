@@ -1,6 +1,6 @@
 import { assertArenaAccess } from '@/lib/server-auth'
 import { getStationsWithMetricsAction } from '@/modules/stations/actions/stationActions'
-import { StationsPageClient } from './StationsPageClient'
+import { StationsPageClient } from '@/modules/stations/components/StationsPageClient'
 import { redirect } from 'next/navigation'
 import { buildTutorialStations } from '@/lib/tutorial-mock-data'
 

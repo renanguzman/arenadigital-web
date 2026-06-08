@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { assertArenaSubscriptionAccess } from '@/lib/server-auth';
-import { CheckoutReturnClient } from './CheckoutReturnClient';
+import { CheckoutReturnClient } from '@/modules/payments/components/CheckoutReturnClient';
 
 type SearchParams = Promise<{ status?: string }>;
 

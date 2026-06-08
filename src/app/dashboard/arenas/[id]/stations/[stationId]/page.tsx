@@ -1,6 +1,6 @@
 import { assertStationAccess } from '@/lib/server-auth'
 import { getStationWithOrdersAction } from '@/modules/stations/actions/stationActions'
-import { StationDetailPageClient } from './StationDetailPageClient'
+import { StationDetailPageClient } from '@/modules/stations/components/StationDetailPageClient'
 import { redirect } from 'next/navigation'
 
 export default async function StationInternalPage({ params }: { params: Promise<{ id: string; stationId: string }> }) {

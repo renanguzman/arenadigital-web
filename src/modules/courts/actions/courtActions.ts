@@ -4,26 +4,17 @@ import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { assertArenaBackofficeAccess, assertCourtAccess } from '@/lib/server-auth'
 import { assertCanCreateSpaceForArena } from '@/modules/payments/usecases/assert-space-entitlement.usecase'
 import type { Database } from '@/types/supabase.types'
+import {
+    normalizeCourtSports,
+    type CourtWithSportRelations,
+} from '@/modules/courts/utils/normalize-court-sports'
 import { revalidatePath } from 'next/cache'
 
 type CourtInsert = Database['public']['Tables']['courts']['Insert']
 type CourtUpdate = Database['public']['Tables']['courts']['Update']
 type CourtCreateInput = Omit<CourtInsert, 'arena_id'>
 
-type CourtSportJoin = {
-    sport: unknown
-}
-
-type CourtRowWithSports = Record<string, unknown> & {
-    sports?: CourtSportJoin[] | null
-}
-
-function normalizeCourtSports<T extends CourtRowWithSports>(court: T) {
-    return {
-        ...court,
-        sports: (court.sports ?? []).map((s) => s.sport)
-    }
-}
+type CourtRowWithSports = CourtWithSportRelations & Record<string, unknown>
 
 export async function getSportsForCourtAction(): Promise<{ success: boolean; data: { id: string; name: string }[]; error?: string }> {
     try {
@@ -56,7 +47,7 @@ export async function getCourtsByArenaAction(arenaId: string) {
 
         return {
             success: true,
-            data: (data as CourtRowWithSports[]).map(normalizeCourtSports)
+            data: (data as CourtRowWithSports[]).map((court) => normalizeCourtSports(court))
         }
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao buscar espaços'

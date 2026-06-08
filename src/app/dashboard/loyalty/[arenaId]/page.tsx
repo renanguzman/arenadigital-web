@@ -3,7 +3,7 @@ import { assertArenaBackofficeAccess } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { SupabaseArenaRepository } from '@/modules/arenas/repositories/SupabaseArenaRepository'
 import { SupabaseLoyaltyRepository } from '@/modules/loyalty/repositories/SupabaseLoyaltyRepository'
-import { LoyaltyDashboardClient } from './LoyaltyDashboardClient'
+import { LoyaltyDashboardClient } from '@/modules/loyalty/components/LoyaltyDashboardClient'
 import { buildTutorialLoyalty } from '@/lib/tutorial-mock-data'
 
 export default async function FidelityPage({

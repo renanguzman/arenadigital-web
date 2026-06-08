@@ -2,10 +2,11 @@
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Plus, AlertCircle, CheckCircle2, Loader2, Clock, MapPin, Users } from "lucide-react";
+import { BarChart3, Plus, AlertCircle, CheckCircle2, Loader2, Clock, MapPin, Users, Calendar } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
-import { getFinanceDashboardAction, getMensalistasComPendenciaAction } from "@/modules/finance/actions/financeActions";
+import { getFinanceDashboardAction, getMensalistasComPendenciaAction, getAvulsosComPendenciaAction } from "@/modules/finance/actions/financeActions";
 import { confirmarMesMensalistaAction } from "@/modules/bookings/actions/mensalistaActions";
+import { confirmarPagamentoAvulsoAction } from "@/modules/bookings/actions/bookingActions";
 import { ConfirmarPagamentoDialog } from "@/modules/bookings/components/ConfirmarPagamentoDialog";
 import type { ArenaFinanceSummary, ArenaFinanceDailyRow, Transaction } from "@/modules/finance/types/finance.types";
 import { format, parseISO } from "date-fns";
@@ -61,9 +62,15 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
     const [chartData, setChartData] = useState<{ label: string; value: number; percentage: number; isCurrentDay?: boolean }[]>([]);
     const [chartSeries, setChartSeries] = useState<ArenaFinanceDailyRow[]>(initialChartSeries);
     const [pendingMensalistas, setPendingMensalistas] = useState<any[]>([]);
+    const [pendingAvulsos, setPendingAvulsos] = useState<any[]>([]);
     const [isLoadingPending, setIsLoadingPending] = useState(false);
+    const [isLoadingAvulsos, setIsLoadingAvulsos] = useState(false);
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
-    const [confirmDialog, setConfirmDialog] = useState<{ planoId: string; nome: string; mes: string; valor: number } | null>(null);
+    const [confirmDialog, setConfirmDialog] = useState<
+        | { tipo: "mensalista"; id: string; nome: string; mes: string; valor: number }
+        | { tipo: "avulso"; id: string; nome: string; mes: string; valor: number }
+        | null
+    >(null);
 
     const processChartData = useCallback(
         (series: ArenaFinanceDailyRow[], periodType: '7d' | '30d', type: 'saldo' | 'entrada' | 'saída') => {
@@ -122,6 +129,16 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
         }
     }, [arenaId]);
 
+    const loadPendingAvulsos = useCallback(async () => {
+        setIsLoadingAvulsos(true);
+        try {
+            const res = await getAvulsosComPendenciaAction(arenaId);
+            if (res.success) setPendingAvulsos(res.data ?? []);
+        } finally {
+            setIsLoadingAvulsos(false);
+        }
+    }, [arenaId]);
+
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -147,13 +164,20 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
 
     const handleConfirmarPagamento = async (valor: number) => {
         if (!confirmDialog) return;
-        setConfirmingId(confirmDialog.planoId);
+        setConfirmingId(confirmDialog.id);
         try {
-            const res = await confirmarMesMensalistaAction(arenaId, confirmDialog.planoId, valor);
+            const res =
+                confirmDialog.tipo === "mensalista"
+                    ? await confirmarMesMensalistaAction(arenaId, confirmDialog.id, valor)
+                    : await confirmarPagamentoAvulsoAction(arenaId, confirmDialog.id, valor);
             if (!res.success) throw new Error(res.error);
-            toast.success("Pagamento confirmado! Próximo mês gerado.");
+            toast.success(
+                confirmDialog.tipo === "mensalista"
+                    ? "Pagamento confirmado! Próximo mês gerado."
+                    : "Pagamento confirmado! Reserva liberada no relatório."
+            );
             setConfirmDialog(null);
-            await Promise.all([loadPendingMensalistas(), loadData()]);
+            await Promise.all([loadPendingMensalistas(), loadPendingAvulsos(), loadData()]);
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Erro ao confirmar pagamento");
         } finally {
@@ -163,7 +187,8 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
 
     useEffect(() => {
         loadPendingMensalistas();
-    }, [loadPendingMensalistas]);
+        loadPendingAvulsos();
+    }, [loadPendingMensalistas, loadPendingAvulsos]);
 
     useEffect(() => {
         if (isLoading) return;
@@ -460,10 +485,109 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
                                         <Button
                                             size="sm"
                                             onClick={() => setConfirmDialog({
-                                                planoId: plano.id,
+                                                tipo: "mensalista",
+                                                id: plano.id,
                                                 nome: nome,
                                                 mes: mesDevido,
                                                 valor: plano.valor_mensal,
+                                            })}
+                                            disabled={isConfirming}
+                                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold gap-1.5 rounded-xl h-9 px-4"
+                                        >
+                                            {isConfirming
+                                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                : <CheckCircle2 className="h-3.5 w-3.5" />
+                                            }
+                                            Confirmar
+                                        </Button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </Card>
+
+            {/* Cobranças Avulsas */}
+            <Card className="p-8 border-none shadow-lg rounded-2xl bg-white">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className={cn(
+                            "p-2 rounded-lg",
+                            pendingAvulsos.length > 0 ? "bg-orange-100" : "bg-emerald-50"
+                        )}>
+                            {pendingAvulsos.length > 0
+                                ? <AlertCircle className="h-5 w-5 text-orange-600" />
+                                : <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                            }
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-arena-navy-800">Cobranças Avulsas</h3>
+                            {pendingAvulsos.length > 0 && (
+                                <p className="text-xs text-orange-600 font-bold">
+                                    {pendingAvulsos.length} reserva{pendingAvulsos.length !== 1 ? "s" : ""} aguardando pagamento
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <Link
+                        href={`/dashboard/arenas/${arenaId}/courts`}
+                        className="text-sm font-bold text-arena-navy-800/50 hover:text-arena-navy-800 underline"
+                    >
+                        Ver calendário
+                    </Link>
+                </div>
+
+                {isLoadingAvulsos ? (
+                    <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+                    </div>
+                ) : pendingAvulsos.length === 0 ? (
+                    <div className="flex items-center gap-3 py-6 px-4 bg-emerald-50 rounded-xl">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                        <p className="text-sm font-bold text-emerald-700">Nenhuma cobrança avulsa pendente!</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {pendingAvulsos.map((booking) => {
+                            const nome = booking.atleta?.nome_perfil ?? booking.athlete_name ?? "—";
+                            const courtName = booking.court?.name ?? "—";
+                            const sportName = booking.sports?.name ?? "—";
+                            const dataReserva = booking.start_time
+                                ? format(parseISO(booking.start_time), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                                : "—";
+                            const isConfirming = confirmingId === booking.id;
+
+                            return (
+                                <div key={booking.id} className="flex items-center justify-between gap-4 p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                                            <Calendar className="h-5 w-5 text-orange-600" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-arena-navy-800 text-sm truncate">{nome}</p>
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                                                <span className="flex items-center gap-1 text-[11px] text-arena-navy-800/50">
+                                                    <MapPin className="h-3 w-3" />{courtName} · {sportName}
+                                                </span>
+                                                <span className="flex items-center gap-1 text-[11px] text-orange-600 font-bold">
+                                                    <Clock className="h-3 w-3" />{dataReserva}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 flex-shrink-0">
+                                        <p className="font-black text-arena-button text-base">
+                                            {formatCurrency(Number(booking.price ?? 0))}
+                                        </p>
+                                        <Button
+                                            size="sm"
+                                            onClick={() => setConfirmDialog({
+                                                tipo: "avulso",
+                                                id: booking.id,
+                                                nome,
+                                                mes: dataReserva,
+                                                valor: Number(booking.price ?? 0),
                                             })}
                                             disabled={isConfirming}
                                             className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold gap-1.5 rounded-xl h-9 px-4"
@@ -490,6 +614,7 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
                 mesDevido={confirmDialog?.mes ?? ""}
                 valorPadrao={confirmDialog?.valor ?? 0}
                 isLoading={confirmingId !== null}
+                tipo={confirmDialog?.tipo === "avulso" ? "avulso" : "mensalista"}
             />
 
             {/* Modals */}

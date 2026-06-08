@@ -153,7 +153,8 @@ export function CourtForm({ initialData, arenaId, onSuccess, returnTab = "espaco
                 startTime: sourceConfig.startTime,
                 endTime: sourceConfig.endTime,
                 price: sourceConfig.price,
-                customPrices: [...sourceConfig.customPrices],
+                customPrices: sourceConfig.customPrices.map((cp) => ({ ...cp })),
+                defaultTierId: sourceConfig.defaultTierId,
                 slotShiftTime: sourceConfig.slotShiftTime ?? null
             }
         })

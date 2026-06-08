@@ -1,9 +1,11 @@
 import { assertArenaBackofficeAccess } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import { MensalistasPageClient } from './MensalistasPageClient'
+import { MensalistasPageClient } from '@/modules/bookings/components/MensalistasPageClient'
 import type { PlanoMensalistaComDetalhes } from '@/modules/bookings/types/booking.types'
 import { buildTutorialMonthlyPlans } from '@/lib/tutorial-mock-data'
+
+type PlanoMensalistaRow = Omit<PlanoMensalistaComDetalhes, 'proximo_mes_reservado'>
 
 export default async function MensalistasPage({
     params,
@@ -34,8 +36,9 @@ export default async function MensalistasPage({
         .eq('arena_id', arenaId)
         .order('created_at', { ascending: false })
 
+    const planosRows = (planos ?? []) as PlanoMensalistaRow[]
     const planosWithNext: PlanoMensalistaComDetalhes[] = await Promise.all(
-        (planos ?? []).map(async (plano: any) => {
+        planosRows.map(async (plano) => {
             const { data: nextReservado } = await supabase
                 .from('bookings')
                 .select('start_time')
