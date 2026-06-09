@@ -3,7 +3,7 @@ import type { IBookingRepository } from './IBookingRepository';
 import type { Booking, CreateBookingDTO, UpdateBookingDTO } from '../types/booking.types';
 
 const WITH_RELATIONS =
-    '*, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil, telefone), booking_services(id, booking_id, product_id, quantity, unit_price, products(id, name)), booking_participants(id, atleta_id, funcao, status, atleta:atleta_id(id, nome_perfil, telefone))' as const;
+    '*, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil, telefone), booking_services(id, booking_id, product_id, quantity, unit_price, products(id, name)), booking_participants(id, atleta_id, funcao, status, valor, pago_em, atleta:atleta_id(id, nome_perfil, telefone))' as const;
 
 export class SupabaseBookingRepository implements IBookingRepository {
   constructor(private readonly client: SupabaseClient) {}
@@ -127,7 +127,7 @@ export class SupabaseBookingRepository implements IBookingRepository {
   async updateBooking(
     bookingId: string,
     courtId: string,
-    patch: Pick<UpdateBookingDTO, 'athlete_name' | 'athlete_id' | 'sport_id' | 'start_time' | 'end_time' | 'price'>
+    patch: Pick<UpdateBookingDTO, 'athlete_name' | 'athlete_id' | 'sport_id' | 'start_time' | 'end_time' | 'price' | 'cobranca_por_participante'>
   ): Promise<Booking> {
     const start = patch.start_time as string;
     const end = patch.end_time as string;

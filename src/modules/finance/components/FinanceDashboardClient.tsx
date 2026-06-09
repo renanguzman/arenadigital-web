@@ -6,7 +6,7 @@ import { BarChart3, Plus, AlertCircle, CheckCircle2, Loader2, Clock, MapPin, Use
 import React, { useCallback, useEffect, useState } from "react";
 import { getFinanceDashboardAction, getMensalistasComPendenciaAction, getAvulsosComPendenciaAction } from "@/modules/finance/actions/financeActions";
 import { confirmarMesMensalistaAction } from "@/modules/bookings/actions/mensalistaActions";
-import { confirmarPagamentoAvulsoAction } from "@/modules/bookings/actions/bookingActions";
+import { confirmarPagamentoAvulsoAction, confirmarPagamentoParticipanteAvulsoAction } from "@/modules/bookings/actions/bookingActions";
 import { ConfirmarPagamentoDialog } from "@/modules/bookings/components/ConfirmarPagamentoDialog";
 import type { ArenaFinanceSummary, ArenaFinanceDailyRow, Transaction } from "@/modules/finance/types/finance.types";
 import { format, parseISO } from "date-fns";
@@ -68,7 +68,7 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const [confirmDialog, setConfirmDialog] = useState<
         | { tipo: "mensalista"; id: string; nome: string; mes: string; valor: number }
-        | { tipo: "avulso"; id: string; nome: string; mes: string; valor: number }
+        | { tipo: "avulso"; id: string; bookingId: string; participantId?: string; nome: string; mes: string; valor: number }
         | null
     >(null);
 
@@ -169,12 +169,21 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
             const res =
                 confirmDialog.tipo === "mensalista"
                     ? await confirmarMesMensalistaAction(arenaId, confirmDialog.id, valor)
-                    : await confirmarPagamentoAvulsoAction(arenaId, confirmDialog.id, valor);
+                    : confirmDialog.participantId
+                        ? await confirmarPagamentoParticipanteAvulsoAction(
+                            arenaId,
+                            confirmDialog.bookingId,
+                            confirmDialog.participantId,
+                            valor
+                        )
+                        : await confirmarPagamentoAvulsoAction(arenaId, confirmDialog.bookingId, valor);
             if (!res.success) throw new Error(res.error);
             toast.success(
                 confirmDialog.tipo === "mensalista"
                     ? "Pagamento confirmado! Próximo mês gerado."
-                    : "Pagamento confirmado! Reserva liberada no relatório."
+                    : confirmDialog.participantId
+                        ? "Pagamento do participante confirmado!"
+                        : "Pagamento confirmado! Reserva liberada no relatório."
             );
             setConfirmDialog(null);
             await Promise.all([loadPendingMensalistas(), loadPendingAvulsos(), loadData()]);
@@ -525,7 +534,7 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
                             <h3 className="text-lg font-bold text-arena-navy-800">Cobranças Avulsas</h3>
                             {pendingAvulsos.length > 0 && (
                                 <p className="text-xs text-orange-600 font-bold">
-                                    {pendingAvulsos.length} reserva{pendingAvulsos.length !== 1 ? "s" : ""} aguardando pagamento
+                                    {pendingAvulsos.length} cobrança{pendingAvulsos.length !== 1 ? "s" : ""} aguardando pagamento
                                 </p>
                             )}
                         </div>
@@ -557,6 +566,8 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
                                 ? format(parseISO(booking.start_time), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
                                 : "—";
                             const isConfirming = confirmingId === booking.id;
+                            const needsParticipantSync =
+                                booking.cobranca_por_participante && !booking.participant_id;
 
                             return (
                                 <div key={booking.id} className="flex items-center justify-between gap-4 p-4 bg-orange-50 border border-orange-200 rounded-xl">
@@ -580,24 +591,32 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
                                         <p className="font-black text-arena-button text-base">
                                             {formatCurrency(Number(booking.price ?? 0))}
                                         </p>
-                                        <Button
-                                            size="sm"
-                                            onClick={() => setConfirmDialog({
-                                                tipo: "avulso",
-                                                id: booking.id,
-                                                nome,
-                                                mes: dataReserva,
-                                                valor: Number(booking.price ?? 0),
-                                            })}
-                                            disabled={isConfirming}
-                                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold gap-1.5 rounded-xl h-9 px-4"
-                                        >
-                                            {isConfirming
-                                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                : <CheckCircle2 className="h-3.5 w-3.5" />
-                                            }
-                                            Confirmar
-                                        </Button>
+                                        {needsParticipantSync ? (
+                                            <span className="max-w-[140px] text-right text-[10px] font-semibold leading-snug text-amber-700">
+                                                Edite a reserva para sincronizar participantes
+                                            </span>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                onClick={() => setConfirmDialog({
+                                                    tipo: "avulso",
+                                                    id: booking.id,
+                                                    bookingId: booking.booking_id,
+                                                    participantId: booking.participant_id,
+                                                    nome,
+                                                    mes: dataReserva,
+                                                    valor: Number(booking.price ?? 0),
+                                                })}
+                                                disabled={isConfirming}
+                                                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold gap-1.5 rounded-xl h-9 px-4"
+                                            >
+                                                {isConfirming
+                                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    : <CheckCircle2 className="h-3.5 w-3.5" />
+                                                }
+                                                Confirmar
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             );

@@ -13,7 +13,11 @@ import { Badge } from "@/components/ui/badge"
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-import { confirmarPagamentoAvulsoAction, updateBookingStatusAction } from "@/modules/bookings/actions/bookingActions"
+import {
+    confirmarPagamentoAvulsoAction,
+    confirmarPagamentoParticipanteAvulsoAction,
+    updateBookingStatusAction,
+} from "@/modules/bookings/actions/bookingActions"
 import { ConfirmarPagamentoDialog } from "@/modules/bookings/components/ConfirmarPagamentoDialog"
 import { toast } from "sonner"
 
@@ -42,6 +46,7 @@ function statusPresentation(status: string | null | undefined) {
 export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, booking, court }: BookingDetailsModalProps) {
     const [isCancelling, setIsCancelling] = useState(false)
     const [showConfirmPayment, setShowConfirmPayment] = useState(false)
+    const [confirmingParticipantId, setConfirmingParticipantId] = useState<string | null>(null)
     const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
     const arenaId = booking?.arena_id as string | undefined
@@ -94,13 +99,42 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
         }
     }
 
+    const handleConfirmarPagamentoParticipante = async (participantId: string, valor: number) => {
+        if (!arenaId) return
+        setConfirmingParticipantId(participantId)
+        try {
+            const res = await confirmarPagamentoParticipanteAvulsoAction(
+                arenaId,
+                booking.id,
+                participantId,
+                valor
+            )
+            if (!res.success) throw new Error(res.error)
+            toast.success("Pagamento do participante confirmado!")
+            onSuccess()
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Erro ao confirmar pagamento")
+        } finally {
+            setConfirmingParticipantId(null)
+        }
+    }
+
     const sportName = booking.sports?.name || court.sports?.[0]?.name || "—"
     const wideLayout = canEdit
     const servicesSum = (booking.booking_services as any[] | undefined ?? []).reduce(
         (acc, s) => acc + s.quantity * Number(s.unit_price),
         0
     )
-    const courtPortionDisplay = Math.max(0, (booking.price ?? 0) - servicesSum)
+    const splitBilling = Boolean(booking.cobranca_por_participante)
+    const courtPortionDisplay = splitBilling
+        ? Number(booking.price ?? 0)
+        : Math.max(0, (booking.price ?? 0) - servicesSum)
+    const billingParticipants = (booking.booking_participants ?? []).filter(
+        (p: { funcao?: string }) => p.funcao === "responsavel" || p.funcao === "convidado"
+    )
+    const unpaidParticipants = billingParticipants.filter(
+        (p: { pago_em?: string | null }) => !p.pago_em
+    )
     const additionalNames: string[] = (booking.booking_participants ?? [])
         .filter(
             (p: { funcao?: string; atleta_id?: string }) =>
@@ -183,7 +217,65 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                             </div>
                         </div>
 
-                        {additionalNames.length > 0 && (
+                        {splitBilling && billingParticipants.length > 0 ? (
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
+                                    Participantes e pagamentos
+                                </p>
+                                <ul className="mt-2 space-y-2">
+                                    {billingParticipants.map(
+                                        (p: {
+                                            id: string
+                                            pago_em?: string | null
+                                            valor?: number | null
+                                            atleta?: { nome_perfil?: string } | null
+                                        }) => {
+                                            const nome = p.atleta?.nome_perfil ?? "Atleta"
+                                            const paid = Boolean(p.pago_em)
+                                            const valor = Number(p.valor ?? booking.price ?? 0)
+                                            const isConfirming = confirmingParticipantId === p.id
+
+                                            return (
+                                                <li
+                                                    key={p.id}
+                                                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-arena-navy-800/8 bg-slate-50 px-3 py-2.5"
+                                                >
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-semibold text-arena-navy-800">
+                                                            {nome}
+                                                        </p>
+                                                        <p className="text-xs font-medium text-arena-navy-800/50">
+                                                            {fmtBrl(valor)}
+                                                            {paid ? " · Pago" : " · Pendente"}
+                                                        </p>
+                                                    </div>
+                                                    {avulsoReservado && !paid && (
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            disabled={isConfirming}
+                                                            onClick={() =>
+                                                                handleConfirmarPagamentoParticipante(
+                                                                    p.id,
+                                                                    valor
+                                                                )
+                                                            }
+                                                            className="h-8 rounded-lg bg-emerald-500 px-3 text-xs font-bold text-white hover:bg-emerald-600"
+                                                        >
+                                                            {isConfirming ? (
+                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                            ) : (
+                                                                "Confirmar"
+                                                            )}
+                                                        </Button>
+                                                    )}
+                                                </li>
+                                            )
+                                        }
+                                    )}
+                                </ul>
+                            </div>
+                        ) : additionalNames.length > 0 ? (
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
                                     Participantes
@@ -199,7 +291,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                                     ))}
                                 </ul>
                             </div>
-                        )}
+                        ) : null}
 
                         <div className="border-t border-slate-200 pt-6" />
 
@@ -225,7 +317,11 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                             <div className="space-y-6">
                                 <div className="space-y-2">
                                     <p className="text-xs font-bold uppercase tracking-wider text-arena-navy-800/40">
-                                        {avulsoReservado ? "Valor da reserva" : "Valor pago"}
+                                        {splitBilling
+                                            ? "Valor por participante"
+                                            : avulsoReservado
+                                              ? "Valor da reserva"
+                                              : "Valor pago"}
                                     </p>
                                     <div className="flex h-14 items-center rounded-xl border border-arena-navy-800/10 bg-slate-50/80 px-4">
                                         <span className="text-2xl font-black text-arena-button">
@@ -259,16 +355,31 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
 
                                 <div className="border-t border-slate-200 pt-6">
                                     <div className="flex flex-wrap items-baseline justify-between gap-3">
-                                        <span className="text-sm font-medium text-arena-navy-800/70">Total da reserva</span>
+                                        <span className="text-sm font-medium text-arena-navy-800/70">
+                                            {splitBilling ? "Total estimado" : "Total da reserva"}
+                                        </span>
                                         <span className="text-2xl font-black tracking-tight text-arena-button">
-                                            {fmtBrl(booking.price ?? 0)}
+                                            {splitBilling
+                                                ? fmtBrl(
+                                                      courtPortionDisplay *
+                                                          billingParticipants.length
+                                                  )
+                                                : fmtBrl(booking.price ?? 0)}
                                         </span>
                                     </div>
-                                    {booking.booking_services?.length > 0 && (
+                                    {splitBilling ? (
+                                        <p className="mt-2 text-[11px] font-medium text-arena-navy-800/45">
+                                            {billingParticipants.length} participante
+                                            {billingParticipants.length !== 1 ? "s" : ""} ×{" "}
+                                            {fmtBrl(courtPortionDisplay)}
+                                            {unpaidParticipants.length > 0 &&
+                                                ` · ${unpaidParticipants.length} pendente${unpaidParticipants.length !== 1 ? "s" : ""}`}
+                                        </p>
+                                    ) : booking.booking_services?.length > 0 ? (
                                         <p className="mt-2 text-[11px] font-medium text-arena-navy-800/45">
                                             Locação {fmtBrl(courtPortionDisplay)} + serviços {fmtBrl(servicesSum)}
                                         </p>
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
                         ) : (
@@ -317,7 +428,7 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                             Editar
                         </Button>
                     )}
-                    {avulsoReservado && (
+                    {avulsoReservado && !splitBilling && (
                         <Button
                             type="button"
                             onClick={() => setShowConfirmPayment(true)}

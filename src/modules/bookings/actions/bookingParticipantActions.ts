@@ -35,6 +35,8 @@ export async function getBookingParticipantsAction(
 export type SyncBookingParticipantsInput = {
     responsibleAthleteId?: string | null
     additionalAthleteIds: string[]
+    /** Valor individual quando cobranca_por_participante = true */
+    valorPorParticipante?: number | null
 }
 
 export async function syncBookingParticipantsForBooking(
@@ -42,12 +44,40 @@ export async function syncBookingParticipantsForBooking(
     bookingId: string,
     input: SyncBookingParticipantsInput
 ): Promise<void> {
+    const valor =
+        input.valorPorParticipante != null && input.valorPorParticipante > 0
+            ? input.valorPorParticipante
+            : null
     const responsibleId = input.responsibleAthleteId ?? null
     const additional = Array.from(
         new Set(input.additionalAthleteIds.filter((id) => id && id !== responsibleId))
     )
 
     // Preserva membros de time (membro_time) criados pelo app.
+    const { data: existingRows, error: existingError } = await supabase
+        .from('booking_participants')
+        .select('atleta_id, pago_em, valor')
+        .eq('booking_id', bookingId)
+        .in('funcao', ['responsavel', 'convidado'])
+
+    if (existingError) throw new Error(existingError.message)
+
+    const paidByAthlete = new Map(
+        (existingRows ?? [])
+            .filter((row) => row.pago_em)
+            .map((row) => [row.atleta_id, row] as const)
+    )
+
+    const nextAthleteIds = new Set(
+        [responsibleId, ...additional].filter((id): id is string => Boolean(id))
+    )
+    const removingPaid = (existingRows ?? []).filter(
+        (row) => row.pago_em && !nextAthleteIds.has(row.atleta_id)
+    )
+    if (removingPaid.length > 0) {
+        throw new Error('Não é possível remover participantes que já pagaram')
+    }
+
     const { error: deleteError } = await supabase
         .from('booking_participants')
         .delete()
@@ -61,24 +91,28 @@ export async function syncBookingParticipantsForBooking(
         atleta_id: string
         funcao: string
         status: string
+        valor: number | null
+        pago_em: string | null
     }[] = []
 
-    if (responsibleId) {
-        rows.push({
+    const buildRow = (atletaId: string, funcao: string) => {
+        const paid = paidByAthlete.get(atletaId)
+        return {
             booking_id: bookingId,
-            atleta_id: responsibleId,
-            funcao: 'responsavel',
+            atleta_id: atletaId,
+            funcao,
             status: 'confirmado',
-        })
+            valor: paid?.valor ?? valor,
+            pago_em: paid?.pago_em ?? null,
+        }
+    }
+
+    if (responsibleId) {
+        rows.push(buildRow(responsibleId, 'responsavel'))
     }
 
     for (const atletaId of additional) {
-        rows.push({
-            booking_id: bookingId,
-            atleta_id: atletaId,
-            funcao: 'convidado',
-            status: 'confirmado',
-        })
+        rows.push(buildRow(atletaId, 'convidado'))
     }
 
     if (rows.length > 0) {

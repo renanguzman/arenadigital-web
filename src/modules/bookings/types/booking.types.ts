@@ -10,6 +10,8 @@ export type BookingParticipantEmbed = {
   atleta_id: string
   funcao: string
   status: string
+  valor?: number | null
+  pago_em?: string | null
   atleta?: { id: string; nome_perfil: string; telefone: string | null } | null
 }
 

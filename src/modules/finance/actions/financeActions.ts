@@ -179,6 +179,20 @@ export async function getMensalistasComPendenciaAction(arenaId: string) {
   }
 }
 
+export type AvulsoPendenciaItem = {
+  id: string
+  booking_id: string
+  participant_id?: string
+  cobranca_por_participante: boolean
+  start_time: string
+  end_time: string
+  price: number
+  athlete_name: string
+  atleta?: { id: string; nome_perfil: string; telefone: string | null } | null
+  court?: { id: string; name: string } | null
+  sports?: { id: string; name: string } | null
+}
+
 export async function getAvulsosComPendenciaAction(arenaId: string) {
   try {
     await assertArenaBackofficeAccess(arenaId);
@@ -193,9 +207,18 @@ export async function getAvulsosComPendenciaAction(arenaId: string) {
                 end_time,
                 price,
                 athlete_name,
+                cobranca_por_participante,
                 atleta:athlete_id(id, nome_perfil, telefone),
                 court:court_id(id, name),
-                sports:sport_id(id, name)
+                sports:sport_id(id, name),
+                booking_participants(
+                    id,
+                    atleta_id,
+                    valor,
+                    pago_em,
+                    funcao,
+                    atleta:atleta_id(id, nome_perfil, telefone)
+                )
             `
       )
       .eq('arena_id', arenaId)
@@ -204,7 +227,78 @@ export async function getAvulsosComPendenciaAction(arenaId: string) {
       .order('start_time', { ascending: true });
 
     if (error) throw new Error(error.message);
-    return { success: true, data: data ?? [] };
+
+    const pendencias: AvulsoPendenciaItem[] = [];
+
+    for (const booking of data ?? []) {
+      const row = booking as any
+      if (row.cobranca_por_participante) {
+        const participants = (row.booking_participants ?? []).filter(
+          (p: { funcao?: string; pago_em?: string | null }) =>
+            (p.funcao === 'responsavel' || p.funcao === 'convidado') && !p.pago_em
+        )
+
+        if (participants.length === 0) {
+          const allBillingParts = (row.booking_participants ?? []).filter(
+            (p: { funcao?: string }) =>
+              p.funcao === 'responsavel' || p.funcao === 'convidado'
+          )
+          const allPaid =
+            allBillingParts.length > 0 &&
+            allBillingParts.every((p: { pago_em?: string | null }) => p.pago_em)
+          if (allPaid) continue
+
+          pendencias.push({
+            id: row.id,
+            booking_id: row.id,
+            cobranca_por_participante: true,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            price: Number(row.price ?? 0),
+            athlete_name: row.atleta?.nome_perfil ?? row.athlete_name ?? 'Atleta',
+            atleta: Array.isArray(row.atleta) ? row.atleta[0] : row.atleta,
+            court: Array.isArray(row.court) ? row.court[0] : row.court,
+            sports: Array.isArray(row.sports) ? row.sports[0] : row.sports,
+          })
+          continue
+        }
+
+        for (const participant of participants) {
+          const atleta = Array.isArray(participant.atleta)
+            ? participant.atleta[0]
+            : participant.atleta
+          pendencias.push({
+            id: `${row.id}:${participant.id}`,
+            booking_id: row.id,
+            participant_id: participant.id,
+            cobranca_por_participante: true,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            price: Number(participant.valor ?? row.price ?? 0),
+            athlete_name: atleta?.nome_perfil ?? row.athlete_name ?? 'Atleta',
+            atleta,
+            court: Array.isArray(row.court) ? row.court[0] : row.court,
+            sports: Array.isArray(row.sports) ? row.sports[0] : row.sports,
+          })
+        }
+        continue
+      }
+
+      pendencias.push({
+        id: row.id,
+        booking_id: row.id,
+        cobranca_por_participante: false,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        price: Number(row.price ?? 0),
+        athlete_name: row.atleta?.nome_perfil ?? row.athlete_name ?? 'Atleta',
+        atleta: Array.isArray(row.atleta) ? row.atleta[0] : row.atleta,
+        court: Array.isArray(row.court) ? row.court[0] : row.court,
+        sports: Array.isArray(row.sports) ? row.sports[0] : row.sports,
+      })
+    }
+
+    return { success: true, data: pendencias };
   } catch (err) {
     const message =
       err instanceof Error ? err.message : 'Erro ao buscar cobranças avulsas';

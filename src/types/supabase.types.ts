@@ -666,7 +666,9 @@ export type Database = {
           funcao: string
           id: string
           id_time: string | null
+          pago_em: string | null
           status: string
+          valor: number | null
         }
         Insert: {
           atleta_id: string
@@ -675,7 +677,9 @@ export type Database = {
           funcao?: string
           id?: string
           id_time?: string | null
+          pago_em?: string | null
           status?: string
+          valor?: number | null
         }
         Update: {
           atleta_id?: string
@@ -684,7 +688,9 @@ export type Database = {
           funcao?: string
           id?: string
           id_time?: string | null
+          pago_em?: string | null
           status?: string
+          valor?: number | null
         }
         Relationships: [
           {
@@ -758,6 +764,7 @@ export type Database = {
           athlete_id: string | null
           athlete_name: string | null
           booking_type: string | null
+          cobranca_por_participante: boolean
           court_id: string
           created_at: string
           end_time: string
@@ -774,6 +781,7 @@ export type Database = {
           athlete_id?: string | null
           athlete_name?: string | null
           booking_type?: string | null
+          cobranca_por_participante?: boolean
           court_id: string
           created_at?: string
           end_time: string
@@ -790,6 +798,7 @@ export type Database = {
           athlete_id?: string | null
           athlete_name?: string | null
           booking_type?: string | null
+          cobranca_por_participante?: boolean
           court_id?: string
           created_at?: string
           end_time?: string

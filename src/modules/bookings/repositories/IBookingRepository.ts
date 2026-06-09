@@ -10,6 +10,6 @@ export interface IBookingRepository {
   updateBooking(
     bookingId: string,
     courtId: string,
-    patch: Pick<UpdateBookingDTO, 'athlete_name' | 'athlete_id' | 'sport_id' | 'start_time' | 'end_time' | 'price'>
+    patch: Pick<UpdateBookingDTO, 'athlete_name' | 'athlete_id' | 'sport_id' | 'start_time' | 'end_time' | 'price' | 'cobranca_por_participante'>
   ): Promise<Booking>;
 }

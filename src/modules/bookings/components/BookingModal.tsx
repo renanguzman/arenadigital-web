@@ -265,6 +265,8 @@ export function BookingModal({
   const [additionalParticipants, setAdditionalParticipants] = useState<
     BookingAthleteOption[]
   >([]);
+  const [splitBillingPerParticipant, setSplitBillingPerParticipant] =
+    useState(false);
 
   // Mensal
   const [diaSemana, setDiaSemana] = useState<string>(
@@ -330,7 +332,15 @@ export function BookingModal({
       setServiceLines(mapped);
       setIncludeServices(mapped.length > 0);
       const svcSum = mapped.reduce((a, l) => a + l.quantity * l.unitPrice, 0);
-      setCourtPrice(String(Math.max(0, (existingBooking.price ?? 0) - svcSum)));
+      const isSplit = existingBooking.cobranca_por_participante ?? false;
+      setSplitBillingPerParticipant(isSplit);
+      setCourtPrice(
+        String(
+          isSplit
+            ? existingBooking.price ?? 0
+            : Math.max(0, (existingBooking.price ?? 0) - svcSum)
+        )
+      );
       const extra = (existingBooking.booking_participants ?? [])
         .filter((p) => p.funcao === 'convidado')
         .map((p) => ({
@@ -356,6 +366,7 @@ export function BookingModal({
     setServiceLines([]);
     setIncludeServices(false);
     setAdditionalParticipants([]);
+    setSplitBillingPerParticipant(false);
     setDiaSemana(String(selectedDate.getDay()));
     void loadCourtSports();
   }, [
@@ -382,6 +393,19 @@ export function BookingModal({
     recurrenceWeeks,
     bookingType,
   ]);
+
+  useEffect(() => {
+    if (!existingBooking && additionalParticipants.length === 0) {
+      setSplitBillingPerParticipant(false);
+    }
+  }, [additionalParticipants.length, existingBooking]);
+
+  useEffect(() => {
+    if (splitBillingPerParticipant && includeServices) {
+      setIncludeServices(false);
+      setServiceLines([]);
+    }
+  }, [splitBillingPerParticipant, includeServices]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -438,10 +462,16 @@ export function BookingModal({
       return;
     }
 
+    const valorPorParticipante =
+      splitBillingPerParticipant && Number(courtPrice) > 0
+        ? Number(courtPrice)
+        : null;
+
     for (const bookingId of bookingIds) {
       const res = await syncBookingParticipantsAction(arenaId, bookingId, {
         responsibleAthleteId: responsibleId,
         additionalAthleteIds: additionalIds,
+        valorPorParticipante,
       });
       if (!res.success) {
         throw new Error(res.error ?? 'Erro ao salvar participantes da reserva');
@@ -459,7 +489,22 @@ export function BookingModal({
       toast.error('Informe um valor válido para a locação');
       return;
     }
+    if (splitBillingPerParticipant) {
+      if (!selectedAthlete?.id) {
+        toast.error(
+          'Para cobrança separada, o responsável precisa ser um atleta cadastrado'
+        );
+        return;
+      }
+      if (additionalParticipants.length === 0) {
+        toast.error(
+          'Adicione pelo menos um participante para cobrança separada'
+        );
+        return;
+      }
+    }
     const totalPrice = court + sumBookingServiceLines(serviceLines);
+    const bookingPrice = splitBillingPerParticipant ? court : totalPrice;
     const servicePayload = serviceLines.map((l) => ({
       product_id: l.productId,
       quantity: l.quantity,
@@ -483,7 +528,8 @@ export function BookingModal({
           sport_id: selectedSport || null,
           start_time: startDateTime.toISOString(),
           end_time: endDateTime.toISOString(),
-          price: totalPrice,
+          price: bookingPrice,
+          cobranca_por_participante: splitBillingPerParticipant,
         });
         if (!result.success) {
           toast.error(result.error ?? 'Erro ao atualizar reserva');
@@ -529,7 +575,8 @@ export function BookingModal({
             start_time: addWeeks(startDateTime, i).toISOString(),
             end_time: addWeeks(endDateTime, i).toISOString(),
             status: 'reservado' as const,
-            price: totalPrice,
+            price: bookingPrice,
+            cobranca_por_participante: splitBillingPerParticipant,
             recurrence_id: recurrenceId,
           });
         }
@@ -576,7 +623,8 @@ export function BookingModal({
           start_time: startDateTime.toISOString(),
           end_time: endDateTime.toISOString(),
           status: 'reservado',
-          price: totalPrice,
+          price: bookingPrice,
+          cobranca_por_participante: splitBillingPerParticipant,
         });
         if (!created.success) {
           toast.error(created.error ?? 'Erro ao criar reserva');
@@ -607,8 +655,12 @@ export function BookingModal({
 
       toast.success(
         isRecurring
-          ? 'Agenda criada! Confirme os pagamentos em Financeiro → Cobranças Avulsas.'
-          : 'Reserva criada! Confirme o pagamento em Financeiro → Cobranças Avulsas.'
+          ? splitBillingPerParticipant
+            ? 'Agenda criada! Confirme o pagamento de cada participante em Financeiro → Cobranças Avulsas.'
+            : 'Agenda criada! Confirme os pagamentos em Financeiro → Cobranças Avulsas.'
+          : splitBillingPerParticipant
+            ? 'Reserva criada! Confirme o pagamento de cada participante em Financeiro → Cobranças Avulsas.'
+            : 'Reserva criada! Confirme o pagamento em Financeiro → Cobranças Avulsas.'
       );
       onSuccess();
       onClose();
@@ -682,6 +734,7 @@ export function BookingModal({
     setServiceLines([]);
     setIncludeServices(false);
     setAdditionalParticipants([]);
+    setSplitBillingPerParticipant(false);
   };
 
   // ── Helpers para gerar slots a verificar ────────────────────────────────
@@ -837,7 +890,17 @@ export function BookingModal({
     () => sumBookingServiceLines(serviceLines),
     [serviceLines]
   );
-  const totalDisplay = (Number(courtPrice) || 0) + servicesSumDisplay;
+  const hasPaidParticipants = Boolean(
+    existingBooking?.booking_participants?.some(
+      (p) =>
+        (p.funcao === 'responsavel' || p.funcao === 'convidado') && p.pago_em
+    )
+  );
+  const participantCount = 1 + additionalParticipants.length;
+  const totalDisplay =
+    (Number(courtPrice) || 0) *
+      (splitBillingPerParticipant ? participantCount : 1) +
+    servicesSumDisplay;
   const fmtBrl = (n: number) =>
     new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -938,6 +1001,52 @@ export function BookingModal({
                         onRegisterNew={() => setIsAthleteModalOpen(true)}
                         disabled={isSaving}
                       />
+                      {additionalParticipants.length > 0 && (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                          <div className="flex items-start gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (hasPaidParticipants) return;
+                                setSplitBillingPerParticipant((prev) => !prev);
+                              }}
+                              disabled={hasPaidParticipants}
+                              className={cn(
+                                'relative mt-0.5 h-6 w-12 shrink-0 rounded-full transition-colors',
+                                splitBillingPerParticipant
+                                  ? 'bg-arena-button'
+                                  : 'bg-gray-200',
+                                hasPaidParticipants &&
+                                  'cursor-not-allowed opacity-40'
+                              )}
+                              aria-pressed={splitBillingPerParticipant}
+                            >
+                              <div
+                                className={cn(
+                                  'absolute top-1 h-4 w-4 rounded-full bg-white transition-transform',
+                                  splitBillingPerParticipant ? 'left-7' : 'left-1'
+                                )}
+                              />
+                            </button>
+                            <div className="min-w-0 flex-1 space-y-0.5">
+                              <Label className="text-sm font-bold text-arena-navy-800">
+                                Cobrança separada por participante
+                              </Label>
+                              <p className="text-[10px] font-medium leading-snug text-arena-navy-800/40">
+                                Cada pessoa terá sua própria cobrança e entrada no
+                                financeiro. A reserva só é confirmada quando todos
+                                pagarem.
+                              </p>
+                              {hasPaidParticipants && (
+                                <p className="text-[10px] font-semibold leading-snug text-amber-700">
+                                  Não é possível alterar este modo após confirmar
+                                  pagamentos de participantes.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2 lg:col-span-3">
                       <Label className="text-xs font-bold uppercase text-arena-navy-800/40 tracking-wider">
@@ -1024,7 +1133,9 @@ export function BookingModal({
                     </div>
                     <div className="space-y-2 lg:col-span-6">
                       <Label className="text-xs font-bold uppercase text-arena-navy-800/40 tracking-wider">
-                        Valor pago
+                        {splitBillingPerParticipant
+                          ? 'Valor por participante'
+                          : 'Valor pago'}
                       </Label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-arena-navy-800/40">
@@ -1143,14 +1254,18 @@ export function BookingModal({
                         <button
                           type="button"
                           onClick={() => {
+                            if (splitBillingPerParticipant) return;
                             setIncludeServices((prev) => {
                               if (prev) setServiceLines([]);
                               return !prev;
                             });
                           }}
+                          disabled={splitBillingPerParticipant}
                           className={cn(
                             'relative mt-0.5 h-6 w-12 shrink-0 rounded-full transition-colors',
-                            includeServices ? 'bg-arena-button' : 'bg-gray-200'
+                            includeServices ? 'bg-arena-button' : 'bg-gray-200',
+                            splitBillingPerParticipant &&
+                              'cursor-not-allowed opacity-40'
                           )}
                           aria-pressed={includeServices}
                         >
@@ -1199,12 +1314,18 @@ export function BookingModal({
                         {fmtBrl(totalDisplay)}
                       </span>
                     </div>
-                    {serviceLines.length > 0 && (
+                    {splitBillingPerParticipant ? (
+                      <p className="mt-2 text-[11px] font-medium text-arena-navy-800/45">
+                        {participantCount} participante
+                        {participantCount !== 1 ? 's' : ''} ×{' '}
+                        {fmtBrl(Number(courtPrice) || 0)}
+                      </p>
+                    ) : serviceLines.length > 0 ? (
                       <p className="mt-2 text-[11px] font-medium text-arena-navy-800/45">
                         Locação {fmtBrl(Number(courtPrice) || 0)} + serviços{' '}
                         {fmtBrl(servicesSumDisplay)}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </>
               )}

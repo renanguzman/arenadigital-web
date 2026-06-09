@@ -39,7 +39,7 @@ export async function getPaymentStatusReportAction(
 
     let query = supabase
       .from('bookings')
-      .select('id, start_time, status, price, plano_mensalista_id, sport_id, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil)')
+      .select('id, start_time, status, price, plano_mensalista_id, sport_id, cobranca_por_participante, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil), booking_participants(id, funcao, pago_em, valor)')
       .eq('arena_id', arenaId)
       .order('start_time', { ascending: false })
 
@@ -171,6 +171,27 @@ export async function getPaymentStatusReportAction(
         if (b.status === 'confirmed') status = 'Pago'
         else if (b.status === 'cancelled') status = 'Cancelado'
 
+        const billingParticipants = (b.booking_participants ?? []).filter(
+          (p: { funcao?: string }) => p.funcao === 'responsavel' || p.funcao === 'convidado'
+        )
+        let valor: number | null = b.price ?? null
+        if (b.cobranca_por_participante && billingParticipants.length > 0) {
+          if (b.status === 'reservado') {
+            const unpaid = billingParticipants.filter((p: { pago_em?: string | null }) => !p.pago_em)
+            valor = unpaid.reduce(
+              (sum: number, p: { valor?: number | null }) =>
+                sum + Number(p.valor ?? b.price ?? 0),
+              0
+            )
+          } else {
+            valor = billingParticipants.reduce(
+              (sum: number, p: { valor?: number | null }) =>
+                sum + Number(p.valor ?? b.price ?? 0),
+              0
+            )
+          }
+        }
+
         return {
           id: b.id,
           data: b.start_time,
@@ -178,7 +199,7 @@ export async function getPaymentStatusReportAction(
           servico: b.plano_mensalista_id ? 'Mensal' : 'Avulso',
           espaco: b.courts?.name ?? null,
           esporte: b.sports?.name ?? null,
-          valor: b.price ?? null,
+          valor,
           status,
         }
       })
