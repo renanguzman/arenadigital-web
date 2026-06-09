@@ -305,3 +305,114 @@ export async function getAvulsosComPendenciaAction(arenaId: string) {
     return { success: false, error: message, data: [] };
   }
 }
+
+export type AvulsoStatus = 'pendente' | 'pago' | 'cancelado';
+
+export type AvulsoListItem = AvulsoPendenciaItem & {
+  status: AvulsoStatus;
+  pago_em?: string | null;
+};
+
+export async function getAvulsosTodosAction(arenaId: string) {
+  try {
+    await assertArenaBackofficeAccess(arenaId);
+    const supabase = getSupabaseAdmin();
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .select(
+        `
+                id,
+                start_time,
+                end_time,
+                price,
+                status,
+                athlete_name,
+                cobranca_por_participante,
+                atleta:athlete_id(id, nome_perfil, telefone),
+                court:court_id(id, name),
+                sports:sport_id(id, name),
+                booking_participants(
+                    id,
+                    atleta_id,
+                    valor,
+                    pago_em,
+                    funcao,
+                    atleta:atleta_id(id, nome_perfil, telefone)
+                )
+            `
+      )
+      .eq('arena_id', arenaId)
+      .is('plano_mensalista_id', null)
+      .in('status', ['reservado', 'confirmed', 'cancelled'])
+      .order('start_time', { ascending: false });
+
+    if (error) throw new Error(error.message);
+
+    const items: AvulsoListItem[] = [];
+
+    for (const booking of data ?? []) {
+      const row = booking as any;
+      const isCancelled = row.status === 'cancelled';
+      const court = Array.isArray(row.court) ? row.court[0] : row.court;
+      const sports = Array.isArray(row.sports) ? row.sports[0] : row.sports;
+
+      if (row.cobranca_por_participante) {
+        const billingParts = (row.booking_participants ?? []).filter(
+          (p: { funcao?: string }) =>
+            p.funcao === 'responsavel' || p.funcao === 'convidado'
+        );
+
+        if (billingParts.length > 0) {
+          for (const participant of billingParts) {
+            const atleta = Array.isArray(participant.atleta)
+              ? participant.atleta[0]
+              : participant.atleta;
+            const isPaid = Boolean(participant.pago_em);
+            items.push({
+              id: `${row.id}:${participant.id}`,
+              booking_id: row.id,
+              participant_id: participant.id,
+              cobranca_por_participante: true,
+              start_time: row.start_time,
+              end_time: row.end_time,
+              price: Number(participant.valor ?? row.price ?? 0),
+              athlete_name: atleta?.nome_perfil ?? row.athlete_name ?? 'Atleta',
+              status: isCancelled ? 'cancelado' : isPaid ? 'pago' : 'pendente',
+              pago_em: participant.pago_em ?? null,
+              atleta,
+              court,
+              sports,
+            });
+          }
+          continue;
+        }
+      }
+
+      items.push({
+        id: row.id,
+        booking_id: row.id,
+        cobranca_por_participante: Boolean(row.cobranca_por_participante),
+        start_time: row.start_time,
+        end_time: row.end_time,
+        price: Number(row.price ?? 0),
+        athlete_name: row.atleta?.nome_perfil ?? row.athlete_name ?? 'Atleta',
+        status: isCancelled
+          ? 'cancelado'
+          : row.status === 'confirmed'
+            ? 'pago'
+            : 'pendente',
+        pago_em: null,
+        atleta: Array.isArray(row.atleta) ? row.atleta[0] : row.atleta,
+        court,
+        sports,
+      });
+    }
+
+    return { success: true, data: items };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Erro ao buscar cobranças avulsas';
+    return { success: false, error: message, data: [] as AvulsoListItem[] };
+  }
+}

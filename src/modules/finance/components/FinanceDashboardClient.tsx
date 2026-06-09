@@ -540,10 +540,10 @@ export function FinanceDashboardClient({ arenaId, initialSummary, initialRecentE
                         </div>
                     </div>
                     <Link
-                        href={`/dashboard/arenas/${arenaId}/courts`}
+                        href={`/dashboard/arenas/${arenaId}/avulsas`}
                         className="text-sm font-bold text-arena-navy-800/50 hover:text-arena-navy-800 underline"
                     >
-                        Ver calendário
+                        Ver tudo
                     </Link>
                 </div>
 
