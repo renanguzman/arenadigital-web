@@ -420,8 +420,7 @@ async function handleSubscriptionUpdated(
     gateway_customer_id: subscription.customerId,
     status: subscription.status,
     current_period_end: subscription.primaryItem?.currentPeriodEndIso ?? null,
-    cancel_at_period_end:
-      subscription.status === 'active' ? false : subscription.cancelAtPeriodEnd,
+    cancel_at_period_end: subscription.cancelAtPeriodEnd,
     canceled_at: subscription.status === 'active' ? null : subscription.canceledAtIso,
     updated_at: new Date().toISOString(),
     ...(matchedPlan ? { plan_key: matchedPlan.key, plan_id: matchedPlan.id } : {})
@@ -527,7 +526,7 @@ async function handleInvoicePaid(
     gateway_customer_id: subscription.customerId,
     status: 'active' as const,
     current_period_end: subscription.primaryItem?.currentPeriodEndIso ?? null,
-    cancel_at_period_end: false,
+    cancel_at_period_end: subscription.cancelAtPeriodEnd,
     canceled_at: null,
     updated_at: new Date().toISOString(),
     ...(matchedPlan ? { plan_key: matchedPlan.key, plan_id: matchedPlan.id } : {})

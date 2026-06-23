@@ -139,6 +139,58 @@ function getPlanRules(plan: SubscriptionPlanOption) {
     : ['Contrato anual', 'Cobrança mensal'];
 }
 
+function getSubscriptionNotice(subscription: ArenaSubscription) {
+  if (subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd) {
+    return {
+      title: 'Cancelamento agendado',
+      message: `O acesso segue ativo ate ${formatCalendarOrInstant(subscription.currentPeriodEnd)}. Para continuar usando, clique em "Manter assinatura".`,
+      className: 'bg-amber-50 text-amber-700',
+    };
+  }
+
+  const notices: Partial<
+    Record<
+      ArenaSubscription['status'],
+      { title: string; message: string; className: string }
+    >
+  > = {
+    past_due: {
+      title: 'Pagamento em atraso',
+      message: 'Atualize o cartao para regularizar a assinatura.',
+      className: 'bg-red-50 text-red-700',
+    },
+    unpaid: {
+      title: 'Assinatura com cobranca contestada',
+      message:
+        'Identificamos um problema grave na cobranca. Atualize o cartao ou entre em contato com o suporte para regularizar o acesso.',
+      className: 'bg-red-50 text-red-700',
+    },
+    incomplete: {
+      title: 'Pagamento pendente',
+      message:
+        'Conclua o checkout ou atualize o cartao para ativar a assinatura.',
+      className: 'bg-amber-50 text-amber-700',
+    },
+    incomplete_expired: {
+      title: 'Checkout expirado',
+      message: 'Inicie um novo checkout para ativar a assinatura.',
+      className: 'bg-amber-50 text-amber-700',
+    },
+    canceled: {
+      title: 'Assinatura cancelada',
+      message: 'Cadastre um cartao ou escolha um plano para reativar o acesso.',
+      className: 'bg-red-50 text-red-700',
+    },
+    paused: {
+      title: 'Assinatura pausada',
+      message: 'Atualize a forma de pagamento ou fale com o suporte.',
+      className: 'bg-amber-50 text-amber-700',
+    },
+  };
+
+  return notices[subscription.status] ?? null;
+}
+
 function PaymentStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
     paid: {
@@ -198,6 +250,7 @@ export function SubscriptionPageClient({
   const selectedPlan =
     plans.find((plan) => plan.key === selectedPlanKey) ?? null;
   const isPartnerSubscription = subscription.planKey === PARTNER_PLAN_KEY;
+  const subscriptionNotice = getSubscriptionNotice(subscription);
   const resolveBillingPlanKey = (): PlanKey =>
     subscription.planKey ?? selectedPlanKey;
 
@@ -522,11 +575,13 @@ export function SubscriptionPageClient({
                   ) : null}
                 </div>
 
-                {subscription.status === 'past_due' && (
-                  <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
+                {subscriptionNotice && (
+                  <div className={`flex items-start gap-2 rounded-md p-3 text-sm ${subscriptionNotice.className}`}>
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    Pagamento em atraso. Atualize o cartao para regularizar a
-                    assinatura.
+                    <div>
+                      <p className="font-semibold">{subscriptionNotice.title}</p>
+                      <p>{subscriptionNotice.message}</p>
+                    </div>
                   </div>
                 )}
 
