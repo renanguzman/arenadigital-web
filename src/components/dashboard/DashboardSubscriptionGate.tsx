@@ -24,6 +24,13 @@ type State =
   | { status: 'ready'; arenaId: string; subscription: SubscriptionSnapshot }
   | { status: 'error'; arenaId: string }
 
+const PAYMENT_ISSUE_STATUSES = new Set([
+  'past_due',
+  'unpaid',
+  'incomplete',
+  'incomplete_expired',
+])
+
 export function DashboardSubscriptionGate() {
   const router = useRouter()
   const pathname = usePathname()
@@ -96,5 +103,25 @@ export function DashboardSubscriptionGate() {
     }
   }, [canManageSubscription, isTutorialAccess, pathname, router, selectedArena, state])
 
-  return null
+  if (
+    isTutorialAccess ||
+    !selectedArena ||
+    !canManageSubscription ||
+    state.status !== 'ready' ||
+    state.arenaId !== selectedArena ||
+    !PAYMENT_ISSUE_STATUSES.has(state.subscription.status)
+  ) {
+    return null
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => router.push(`/dashboard/settings/subscription/${selectedArena}`)}
+      className="mb-4 w-full rounded-md bg-gradient-to-r from-orange-500 to-yellow-400 px-4 py-3 text-center text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-95"
+    >
+      Sua assinatura <strong>não foi paga</strong>. Regularize para evitar o
+      cancelamento da assinatura <span className="underline">clicando aqui</span>
+    </button>
+  )
 }
