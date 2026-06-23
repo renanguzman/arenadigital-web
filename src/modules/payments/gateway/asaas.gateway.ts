@@ -658,6 +658,20 @@ export class AsaasGateway implements PaymentGateway {
             ),
             customerId: payload.checkout.customer ?? null,
           };
+        case 'CHECKOUT_CANCELED':
+          return {
+            kind: 'checkout.canceled',
+            providerEventId: eventId,
+            checkoutId: payload.checkout.id ?? '',
+            customerId: payload.checkout.customer ?? null,
+          };
+        case 'CHECKOUT_EXPIRED':
+          return {
+            kind: 'checkout.expired',
+            providerEventId: eventId,
+            checkoutId: payload.checkout.id ?? '',
+            customerId: payload.checkout.customer ?? null,
+          };
         default:
           return {
             kind: 'unhandled',
@@ -683,6 +697,24 @@ export class AsaasGateway implements PaymentGateway {
         case 'PAYMENT_CREDIT_CARD_CAPTURE_REFUSED':
           return {
             kind: 'invoice.payment_failed',
+            providerEventId: eventId,
+            invoice: mapPayment(payload.payment),
+            subscriptionId,
+          };
+        case 'PAYMENT_REFUNDED':
+        case 'PAYMENT_PARTIALLY_REFUNDED':
+        case 'PAYMENT_REFUND_IN_PROGRESS':
+          return {
+            kind: 'invoice.refunded',
+            providerEventId: eventId,
+            invoice: mapPayment(payload.payment),
+            subscriptionId,
+          };
+        case 'PAYMENT_CHARGEBACK_REQUESTED':
+        case 'PAYMENT_CHARGEBACK_DISPUTE':
+        case 'PAYMENT_AWAITING_CHARGEBACK_REVERSAL':
+          return {
+            kind: 'invoice.chargeback',
             providerEventId: eventId,
             invoice: mapPayment(payload.payment),
             subscriptionId,

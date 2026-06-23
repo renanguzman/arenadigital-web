@@ -83,7 +83,7 @@ export async function createSetupIntent(
 
   const { data: subscription } = await supabase
     .from('arena_subscriptions')
-    .select('gateway_customer_id, status, plan_key, experimental_started_at')
+    .select('gateway_customer_id, gateway_subscription_id, status, plan_key, experimental_started_at')
     .eq('arena_id', arenaId)
     .maybeSingle();
 
@@ -216,6 +216,37 @@ export async function createSetupIntent(
         { checkoutId: cardCollection.checkoutId, error: checkoutUpdateError }
       );
       throw new PaymentConfigurationError(checkoutUpdateError.message);
+    }
+
+    const { error: attemptError } = await supabase
+      .from('payment_checkout_attempts')
+      .upsert(
+        {
+          provider: 'asaas',
+          checkout_id: cardCollection.checkoutId,
+          arena_id: arenaId,
+          plan_key: planKey,
+          plan_id: plan.id,
+          status: 'created',
+          gateway_customer_id: gatewayCustomerId,
+          replaces_gateway_subscription_id:
+            subscription?.gateway_subscription_id ?? null,
+          created_by_user_id: actorId ?? null,
+          metadata: {
+            reused_customer: Boolean(subscription?.gateway_customer_id),
+            previous_plan_key: subscription?.plan_key ?? null,
+          },
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'provider,checkout_id' }
+      );
+
+    if (attemptError) {
+      console.error(
+        '[payments] create-setup-intent — failed to persist checkout attempt',
+        { checkoutId: cardCollection.checkoutId, error: attemptError }
+      );
+      throw new PaymentConfigurationError(attemptError.message);
     }
   }
 
