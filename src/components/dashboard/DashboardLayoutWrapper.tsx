@@ -56,10 +56,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           <Menu className="h-5 w-5" />
         </Button>
         <main className="flex-1 min-w-0 p-4 pb-24 md:p-6 lg:p-8" data-tutorial="dashboard-main">
+          <Suspense fallback={null}>
+            <DashboardSubscriptionGate />
+          </Suspense>
           {children}
         </main>
         <Suspense fallback={null}>
-          <DashboardSubscriptionGate />
           <WelcomeTutorialDialog />
         </Suspense>
       </div>

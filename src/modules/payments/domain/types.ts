@@ -79,6 +79,18 @@ export type DomainWebhookEvent =
       subscriptionId: string | null
     }
   | {
+      kind: 'invoice.refunded'
+      providerEventId: string
+      invoice: DomainInvoice
+      subscriptionId: string | null
+    }
+  | {
+      kind: 'invoice.chargeback'
+      providerEventId: string
+      invoice: DomainInvoice
+      subscriptionId: string | null
+    }
+  | {
       kind: 'invoice.action_required'
       providerEventId: string
       invoice: DomainInvoice
@@ -89,6 +101,18 @@ export type DomainWebhookEvent =
       providerEventId: string
       checkoutId: string
       subscriptionId: string | null
+      customerId: string | null
+    }
+  | {
+      kind: 'checkout.canceled'
+      providerEventId: string
+      checkoutId: string
+      customerId: string | null
+    }
+  | {
+      kind: 'checkout.expired'
+      providerEventId: string
+      checkoutId: string
       customerId: string | null
     }
   | { kind: 'unhandled'; providerEventId: string; eventType: string }

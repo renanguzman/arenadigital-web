@@ -333,6 +333,147 @@ export type Database = {
           },
         ]
       }
+      payment_checkout_attempts: {
+        Row: {
+          arena_id: string
+          checkout_id: string
+          created_at: string
+          created_by_user_id: string | null
+          gateway_customer_id: string | null
+          id: string
+          metadata: Json | null
+          paid_at: string | null
+          plan_id: string | null
+          plan_key: string
+          provider: string
+          replaces_gateway_subscription_id: string | null
+          result_gateway_subscription_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          arena_id: string
+          checkout_id: string
+          created_at?: string
+          created_by_user_id?: string | null
+          gateway_customer_id?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          plan_id?: string | null
+          plan_key: string
+          provider: string
+          replaces_gateway_subscription_id?: string | null
+          result_gateway_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          arena_id?: string
+          checkout_id?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          gateway_customer_id?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          plan_id?: string | null
+          plan_key?: string
+          provider?: string
+          replaces_gateway_subscription_id?: string | null
+          result_gateway_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_checkout_attempts_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_checkout_attempts_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_checkout_attempts_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_webhook_events: {
+        Row: {
+          arena_id: string | null
+          attempts: number
+          created_at: string
+          error_message: string | null
+          event_type: string
+          gateway_checkout_id: string | null
+          gateway_subscription_id: string | null
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          processing_started_at: string | null
+          provider: string
+          provider_event_id: string
+          received_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          arena_id?: string | null
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          gateway_checkout_id?: string | null
+          gateway_subscription_id?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          provider: string
+          provider_event_id: string
+          received_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          arena_id?: string | null
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          gateway_checkout_id?: string | null
+          gateway_subscription_id?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          provider?: string
+          provider_event_id?: string
+          received_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_webhook_events_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       atleta: {
         Row: {
           bairro: string | null
