@@ -68,6 +68,13 @@ function getOperatingEndMins(config: DayConfig): number {
     return endMins
 }
 
+/** Converte um horário para "minutos de operação": horários antes do início do
+ *  funcionamento pertencem ao dia seguinte (funcionamento que cruza a meia-noite). */
+function toOpMins(time: string, startMins: number): number {
+    const mins = parseHHMM(time)
+    return mins < startMins ? mins + 24 * 60 : mins
+}
+
 function countSlots(config: DayConfig): number {
     if (!config.enabled || !config.startTime || !config.endTime) return 0
     const startMins = parseHHMM(config.startTime)
@@ -94,79 +101,85 @@ function countSlots(config: DayConfig): number {
     return count
 }
 
-function resolveDefaultTierId(config: DayConfig): string {
-    return config.defaultTierId ?? 'default'
+/** ID único e determinístico para um segmento de faixa padrão (preenche lacunas). */
+function gapTierId(start: string): string {
+    return `default-${minsToHHMM(parseHHMM(start))}`
 }
 
-/** Converte config salva → faixas encadeadas para edição (sempre contíguas). */
+/** Converte config salva → faixas encadeadas para edição (sempre contíguas).
+ *  Toda a aritmética usa "minutos de operação" para suportar funcionamento
+ *  que cruza a meia-noite. Cada faixa recebe um id único; uma só é a padrão. */
 function tiersFromConfig(config: DayConfig): PriceTier[] {
-    const defaultId = resolveDefaultTierId(config)
-    const customs = [...config.customPrices].sort(
-        (a, b) => parseHHMM(a.start) - parseHHMM(b.start)
-    )
-
-    if (customs.length === 0) {
-        return [{
-            id: defaultId,
-            start: config.startTime,
-            end: config.endTime,
-            price: config.price || 0,
-            isDefault: true,
-        }]
-    }
-
-    const tiers: PriceTier[] = []
-    let cursor = config.startTime
-    let cursorMins = parseHHMM(cursor)
+    const startMins = parseHHMM(config.startTime)
     const endMins = getOperatingEndMins(config)
 
-    for (const cp of customs) {
-        const cpStartMins = parseHHMM(cp.start)
+    const customs = config.customPrices
+        .map((cp) => ({
+            ...cp,
+            opStart: toOpMins(cp.start, startMins),
+            opEnd: toOpMins(cp.end, startMins),
+        }))
+        // Descarta faixas inválidas ou fora do funcionamento (dados legados/corrompidos)
+        .filter((cp) => cp.opEnd > cp.opStart && cp.opStart < endMins)
+        .sort((a, b) => a.opStart - b.opStart)
 
-        if (cpStartMins > cursorMins) {
-            tiers.push({
-                id: defaultId,
-                start: cursor,
-                end: cp.start,
+    const raw: Omit<PriceTier, 'isDefault'>[] = []
+    let cursor = startMins
+
+    for (const cp of customs) {
+        // Sobreposição com o trecho já consumido → descarta (garante contiguidade)
+        if (cp.opStart < cursor) continue
+
+        const opEnd = Math.min(cp.opEnd, endMins)
+
+        if (cp.opStart > cursor) {
+            raw.push({
+                id: gapTierId(minsToHHMM(cursor)),
+                start: minsToHHMM(cursor),
+                end: minsToHHMM(cp.opStart),
                 price: config.price || 0,
-                isDefault: false,
             })
         }
 
-        tiers.push({
+        raw.push({
             id: cp.id ?? `legacy-${cp.start}`,
-            start: cp.start,
-            end: cp.end,
+            start: minsToHHMM(cp.opStart),
+            end: minsToHHMM(opEnd),
             price: cp.price,
-            isDefault: false,
         })
 
-        cursor = cp.end
-        cursorMins = parseHHMM(cursor)
+        cursor = opEnd
+        if (cursor >= endMins) break
     }
 
-    if (cursorMins < endMins) {
-        tiers.push({
-            id: defaultId,
-            start: cursor,
+    if (cursor < endMins) {
+        raw.push({
+            id: gapTierId(minsToHHMM(cursor)),
+            start: minsToHHMM(cursor),
             end: config.endTime,
             price: config.price || 0,
-            isDefault: false,
         })
     }
 
-    let hasDefault = false
-    const marked = tiers.map((tier) => {
-        const isDefault = tier.id === defaultId
-        if (isDefault) hasDefault = true
-        return { ...tier, isDefault }
-    })
-
-    if (!hasDefault && marked.length > 0) {
-        return marked.map((tier, index) => ({ ...tier, isDefault: index === 0 }))
+    if (raw.length === 0) {
+        raw.push({
+            id: gapTierId(config.startTime),
+            start: config.startTime,
+            end: config.endTime,
+            price: config.price || 0,
+        })
     }
 
-    return marked
+    // A faixa padrão é a lacuna (default-*) que corresponde ao id salvo;
+    // se nenhuma corresponder (dados legados/corrompidos), usa a primeira lacuna;
+    // se não houver lacuna, usa a primeira faixa.
+    const gapIds = raw.filter((t) => t.id.startsWith('default-')).map((t) => t.id)
+    const chosenDefaultId =
+        gapIds.find((id) => id === config.defaultTierId) ??
+        gapIds[0] ??
+        raw[0]?.id
+
+    return raw.map((tier) => ({ ...tier, isDefault: tier.id === chosenDefaultId }))
 }
 
 /** Converte faixas encadeadas → config para salvar. */
@@ -182,9 +195,15 @@ function configFromTiers(config: DayConfig, tiers: PriceTier[]): DayConfig {
     return {
         ...config,
         price: defaultTier.price,
-        defaultTierId: defaultTier.id,
+        // A faixa padrão vira a lacuna implícita; guarda o id no formato de gap
+        // (baseado no início) para reencontrá-la de forma estável após a releitura.
+        defaultTierId: gapTierId(defaultTier.start),
         customPrices: customTiers.map((tier) => ({
-            id: tier.id,
+            // Faixas customizadas nunca guardam id no formato de gap (default-*),
+            // para não interferir na seleção da faixa padrão na releitura.
+            // O id derivado do início é estável entre commits — evita remontar a
+            // linha (e perder o foco do input) a cada tecla digitada.
+            id: tier.id.startsWith('default-') ? `band-${tier.start}` : tier.id,
             start: tier.start,
             end: tier.end,
             price: tier.price,
@@ -206,57 +225,53 @@ function normalizeTiers(tiers: PriceTier[], config: DayConfig): PriceTier[] {
     const startMins = parseHHMM(config.startTime)
     const endMins = getOperatingEndMins(config)
 
-    if (tiers.length === 0) {
-        return [{
-            id: 'default',
-            start: config.startTime,
-            end: config.endTime,
-            price: config.price || 0,
-            isDefault: true,
-        }]
+    const fallback: PriceTier = {
+        id: gapTierId(config.startTime),
+        start: config.startTime,
+        end: config.endTime,
+        price: config.price || 0,
+        isDefault: true,
     }
 
+    if (tiers.length === 0) return [fallback]
+
+    // Reconstrói a cadeia contígua em "minutos de operação" (suporta overnight):
+    // cada faixa começa onde a anterior terminou; fins inválidos são corrigidos.
     const result: PriceTier[] = []
     let cursor = startMins
 
     for (let i = 0; i < tiers.length; i++) {
         const tier = tiers[i]
-        const isFirst = i === 0
         const isLast = i === tiers.length - 1
 
-        let tierStart = isFirst ? startMins : Math.max(cursor, parseHHMM(tier.start))
-        let tierEnd = isLast ? endMins : parseHHMM(tier.end)
-
+        const tierStart = cursor
+        let tierEnd = isLast ? endMins : Math.min(toOpMins(tier.end, startMins), endMins)
         if (tierEnd <= tierStart) tierEnd = Math.min(tierStart + 60, endMins)
         if (isLast) tierEnd = endMins
+        if (tierEnd <= tierStart) continue // largura zero → descarta
 
         result.push({
             ...tier,
-            start: minsToHHMM(isFirst ? startMins : tierStart),
-            end: minsToHHMM(isLast ? endMins : tierEnd),
-            price: tier.price,
-            isDefault: tier.isDefault,
+            start: minsToHHMM(tierStart),
+            end: minsToHHMM(tierEnd),
         })
 
         cursor = tierEnd
         if (cursor >= endMins) break
     }
 
-    // Reencadeia limites compartilhados
-    for (let i = 0; i < result.length - 1; i++) {
-        result[i].end = result[i + 1].start
-    }
-    if (result.length > 0) {
-        result[0].start = config.startTime
-        result[result.length - 1].end = config.endTime
-    }
+    if (result.length === 0) return [fallback]
+
+    result[0].start = config.startTime
+    result[result.length - 1].end = config.endTime
 
     return result
 }
 
 function suggestSplitPoint(tier: PriceTier): string | null {
     const startMins = parseHHMM(tier.start)
-    const endMins = parseHHMM(tier.end)
+    let endMins = parseHHMM(tier.end)
+    if (endMins <= startMins) endMins += 24 * 60
     if (endMins - startMins < 120) return null
     const split = startMins + Math.floor((endMins - startMins) / 2 / 60) * 60
     return minsToHHMM(split)
@@ -341,18 +356,34 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
         commitTiers(next)
     }
 
+    // Índice da maior faixa que ainda comporta divisão (≥ 2h).
+    const splittableIndex = (() => {
+        const startMins = parseHHMM(config.startTime)
+        let best = -1
+        let bestLen = 0
+        tiers.forEach((tier, index) => {
+            if (suggestSplitPoint(tier) === null) return
+            const len = toOpMins(tier.end, startMins) - toOpMins(tier.start, startMins)
+            if (len > bestLen) {
+                bestLen = len
+                best = index
+            }
+        })
+        return best
+    })()
+
     const addTier = () => {
-        const targetIndex = tiers.length - 1
-        const target = tiers[targetIndex]
+        if (splittableIndex === -1) return
+        const target = tiers[splittableIndex]
         const split = suggestSplitPoint(target)
         if (!split) return
 
         const next = tiers.map((t) => ({ ...t }))
-        next[targetIndex] = { ...target, end: split }
-        next.push({
+        next[splittableIndex] = { ...target, end: split }
+        next.splice(splittableIndex + 1, 0, {
             id: createBandId(),
             start: split,
-            end: config.endTime,
+            end: target.end,
             price: target.price,
             isDefault: false,
         })
@@ -380,7 +411,7 @@ export function DayScheduleConfig({ day, config, onChange, onReplicate }: DaySch
         commitTiers(next)
     }
 
-    const canAddTier = tiers.length > 0 && suggestSplitPoint(tiers[tiers.length - 1]) !== null
+    const canAddTier = splittableIndex !== -1
 
     const shiftExample = config.slotShiftTime
         ? (() => {

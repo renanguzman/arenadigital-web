@@ -11,6 +11,7 @@ import {
   MoreVertical,
   Edit,
   Trash2,
+  Copy,
   Search,
   CalendarDays,
   Clock,
@@ -44,7 +45,10 @@ import { DashboardTabs } from '@/components/dashboard/DashboardTabs';
 import { ConfirmActionDialog } from '@/components/dashboard/ConfirmActionDialog';
 import { DayOperationModal } from '@/modules/bookings/components/DayOperationModal';
 import { AvailableTimesModal } from '@/modules/bookings/components/AvailableTimesModal';
-import { deleteCourtAction } from '@/modules/courts/actions/courtActions';
+import {
+  deleteCourtAction,
+  duplicateCourtAction,
+} from '@/modules/courts/actions/courtActions';
 import type { Booking } from '@/modules/bookings/types/booking.types';
 import {
   arenaDashboardPath,
@@ -108,6 +112,9 @@ export function ArenaDetailPageClient({
   const [selectedSpace, setSelectedSpace] = useState<any>(null);
   const [spaceToDelete, setSpaceToDelete] = useState<any>(null);
   const [isDeletingSpace, setIsDeletingSpace] = useState(false);
+  const [spaceToCopy, setSpaceToCopy] = useState<any>(null);
+  const [copyName, setCopyName] = useState('');
+  const [isCopyingSpace, setIsCopyingSpace] = useState(false);
   const [activeTab, setActiveTab] = useState<ArenaDashboardTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDayOperationOpen, setIsDayOperationOpen] = useState(false);
@@ -130,6 +137,34 @@ export function ArenaDetailPageClient({
       setSpaceToDelete(null);
     } else {
       toast.error(res.error ?? 'Erro ao excluir espaço.');
+    }
+  };
+
+  const openCopyDialog = (court: any) => {
+    setSpaceToCopy(court);
+    setCopyName(`${court.name} (cópia)`);
+  };
+
+  const handleCopyCourt = async () => {
+    if (!spaceToCopy) return;
+
+    const trimmedName = copyName.trim();
+    if (!trimmedName) {
+      toast.error('Informe um nome para o novo espaço.');
+      return;
+    }
+
+    setIsCopyingSpace(true);
+    const res = await duplicateCourtAction(arenaId, spaceToCopy.id, trimmedName);
+    setIsCopyingSpace(false);
+
+    if (res.success && res.data) {
+      setCourts((prev) => [res.data, ...prev]);
+      toast.success('Espaço copiado!');
+      setSpaceToCopy(null);
+      setCopyName('');
+    } else {
+      toast.error(res.error ?? 'Erro ao copiar espaço.');
     }
   };
 
@@ -269,6 +304,13 @@ export function ArenaDetailPageClient({
                               >
                                 <Eye className="mr-2 h-4 w-4" />
                                 Ver detalhes
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="flex cursor-pointer items-center"
+                                onClick={() => openCopyDialog(court)}
+                              >
+                                <Copy className="mr-2 h-4 w-4" />
+                                Copiar
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
                                 <Link
@@ -422,6 +464,21 @@ export function ArenaDetailPageClient({
                                   <Edit className="h-4 w-4" />
                                 </Link>
                               </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => openCopyDialog(court)}
+                                    className="h-8 w-8 text-arena-navy-800/60 bg-[#F1F5F9] hover:bg-[#E2E8F0]"
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Copiar espaço</p>
+                                </TooltipContent>
+                              </Tooltip>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -574,6 +631,79 @@ export function ArenaDetailPageClient({
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={!!spaceToCopy}
+          onOpenChange={(open) => {
+            if (!open && !isCopyingSpace) {
+              setSpaceToCopy(null);
+              setCopyName('');
+            }
+          }}
+        >
+          <DialogContent
+            showCloseButton
+            style={{
+              width: 'min(460px, calc(100vw - 32px))',
+              maxWidth: '460px',
+            }}
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-7 [&_[data-slot=dialog-close]]:text-[#0D3B45] [&_[data-slot=dialog-close]]:opacity-100"
+          >
+            <DialogHeader className="text-left">
+              <DialogTitle className="font-heading text-xl font-bold leading-tight tracking-normal text-[#0D3B45]">
+                Copiar espaço
+              </DialogTitle>
+            </DialogHeader>
+            <div className="pt-4">
+              <p className="text-sm text-arena-navy-800/60">
+                Será criada uma cópia de{' '}
+                <span className="font-semibold text-arena-navy-800">
+                  {spaceToCopy?.name}
+                </span>{' '}
+                com todas as parametrizações. Escolha um nome para o novo espaço.
+              </p>
+              <div className="mt-4 space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Nome do novo espaço
+                </label>
+                <Input
+                  autoFocus
+                  value={copyName}
+                  onChange={(e) => setCopyName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !isCopyingSpace) {
+                      e.preventDefault();
+                      handleCopyCourt();
+                    }
+                  }}
+                  placeholder="Ex.: Quadra Areia 02"
+                  className="h-11 rounded-md border-slate-300 text-sm text-arena-navy-800 focus-visible:ring-1 focus-visible:ring-[#20B2AA]"
+                />
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Button
+                  variant="outline"
+                  disabled={isCopyingSpace}
+                  className="h-11 flex-1 rounded-lg border-[#0D3B45] text-[#0D3B45]"
+                  onClick={() => {
+                    setSpaceToCopy(null);
+                    setCopyName('');
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  disabled={isCopyingSpace || !copyName.trim()}
+                  className="h-11 flex-1 rounded-lg bg-arena-button text-white hover:bg-arena-button-hover"
+                  onClick={handleCopyCourt}
+                >
+                  {isCopyingSpace ? 'Copiando...' : 'Copiar espaço'}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 

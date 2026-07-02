@@ -117,6 +117,65 @@ export async function createCourtAction(arenaId: string, input: CourtCreateInput
     }
 }
 
+export async function duplicateCourtAction(arenaId: string, courtId: string, newName: string) {
+    try {
+        await assertCourtAccess(courtId, arenaId)
+        await assertCanCreateSpaceForArena(arenaId)
+        const supabase = getSupabaseAdmin()
+
+        const trimmedName = newName.trim()
+        if (!trimmedName) throw new Error('Informe um nome para o novo espaço.')
+
+        const { data: original, error: fetchError } = await supabase
+            .from('courts')
+            .select(`*, sports:court_sports(sport:sports(*))`)
+            .eq('id', courtId)
+            .eq('arena_id', arenaId)
+            .single()
+
+        if (fetchError) throw new Error(fetchError.message)
+
+        const {
+            id: _id,
+            created_at: _createdAt,
+            arena_id: _arenaId,
+            name: _name,
+            sports,
+            ...rest
+        } = original as CourtRowWithSports
+
+        const sportIds = (sports ?? []).flatMap((relation) =>
+            relation.sport ? [relation.sport.id] : []
+        )
+
+        const { data: court, error } = await supabase
+            .from('courts')
+            .insert([{ ...(rest as CourtCreateInput), name: trimmedName, arena_id: arenaId }])
+            .select()
+            .single()
+
+        if (error) throw new Error(error.message)
+
+        if (sportIds.length > 0) {
+            await supabase
+                .from('court_sports')
+                .insert(sportIds.map((id) => ({ court_id: court.id, sport_id: id })))
+        }
+
+        const { data: full } = await supabase
+            .from('courts')
+            .select(`*, sports:court_sports(sport:sports(*))`)
+            .eq('id', court.id)
+            .single()
+
+        revalidatePath(`/dashboard/arenas/${arenaId}`)
+        return { success: true, data: normalizeCourtSports((full ?? court) as CourtRowWithSports) }
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erro ao copiar espaço'
+        return { success: false, error: message, data: null }
+    }
+}
+
 export async function updateCourtAction(arenaId: string, courtId: string, input: CourtUpdate, sportIds?: string[]) {
     try {
         await assertCourtAccess(courtId, arenaId)
