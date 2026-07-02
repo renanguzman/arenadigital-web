@@ -241,6 +241,7 @@ export function BookingModal({
   const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [courtSports, setCourtSports] = useState<Sport[]>([]);
+  const [courtDayConfig, setCourtDayConfig] = useState<any[] | null>(null);
   const [selectedSport, setSelectedSport] = useState<string>('');
   const [isLoadingSports, setIsLoadingSports] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -285,6 +286,11 @@ export function BookingModal({
       const res = await getCourtByIdAction(arenaId, courtId);
       const sports = res.data?.sports ?? [];
       setCourtSports(sports);
+      setCourtDayConfig(
+        Array.isArray(res.data?.day_config)
+          ? (res.data.day_config as any[])
+          : null
+      );
       if (sports.length > 0) {
         const pick =
           preferredSportId && sports.some((s) => s.id === preferredSportId)
@@ -479,9 +485,58 @@ export function BookingModal({
     }
   };
 
+  // Avulso: fim menor/igual ao início só é válido quando a reserva cruza a
+  // meia-noite dentro do horário de funcionamento do espaço no dia
+  // (ex.: 22:00 → 01:00 com funcionamento até 02:00).
+  const avulsoEndTimeError = (() => {
+    if (!startTime || !endTime) return null;
+    const [sH, sM] = startTime.split(':').map(Number);
+    const [eH, eM] = endTime.split(':').map(Number);
+    if ([sH, eH].some((n) => Number.isNaN(n))) return null;
+    const startMins = sH * 60 + (sM || 0);
+    const endMins = eH * 60 + (eM || 0);
+    if (endMins > startMins) return null; // termina no mesmo dia
+
+    const dayNames = [
+      'Domingo',
+      'Segunda-feira',
+      'Terça-feira',
+      'Quarta-feira',
+      'Quinta-feira',
+      'Sexta-feira',
+      'Sábado',
+    ];
+    const dayName = dayNames[selectedDate.getDay()];
+    const dayCfg = courtDayConfig?.find(
+      (d: any) => d?.day?.toLowerCase() === dayName.toLowerCase()
+    );
+
+    if (!dayCfg?.startTime || !dayCfg?.endTime) {
+      return 'O fim deve ser maior que o início.';
+    }
+
+    const [opSH, opSM] = String(dayCfg.startTime).split(':').map(Number);
+    const [opEH, opEM] = String(dayCfg.endTime).split(':').map(Number);
+    const opStartMins = (opSH || 0) * 60 + (opSM || 0);
+    const opEndMins = (opEH || 0) * 60 + (opEM || 0);
+    const operationCrossesMidnight = opEndMins <= opStartMins;
+
+    if (!operationCrossesMidnight) {
+      return 'O fim deve ser maior que o início.';
+    }
+    if (endMins > opEndMins) {
+      return `O fim deve estar dentro do funcionamento do espaço (até ${dayCfg.endTime}).`;
+    }
+    return null;
+  })();
+
   const handleSaveAvulso = async () => {
     if (!selectedAthlete && !search) {
       toast.error('Informe o nome do responsável');
+      return;
+    }
+    if (avulsoEndTimeError) {
+      toast.error(avulsoEndTimeError);
       return;
     }
     const court = Number(courtPrice);
@@ -805,6 +860,10 @@ export function BookingModal({
 
   // ── Pre-save: verifica conflitos antes de salvar ─────────────────────────
   async function handlePreSave() {
+    if (bookingType === 'avulso' && avulsoEndTimeError) {
+      toast.error(avulsoEndTimeError);
+      return;
+    }
     setConflicts([]);
     setIsCheckingConflicts(true);
     try {
@@ -1127,9 +1186,18 @@ export function BookingModal({
                           value={endTime}
                           onChange={(e) => setEndTime(e.target.value)}
                           placeholder="09h00"
-                          className="h-14 rounded-xl border-arena-navy-800/10 pl-12 font-bold text-arena-navy-800 focus:border-arena-button focus:ring-arena-button"
+                          className={cn(
+                            'h-14 rounded-xl border-arena-navy-800/10 pl-12 font-bold text-arena-navy-800 focus:border-arena-button focus:ring-arena-button',
+                            avulsoEndTimeError &&
+                              'border-red-400 focus:border-red-400 focus:ring-red-400'
+                          )}
                         />
                       </div>
+                      {avulsoEndTimeError && (
+                        <p className="text-xs font-medium text-red-500">
+                          {avulsoEndTimeError}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2 lg:col-span-6">
                       <Label className="text-xs font-bold uppercase text-arena-navy-800/40 tracking-wider">
