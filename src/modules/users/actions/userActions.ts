@@ -11,6 +11,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { ensureExperimentalSubscription } from "@/modules/payments/usecases/ensure-experimental-subscription.usecase";
 import { getLocationPointFromAddress } from "@/lib/geocoding";
 import type { Database } from "@/types/supabase.types";
+import { onlyDigits } from "@/lib/brasil-document";
+import { findUserByEmail, normalizeEmail } from "@/lib/account-identity";
 
 type OwnerArenaAddressData = {
     cep?: string;
@@ -69,6 +71,7 @@ export async function provisionOwnerArena(
     arenaName: string,
     phone?: string,
     addressData?: unknown,
+    arenaDocument?: string,
 ) {
     const supabase = getSupabaseAdmin();
     const arenaAddress = normalizeOwnerArenaAddressData(addressData);
@@ -82,7 +85,14 @@ export async function provisionOwnerArena(
         return;
     }
 
-    const arenaInsertData: ArenaInsert = { name: arenaName, owner_id: ownerId, status: 'ativo', ...(phone && { phone }) };
+    const cleanArenaDocument = onlyDigits(arenaDocument);
+    const arenaInsertData: ArenaInsert = {
+        name: arenaName,
+        owner_id: ownerId,
+        status: 'ativo',
+        ...(phone && { phone }),
+        ...(cleanArenaDocument && { cpf_cnpj: cleanArenaDocument }),
+    };
 
     if (arenaAddress) {
         arenaInsertData.zip_code = arenaAddress.cep || undefined;
@@ -189,45 +199,68 @@ export async function createArenaUserAction(arenaId: string, data: ArenaUserForm
             await assertStationAccess(data.stationId, arenaId);
         }
 
-        const password = data.senha || data.password;
-        if (!password) {
-            throw new Error('Senha é obrigatória.');
-        }
-
         const supabase = getSupabaseAdmin();
-
-        // 1. Criar usuário no Supabase Auth (auto-confirmado, criado por admin)
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: data.email,
-            password,
-            email_confirm: true,
-            user_metadata: { firstName: data.name },
-        });
-
-        if (authError || !authData.user) {
-            throw new Error(`Erro ao criar usuário no Auth: ${authError?.message ?? 'desconhecido'}`);
-        }
-        createdAuthUserId = authData.user.id;
-
-        // 2. Trigger on_auth_user_created cria public.users automaticamente.
-        //    Upsert defensivo para garantir nome correto e role.
-        const { data: newUser, error: userError } = await supabase
-            .from('users')
-            .upsert({
-                id: createdAuthUserId,
-                email: data.email,
-                name: data.name,
-                role: 'gestor',
-            } as never, { onConflict: 'id' })
-            .select()
-            .single();
-
-        if (userError) {
-            console.error("Supabase user error:", userError);
-            throw new Error(`Erro ao criar usuário local: ${userError.message}`);
+        const email = normalizeEmail(data.email);
+        if (!email) {
+            throw new Error('E-mail é obrigatório.');
         }
 
-        // 3. Insert into arena_users table
+        let newUser = await findUserByEmail(supabase, email);
+
+        if (!newUser) {
+            const password = data.senha || data.password;
+            if (!password) {
+                throw new Error('Senha é obrigatória para criar um novo usuário.');
+            }
+
+            // 1. Criar usuário no Supabase Auth (auto-confirmado, criado por admin)
+            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                email,
+                password,
+                email_confirm: true,
+                user_metadata: { firstName: data.name },
+            });
+
+            if (authError || !authData.user) {
+                throw new Error(`Erro ao criar usuário no Auth: ${authError?.message ?? 'desconhecido'}`);
+            }
+            createdAuthUserId = authData.user.id;
+
+            // 2. Trigger on_auth_user_created cria public.users automaticamente.
+            //    Upsert defensivo para garantir nome correto.
+            const { data: createdUser, error: userError } = await supabase
+                .from('users')
+                .upsert({
+                    id: createdAuthUserId,
+                    auth_user_id: createdAuthUserId,
+                    email,
+                    name: data.name,
+                    role: 'gestor',
+                } as never, { onConflict: 'id' })
+                .select('id, email, name, cpf, role')
+                .single();
+
+            if (userError) {
+                console.error("Supabase user error:", userError);
+                throw new Error(`Erro ao criar usuário local: ${userError.message}`);
+            }
+            newUser = createdUser;
+        } else if (data.name && !newUser.name) {
+            const { data: updatedUser, error: updateUserError } = await supabase
+                .from('users')
+                .update({ name: data.name })
+                .eq('id', newUser.id)
+                .select('id, email, name, cpf, role')
+                .single();
+            if (updateUserError) throw updateUserError;
+            newUser = updatedUser;
+        }
+
+        if (!newUser) {
+            throw new Error('Não foi possível resolver o usuário da arena.');
+        }
+
+        // 3. Insert/update arena_users table
         const arenaUserPayload = {
             arena_id: arenaId,
             user_id: newUser.id,
@@ -238,7 +271,7 @@ export async function createArenaUserAction(arenaId: string, data: ArenaUserForm
 
         let { error: arenaUserError } = await supabase
             .from('arena_users')
-            .insert(arenaUserPayload);
+            .upsert(arenaUserPayload, { onConflict: 'arena_id,user_id' });
 
         if (isArenaUsersStationColumnMissingError(arenaUserError)) {
             if (data.role === 'Caixa') {
@@ -247,12 +280,12 @@ export async function createArenaUserAction(arenaId: string, data: ArenaUserForm
 
             ({ error: arenaUserError } = await supabase
                 .from('arena_users')
-                .insert({
+                .upsert({
                     arena_id: arenaId,
                     user_id: newUser.id,
                     role: data.role,
                     status: data.status,
-                }));
+                }, { onConflict: 'arena_id,user_id' }));
         }
 
         if (arenaUserError) {
@@ -368,7 +401,9 @@ export async function deleteArenaUserAction(arenaId: string, arenaUserId: string
             throw new Error(`Erro ao desvincular usuário: ${arenaUserError.message}`);
         }
 
-        // 2. Se for o último vínculo do usuário, deletar de users e auth.users
+        // 2. Se for o último vínculo e a pessoa não existir em outro papel,
+        // deletar de users/auth. Contas com perfil atleta ou arenas próprias
+        // precisam continuar vivas.
         const { count: remainingLinks, error: remainingLinksError } = await supabase
             .from('arena_users')
             .select('id', { count: 'exact', head: true })
@@ -378,7 +413,19 @@ export async function deleteArenaUserAction(arenaId: string, arenaUserId: string
             throw new Error(`Erro ao verificar vínculos restantes do usuário: ${remainingLinksError.message}`);
         }
 
-        if ((remainingLinks ?? 0) === 0) {
+        const [{ count: ownedArenas }, { data: athleteProfile }] = await Promise.all([
+            supabase
+                .from('arenas')
+                .select('id', { count: 'exact', head: true })
+                .eq('owner_id', userId),
+            supabase
+                .from('atleta')
+                .select('id')
+                .eq('id_users', userId)
+                .maybeSingle(),
+        ]);
+
+        if ((remainingLinks ?? 0) === 0 && (ownedArenas ?? 0) === 0 && !athleteProfile) {
             await supabase.from('users').delete().eq('id', userId);
             await supabase.auth.admin.deleteUser(userId).catch(e => console.error("Error deleting auth user", e));
         }

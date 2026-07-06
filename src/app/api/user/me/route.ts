@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
+import { resolveAuthenticatedDbUser } from '@/lib/account-identity'
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
@@ -10,19 +11,21 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const admin = getSupabaseAdmin()
+  const resolvedUser = await resolveAuthenticatedDbUser(admin, user.id)
+
+  if (!resolvedUser) {
+    return NextResponse.json({ error: 'User not provisioned' }, { status: 404 })
+  }
+
   const { data: existingUser, error } = await admin
     .from('users')
     .select('id, email, name, cpf, role, created_at, onboarding_completed_at, onboarding_version')
-    .eq('id', user.id)
+    .eq('id', resolvedUser.id)
     .maybeSingle()
 
   if (error) {
     console.error('[api/user/me] Failed to load user', error)
     return NextResponse.json({ error: 'Failed to load user' }, { status: 500 })
-  }
-
-  if (!existingUser) {
-    return NextResponse.json({ error: 'User not provisioned' }, { status: 404 })
   }
 
   return NextResponse.json(existingUser)

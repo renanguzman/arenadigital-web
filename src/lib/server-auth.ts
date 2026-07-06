@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { fetchArenaMembershipByArenaAndUser } from '@/lib/arena-users'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
+import { resolveAuthenticatedDbUser } from '@/lib/account-identity'
 import type { Database } from '@/types/supabase.types'
 
 export class AuthorizationError extends Error {
@@ -63,15 +64,7 @@ export async function requireAuthenticatedDbUser(): Promise<AuthenticatedDbUser>
 
   const authUserId = authData.user.id
   const supabase = getSupabaseAdmin()
-  const { data, error } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', authUserId)
-    .maybeSingle()
-
-  if (error) {
-    throw new Error(`Failed to load current db user: ${error.message}`)
-  }
+  const data = await resolveAuthenticatedDbUser(supabase, authUserId)
 
   if (!data) {
     throw new AuthorizationError('User not provisioned', 404)

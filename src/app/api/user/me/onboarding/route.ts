@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { CURRENT_ONBOARDING_VERSION } from '@/lib/onboarding'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
+import { resolveAuthenticatedDbUser } from '@/lib/account-identity'
 
 export async function POST() {
   const supabase = await createSupabaseServerClient()
@@ -12,13 +13,19 @@ export async function POST() {
 
   const completedAt = new Date().toISOString()
   const admin = getSupabaseAdmin()
+  const resolvedUser = await resolveAuthenticatedDbUser(admin, user.id)
+
+  if (!resolvedUser) {
+    return NextResponse.json({ error: 'User not provisioned' }, { status: 404 })
+  }
+
   const { error } = await admin
     .from('users')
     .update({
       onboarding_completed_at: completedAt,
       onboarding_version: CURRENT_ONBOARDING_VERSION,
     })
-    .eq('id', user.id)
+    .eq('id', resolvedUser.id)
 
   if (error) {
     console.error('[api/user/me/onboarding] Failed to complete onboarding', error)

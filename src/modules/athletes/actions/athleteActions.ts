@@ -9,6 +9,12 @@ import {
     lookupAthleteByCpfSchema,
 } from '@/modules/athletes/schemas/athlete.schema'
 import { onlyDigits } from '@/lib/brasil-document'
+import {
+    cpfMatches,
+    findUserByCpf,
+    findUserByEmail,
+    normalizeEmail,
+} from '@/lib/account-identity'
 
 type MunicipioSearchRow = {
     codigo_ibge: number;
@@ -153,20 +159,44 @@ export async function linkAthlete(formData: {
 
         const supabase = getSupabaseAdmin()
         const cleanCpf = onlyDigits(parsed.data.cpf)
+        const email = normalizeEmail(formData.email)
 
         const existingAthlete = await findAthleteByCpf(supabase, cleanCpf, formData.arenaId)
         if (existingAthlete) {
             return { success: false, error: "Este CPF já pertence a um atleta cadastrado. Use a opção de vincular atleta existente." }
         }
 
-        // 1. Check if email already exists
-        const { data: existingUser } = await supabase
-            .from('users').select('id').eq('email', formData.email).maybeSingle()
-        if (existingUser) {
-            return { success: false, error: "Este e-mail já está cadastrado no sistema." };
+        // 1. Resolve pessoa existente por e-mail/CPF para não duplicar contas.
+        const [userByEmail, userByCpf] = await Promise.all([
+            findUserByEmail(supabase, email),
+            findUserByCpf(supabase, cleanCpf),
+        ])
+
+        if (userByEmail && userByCpf && userByEmail.id !== userByCpf.id) {
+            return {
+                success: false,
+                error: "Este CPF já está vinculado a outro e-mail. Use o e-mail cadastrado para esse CPF.",
+            }
         }
 
-        // 2. Create User in Supabase Auth without sending the athlete invite email.
+        let athleteDbUser = userByEmail ?? userByCpf
+
+        if (athleteDbUser?.cpf && !cpfMatches(athleteDbUser.cpf, cleanCpf)) {
+            return {
+                success: false,
+                error: "Este e-mail já está vinculado a outro CPF.",
+            }
+        }
+
+        if (athleteDbUser && normalizeEmail(athleteDbUser.email) !== email) {
+            return {
+                success: false,
+                error: "Este CPF já está vinculado a outro e-mail. Use o e-mail cadastrado para esse CPF.",
+            }
+        }
+
+        // 2. Create User in Supabase Auth without sending the athlete invite email,
+        // somente quando ainda não existe pessoa local.
         const firstName = formData.name.split(' ')[0]
         const lastName = formData.name.split(' ').slice(1).join(' ') || undefined
 
@@ -183,45 +213,71 @@ export async function linkAthlete(formData: {
         //     },
         // })
 
-        const { data: created, error: createErr } = await supabase.auth.admin.createUser({
-            email: formData.email,
-            email_confirm: true,
-            user_metadata: {
-                firstName,
-                lastName,
-                name: formData.name,
-                role: 'atleta',
-                origem_cadastro: 'arena',
-                cpf: cleanCpf,
-            },
-        })
-        if (createErr || !created.user) {
-            return { success: false, error: createErr?.message || 'Erro ao criar usuário do atleta.' }
+        if (!athleteDbUser) {
+            const { data: created, error: createErr } = await supabase.auth.admin.createUser({
+                email,
+                email_confirm: true,
+                user_metadata: {
+                    firstName,
+                    lastName,
+                    name: formData.name,
+                    role: 'atleta',
+                    origem_cadastro: 'arena',
+                    cpf: cleanCpf,
+                },
+            })
+            if (createErr || !created.user) {
+                return { success: false, error: createErr?.message || 'Erro ao criar usuário do atleta.' }
+            }
+
+            const { error: metadataErr } = await supabase.auth.admin.updateUserById(created.user.id, {
+                email,
+                user_metadata: {
+                    firstName,
+                    lastName,
+                    name: formData.name,
+                    role: 'atleta',
+                    origem_cadastro: 'arena',
+                    cpf: cleanCpf,
+                },
+            })
+            if (metadataErr) throw metadataErr
+
+            // 3. Ensure public.users row exists.
+            const { data: createdDbUser, error: upsertError } = await supabase
+                .from('users')
+                .upsert(
+                    {
+                        id: created.user.id,
+                        auth_user_id: created.user.id,
+                        email,
+                        name: formData.name,
+                        role: 'atleta',
+                        cpf: cleanCpf,
+                    } as never,
+                    { onConflict: 'id' }
+                )
+                .select('id, email, name, cpf, role')
+                .single()
+            if (upsertError) throw upsertError
+            athleteDbUser = createdDbUser
+        } else {
+            const { data: updatedDbUser, error: updateUserError } = await supabase
+                .from('users')
+                .update({
+                    name: athleteDbUser.name || formData.name,
+                    cpf: athleteDbUser.cpf || cleanCpf,
+                })
+                .eq('id', athleteDbUser.id)
+                .select('id, email, name, cpf, role')
+                .single()
+            if (updateUserError) throw updateUserError
+            athleteDbUser = updatedDbUser
         }
 
-        const { error: metadataErr } = await supabase.auth.admin.updateUserById(created.user.id, {
-            email: formData.email,
-            user_metadata: {
-                firstName,
-                lastName,
-                name: formData.name,
-                role: 'atleta',
-                origem_cadastro: 'arena',
-                cpf: cleanCpf,
-            },
-        })
-        if (metadataErr) throw metadataErr
-
-        // 3. Ensure public.users row exists (trigger inserts with role='gestor' por padrão; corrigimos para atleta)
-        const { data: athleteDbUser, error: upsertError } = await supabase
-            .from('users')
-            .upsert(
-                { id: created.user.id, email: formData.email, name: formData.name, role: 'atleta', cpf: cleanCpf } as never,
-                { onConflict: 'id' }
-            )
-            .select()
-            .single()
-        if (upsertError) throw upsertError
+        if (!athleteDbUser) {
+            throw new Error('Não foi possível resolver o usuário do atleta.')
+        }
 
         // 4. Create Atleta profile
         const repo = new SupabaseAthleteRepository(supabase)

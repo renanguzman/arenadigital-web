@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 import { startSignUpAction } from "@/modules/auth/actions/authActions"
+import { isValidCpf, isValidCpfOrCnpj, onlyDigits } from "@/lib/brasil-document"
 
 const maskCpf = (value: string) => {
     return value
@@ -37,6 +38,17 @@ const maskCep = (value: string) => {
         .replace(/(-\d{3})\d+?$/, "$1");
 };
 
+const maskCpfCnpj = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 14)
+    if (digits.length <= 11) return maskCpf(digits)
+    return digits
+        .replace(/(\d{2})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1/$2")
+        .replace(/(\d{4})(\d{1,2})/, "$1-$2")
+        .replace(/(-\d{2})\d+?$/, "$1")
+}
+
 type EstadoRow = { codigo_uf: number; nome: string; uf: string }
 type MunicipioRow = { codigo_ibge: number; nome: string; codigo_uf: number }
 
@@ -46,6 +58,7 @@ export function CustomSignUp() {
     const [cpf, setCpf] = React.useState("")
     const [phone, setPhone] = React.useState("")
     const [arenaName, setArenaName] = React.useState("")
+    const [arenaDocument, setArenaDocument] = React.useState("")
 
     const [cep, setCep] = React.useState("")
     const [state, setState] = React.useState("")
@@ -159,6 +172,16 @@ export function CustomSignUp() {
             return
         }
 
+        if (!isValidCpf(onlyDigits(cpf))) {
+            toast.error("Informe um CPF válido para o responsável.")
+            return
+        }
+
+        if (!isValidCpfOrCnpj(arenaDocument)) {
+            toast.error("Informe um CPF ou CNPJ válido para a arena.")
+            return
+        }
+
         if (password !== confirmPassword) {
             toast.error("As senhas não coincidem.")
             return
@@ -180,6 +203,7 @@ export function CustomSignUp() {
             cpf,
             phone,
             arenaName,
+            arenaDocument,
             addressData: {
                 cep,
                 state,
@@ -264,6 +288,10 @@ export function CustomSignUp() {
                 <div className="space-y-2">
                     <Label htmlFor="arenaName" className="text-white/70">Nome da Arena</Label>
                     <Input id="arenaName" value={arenaName} placeholder="Ex: Arena Beach Tennis" onChange={(e) => setArenaName(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black" required />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="arenaDocument" className="text-white/70">CPF/CNPJ da Arena</Label>
+                    <Input id="arenaDocument" value={arenaDocument} onChange={(e) => setArenaDocument(maskCpfCnpj(e.target.value))} placeholder="00.000.000/0000-00" className="bg-white border-none h-12 rounded-lg text-black" required />
                 </div>
             </div>
 

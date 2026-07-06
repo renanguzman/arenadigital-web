@@ -3,6 +3,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getSupabaseAdmin } from "@/lib/supabase-server"
 import { provisionOwnerArena } from "@/modules/users/actions/userActions"
+import { findUserByCpf, findUserByEmail, normalizeEmail } from "@/lib/account-identity"
+import { onlyDigits } from "@/lib/brasil-document"
 
 type AddressData = {
     cep?: string
@@ -24,6 +26,7 @@ type SignUpInput = {
     cpf: string
     phone: string
     arenaName: string
+    arenaDocument: string
     addressData: AddressData
 }
 
@@ -54,10 +57,32 @@ function normalizeEmailRedirectTo(value: string) {
 export async function startSignUpAction(input: SignUpInput): Promise<ActionResult> {
     try {
         const supabase = await createSupabaseServerClient()
+        const admin = getSupabaseAdmin()
+        const email = normalizeEmail(input.email)
+        const cleanCpf = onlyDigits(input.cpf)
         const emailRedirectTo = normalizeEmailRedirectTo(input.emailRedirectTo)
 
+        const [existingUserByEmail, existingUserByCpf] = await Promise.all([
+            findUserByEmail(admin, email),
+            findUserByCpf(admin, cleanCpf),
+        ])
+
+        if (existingUserByEmail) {
+            return {
+                success: false,
+                error: "Já existe uma conta com este e-mail. Entre com essa conta e cadastre a arena pelo dashboard.",
+            }
+        }
+
+        if (existingUserByCpf && normalizeEmail(existingUserByCpf.email) !== email) {
+            return {
+                success: false,
+                error: "Este CPF já está vinculado a outro e-mail. Use o e-mail cadastrado ou recupere o acesso.",
+            }
+        }
+
         const { error } = await supabase.auth.signUp({
-            email: input.email,
+            email,
             password: input.password,
             options: {
                 ...(emailRedirectTo ? { emailRedirectTo } : {}),
@@ -67,6 +92,7 @@ export async function startSignUpAction(input: SignUpInput): Promise<ActionResul
                     cpf: input.cpf,
                     phone: input.phone,
                     arenaName: input.arenaName,
+                    arenaDocument: input.arenaDocument,
                     addressData: input.addressData,
                 },
             },
@@ -98,6 +124,7 @@ export async function provisionAfterSignUpAction(): Promise<ActionResult<{ arena
         const user = authData.user
         const meta = (user.user_metadata ?? {}) as Record<string, unknown>
         const arenaName = typeof meta.arenaName === "string" ? meta.arenaName : undefined
+        const arenaDocument = typeof meta.arenaDocument === "string" ? meta.arenaDocument : undefined
         const phone = typeof meta.phone === "string" ? meta.phone : undefined
         const addressData = meta.addressData
 
@@ -109,7 +136,7 @@ export async function provisionAfterSignUpAction(): Promise<ActionResult<{ arena
         }
 
         if (arenaName) {
-            await provisionOwnerArena(user.id, arenaName, phone, addressData)
+            await provisionOwnerArena(user.id, arenaName, phone, addressData, arenaDocument)
             return { success: true, data: { arenaCreated: true } }
         }
 
