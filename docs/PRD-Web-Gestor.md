@@ -185,6 +185,26 @@ O acesso ao sistema ocorre por meio de login, disponível a partir da landing pa
 
 ---
 
+### 5.8.3 Listagem de Comandas da Estação (✅ Implementado)
+- Ao acessar uma estação, as comandas são listadas em cards com paginação server-side (o banco pode conter milhares de comandas por dia)
+- Paginação: 10, 25, 50 ou 100 comandas por página (default: 25)
+- Filtro de status: Abertas (default), Fechadas ou Todos os status
+- Busca por cliente: consulta todos os registros do banco (não apenas os visíveis na página), respeitando o status selecionado; busca por nome do cliente avulso, nome de perfil do atleta ou nº da comanda
+- Filtro de data de abertura da comanda: intervalo "De" e "Até"
+- Qualquer mudança de filtro/busca retorna à primeira página
+
+---
+
+### 5.8.4 Rotativo — Gestão de Créditos (✅ Implementado)
+- Configuração de pacotes de créditos (quantidade × valor em reais)
+- Lançamento de crédito para atleta via modal "Novo crédito"
+  - Seleção do atleta por input de busca: pesquisa pelo nome direto no banco a partir do 3º caractere digitado (evita carregar todos os atletas cadastrados)
+  - Quantidade de rotativos, validade e forma de pagamento
+- Listagem paginada de movimentações (compra / uso / vencimento) com busca por atleta
+- Ranking dos atletas com mais créditos
+
+---
+
 ### 5.9 Gestão de Produtos
 - Cadastro de produtos
 - Edição de dados do produto

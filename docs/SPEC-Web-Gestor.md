@@ -230,3 +230,46 @@ CLERK_SECRET_KEY
 SUPABASE_URL
 
 SUPABASE_SERVICE_ROLE_KEY
+
+12. Estações — Listagem Paginada de Comandas
+
+Tela: /dashboard/arenas/{id}/stations/{stationId}
+Componentes: src/modules/stations/components/StationDetailPageClient.tsx
+Server actions: src/modules/stations/actions/stationActions.ts
+
+Contrato (StationOrdersFilters — src/modules/stations/types/station.types.ts):
+
+interface StationOrdersFilters {
+  page?: number        // default 1
+  pageSize?: number    // 10 | 25 | 50 | 100 (default 25)
+  status?: 'open' | 'closed' | 'todos'  // default na UI: 'open'
+  search?: string      // busca por cliente/nº da comanda em todo o banco
+  dateFrom?: string    // ISO timestamp (inclusive) — created_at >=
+  dateTo?: string      // ISO timestamp (inclusive) — created_at <=
+}
+
+Actions:
+- getStationWithOrdersAction(arenaId, stationId, filters) → { success, station, orders, total }
+- getOrdersByStationAction(arenaId, stationId, filters) → { success, data, total }
+
+Implementação:
+- Paginação via .range() do Supabase com count: 'exact' (total retornado para a UI)
+- Busca por cliente: OR entre customer_name ILIKE, atleta_id IN (ids de atleta com
+  nome_perfil ILIKE — pré-consulta limitada a 200 ids) e order_number (se o termo for numérico)
+- Filtros de status e data aplicados no banco, combinados com a busca
+- UI: debounce de 400ms na busca; mudança de filtro/busca/pageSize reseta para página 1;
+  a primeira página é renderizada no servidor (SSR) com os filtros default
+
+13. Rotativo — Modal "Novo crédito" (busca de atleta)
+
+Tela: /dashboard/rotativo/{arenaId} — aba Gestão de créditos
+Componente: src/modules/rotativos/components/CreditosTab.tsx
+Server action: getAthletesByArenaAction(arenaId, searchTerm?) — src/modules/athletes/actions/athleteActions.ts
+
+- Campo "Selecione o atleta" é um input de busca (substituiu o select que carregava
+  todos os atletas da arena)
+- A busca dispara a partir do 3º caractere, com debounce de 400ms
+- Filtro server-side: nome_perfil ILIKE %termo%, restrito aos atletas vinculados à arena
+  (join arenas_atleta) — SupabaseAthleteRepository.findByArena
+- Ao selecionar, o atleta vira um chip com opção de remover (X); o id alimenta o campo
+  athleteId do formulário (react-hook-form + zod)

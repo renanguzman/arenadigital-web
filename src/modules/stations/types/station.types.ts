@@ -24,6 +24,18 @@ export interface StationOrderPayment {
     created_at: string;
 }
 
+export interface StationOrdersFilters {
+    page?: number;
+    pageSize?: number;
+    status?: 'open' | 'closed' | 'todos';
+    /** Busca por cliente (customer_name ou atleta.nome_perfil) e nº da comanda. */
+    search?: string;
+    /** ISO timestamp (inclusive) — comandas abertas a partir desta data. */
+    dateFrom?: string;
+    /** ISO timestamp (inclusive) — comandas abertas até esta data. */
+    dateTo?: string;
+}
+
 export interface StationOrder {
     id: string;
     arena_id: string;

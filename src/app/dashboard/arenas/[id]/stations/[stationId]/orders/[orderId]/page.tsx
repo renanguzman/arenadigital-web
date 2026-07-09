@@ -227,7 +227,7 @@ export default function OrderDetailsPage() {
                 {order.station_order_items?.map((item) => (
                   <tr key={item.id} className="group">
                     <td className="py-4 text-sm font-medium text-arena-navy-800/60">
-                      {format(new Date(item.created_at), 'HH:mm:ss')}
+                      {format(new Date(item.created_at), 'dd/MM/yy HH:mm')}
                     </td>
                     <td className="py-4 text-sm font-bold text-arena-navy-800">
                       {item.product?.name}

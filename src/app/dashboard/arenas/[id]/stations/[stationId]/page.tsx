@@ -12,7 +12,7 @@ export default async function StationInternalPage({ params }: { params: Promise<
         redirect(`/dashboard/arenas/${id}/stations`)
     }
 
-    const result = await getStationWithOrdersAction(id, stationId)
+    const result = await getStationWithOrdersAction(id, stationId, { page: 1, pageSize: 25, status: 'open' })
 
     if (!result.success || !result.station) redirect(`/dashboard/arenas/${id}/stations`)
 
@@ -22,6 +22,7 @@ export default async function StationInternalPage({ params }: { params: Promise<
             stationId={stationId}
             initialStation={result.station}
             initialOrders={result.orders}
+            initialTotal={result.total}
         />
     )
 }

@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useTransition, useEffect } from "react"
+import { useState, useTransition, useEffect, useRef } from "react"
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { Search, Filter, Plus, ChevronLeft, ChevronRight, Loader2, Medal } from "lucide-react"
+import { Search, Filter, Plus, ChevronLeft, ChevronRight, Loader2, Medal, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -103,7 +103,11 @@ export function CreditosTab({
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
   const [creditOpen, setCreditOpen] = useState(false)
-  const [athletes, setAthletes] = useState<{ id: string; nome_perfil: string }[]>([])
+  const [athleteSearch, setAthleteSearch] = useState("")
+  const [athleteResults, setAthleteResults] = useState<{ id: string; nome_perfil: string }[]>([])
+  const [selectedAthlete, setSelectedAthlete] = useState<{ id: string; nome_perfil: string } | null>(null)
+  const [isSearchingAthletes, setIsSearchingAthletes] = useState(false)
+  const athleteSearchTimeout = useRef<NodeJS.Timeout | null>(null)
   const [paymentMethods, setPaymentMethods] = useState<ModoPagamentoOption[]>([])
   const [previewValor, setPreviewValor] = useState<number | null>(null)
   const [isSavingPacotes, setIsSavingPacotes] = useState(false)
@@ -198,23 +202,52 @@ export function CreditosTab({
   async function openCreditModal() {
     setCreditOpen(true)
     form.reset({ athleteId: "", quantidade: "1", validityDays: "", modo_pagamento_id: "" })
+    setAthleteSearch("")
+    setAthleteResults([])
+    setSelectedAthlete(null)
 
-    const [athletesRes, methodsRes] = await Promise.all([
-      getAthletesByArenaAction(arenaId),
-      getModoPagamentoAction(),
-    ])
-
-    if (athletesRes.success) {
-      setAthletes(
-        (athletesRes.data ?? []).map((a) => ({
-          id: a.id,
-          nome_perfil: a.name,
-        }))
-      )
-    }
+    const methodsRes = await getModoPagamentoAction()
     if (methodsRes.success) {
       setPaymentMethods(methodsRes.data ?? [])
     }
+  }
+
+  function handleAthleteSearch(value: string) {
+    setAthleteSearch(value)
+    if (selectedAthlete) {
+      setSelectedAthlete(null)
+      form.setValue("athleteId", "")
+    }
+
+    if (athleteSearchTimeout.current) clearTimeout(athleteSearchTimeout.current)
+
+    const term = value.trim()
+    if (term.length < 3) {
+      setAthleteResults([])
+      setIsSearchingAthletes(false)
+      return
+    }
+
+    setIsSearchingAthletes(true)
+    athleteSearchTimeout.current = setTimeout(async () => {
+      try {
+        const res = await getAthletesByArenaAction(arenaId, term)
+        setAthleteResults(
+          res.success
+            ? (res.data ?? []).map((a) => ({ id: a.id, nome_perfil: a.name }))
+            : []
+        )
+      } finally {
+        setIsSearchingAthletes(false)
+      }
+    }, 400)
+  }
+
+  function selectAthlete(athlete: { id: string; nome_perfil: string }) {
+    setSelectedAthlete(athlete)
+    setAthleteSearch(athlete.nome_perfil)
+    setAthleteResults([])
+    form.setValue("athleteId", athlete.id, { shouldValidate: true })
   }
 
   async function onSubmitCredit(values: CreditFormValues) {
@@ -452,20 +485,63 @@ export function CreditosTab({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Selecione o atleta</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o atleta que está comprando o pacote" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {athletes.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.nome_perfil}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {selectedAthlete ? (
+                      <div className="flex items-center justify-between rounded-md border border-input bg-muted/30 px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-arena-navy-800">
+                            {selectedAthlete.nome_perfil}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Remover atleta selecionado"
+                          onClick={() => {
+                            setSelectedAthlete(null)
+                            setAthleteSearch("")
+                            field.onChange("")
+                          }}
+                          className="text-red-500 hover:text-red-600 transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                          <Input
+                            placeholder="Digite o nome do atleta (mín. 3 letras)"
+                            value={athleteSearch}
+                            onChange={(e) => handleAthleteSearch(e.target.value)}
+                            className="pl-9"
+                          />
+                        </FormControl>
+                        {isSearchingAthletes && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-arena-button" />
+                        )}
+                        {athleteSearch.trim().length >= 3 && !isSearchingAthletes && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border border-input rounded-md shadow-lg max-h-48 overflow-auto">
+                            {athleteResults.length === 0 ? (
+                              <p className="px-4 py-3 text-sm text-muted-foreground">
+                                Nenhum atleta encontrado.
+                              </p>
+                            ) : (
+                              athleteResults.map((athlete) => (
+                                <button
+                                  key={athlete.id}
+                                  type="button"
+                                  onClick={() => selectAthlete(athlete)}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-muted transition-colors text-sm font-medium text-arena-navy-800 border-b border-arena-navy-800/5 last:border-0"
+                                >
+                                  {athlete.nome_perfil}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

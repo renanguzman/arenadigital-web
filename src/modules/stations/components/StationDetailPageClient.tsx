@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ChevronLeft, Search, Plus, Eye, Filter } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, Plus, Eye, Filter, Calendar } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import {
@@ -14,43 +14,86 @@ import { OpenComandaModal } from "@/modules/stations/components/OpenComandaModal
 import { AthleteRegistrationModal } from "@/modules/athletes/components/AthleteRegistrationModal"
 import { LaunchItemModal } from "@/modules/stations/components/LaunchItemModal"
 import { getOrdersByStationAction } from "@/modules/stations/actions/stationActions"
-import type { StationOrder } from "@/modules/stations/types/station.types"
+import type { StationOrder, StationOrdersFilters } from "@/modules/stations/types/station.types"
 
 interface Props {
     arenaId: string
     stationId: string
     initialStation: any
     initialOrders: any[]
+    initialTotal: number
 }
 
-export function StationDetailPageClient({ arenaId, stationId, initialStation, initialOrders }: Props) {
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+const SEARCH_DEBOUNCE_MS = 400
+
+export function StationDetailPageClient({ arenaId, stationId, initialStation, initialOrders, initialTotal }: Props) {
     const router = useRouter()
     const [orders, setOrders] = useState<StationOrder[]>(initialOrders as StationOrder[])
+    const [total, setTotal] = useState(initialTotal)
+    const [isLoading, setIsLoading] = useState(false)
     const [searchTerm, setSearchTerm] = useState("")
-    const [statusFilter, setStatusFilter] = useState("todos")
+    const [debouncedSearch, setDebouncedSearch] = useState("")
+    const [statusFilter, setStatusFilter] = useState<"open" | "closed" | "todos">("open")
+    const [dateFrom, setDateFrom] = useState("")
+    const [dateTo, setDateTo] = useState("")
+    const [page, setPage] = useState(1)
+    const [pageSize, setPageSize] = useState(25)
     const [isOpenComandaModalOpen, setIsOpenComandaModalOpen] = useState(false)
     const [isLaunchItemModalOpen, setIsLaunchItemModalOpen] = useState(false)
     const [isRegisterCustomerModalOpen, setIsRegisterCustomerModalOpen] = useState(false)
     const [selectedOrderForLaunch, setSelectedOrderForLaunch] = useState<StationOrder | null>(null)
 
-    const refreshOrders = useCallback(async () => {
-        const res = await getOrdersByStationAction(arenaId, stationId)
-        if (res.success) setOrders(res.data as StationOrder[])
+    useEffect(() => {
+        const handle = setTimeout(() => {
+            setDebouncedSearch(searchTerm.trim())
+            setPage(1)
+        }, SEARCH_DEBOUNCE_MS)
+        return () => clearTimeout(handle)
+    }, [searchTerm])
+
+    const filters = useMemo<StationOrdersFilters>(() => ({
+        page,
+        pageSize,
+        status: statusFilter,
+        search: debouncedSearch || undefined,
+        dateFrom: dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : undefined,
+        dateTo: dateTo ? new Date(`${dateTo}T23:59:59.999`).toISOString() : undefined,
+    }), [page, pageSize, statusFilter, debouncedSearch, dateFrom, dateTo])
+
+    const fetchOrders = useCallback(async (currentFilters: StationOrdersFilters) => {
+        setIsLoading(true)
+        try {
+            const res = await getOrdersByStationAction(arenaId, stationId, currentFilters)
+            if (res.success) {
+                setOrders(res.data as StationOrder[])
+                setTotal(res.total)
+            }
+        } finally {
+            setIsLoading(false)
+        }
     }, [arenaId, stationId])
+
+    const isFirstLoad = useRef(true)
+    useEffect(() => {
+        // a primeira página já vem do servidor com os filtros default
+        if (isFirstLoad.current) {
+            isFirstLoad.current = false
+            return
+        }
+        fetchOrders(filters)
+    }, [filters, fetchOrders])
+
+    const refreshOrders = useCallback(async () => {
+        await fetchOrders(filters)
+    }, [fetchOrders, filters])
 
     const handleLaunchItem = (order: StationOrder) => {
         setSelectedOrderForLaunch(order)
         setIsLaunchItemModalOpen(true)
     }
 
-    const filteredOrders = orders.filter(order => {
-        const matchesSearch =
-            order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.atleta?.nome_perfil?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.order_number.toString().includes(searchTerm)
-        const matchesStatus = statusFilter === "todos" || order.status === statusFilter
-        return matchesSearch && matchesStatus
-    })
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
     return (
         <div className="space-y-6">
@@ -75,10 +118,29 @@ export function StationDetailPageClient({ arenaId, stationId, initialStation, in
                         className="pl-10 h-11 bg-white border-arena-navy-800/10 rounded-xl"
                     />
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center bg-white border border-arena-navy-800/10 rounded-xl px-3 h-11 gap-2">
+                        <Calendar className="h-4 w-4 text-arena-navy-800/20" />
+                        <span className="text-xs font-bold text-arena-navy-800/40 uppercase">De</span>
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            max={dateTo || undefined}
+                            onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
+                            className="bg-transparent text-sm font-bold text-arena-navy-800/60 focus:outline-none"
+                        />
+                        <span className="text-xs font-bold text-arena-navy-800/40 uppercase">Até</span>
+                        <input
+                            type="date"
+                            value={dateTo}
+                            min={dateFrom || undefined}
+                            onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
+                            className="bg-transparent text-sm font-bold text-arena-navy-800/60 focus:outline-none"
+                        />
+                    </div>
                     <div className="flex items-center bg-white border border-arena-navy-800/10 rounded-xl px-3 h-11">
                         <Filter className="h-4 w-4 text-arena-navy-800/20 mr-2" />
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1) }}>
                             <SelectTrigger className="border-none shadow-none focus:ring-0 h-full p-0 font-bold text-arena-navy-800/60">
                                 <SelectValue placeholder="Todos os status" />
                             </SelectTrigger>
@@ -131,16 +193,21 @@ export function StationDetailPageClient({ arenaId, stationId, initialStation, in
                 onSuccess={() => { setIsRegisterCustomerModalOpen(false); setIsOpenComandaModalOpen(true) }}
             />
 
-            {filteredOrders.length === 0 ? (
-                <div className="py-20 flex flex-col items-center justify-center text-center">
+            {orders.length === 0 ? (
+                <div className={cn("py-20 flex flex-col items-center justify-center text-center", isLoading && "opacity-60")}>
                     <div className="bg-arena-navy-800/5 p-4 rounded-full mb-4">
                         <Plus className="h-8 w-8 text-arena-navy-800/20" />
                     </div>
-                    <p className="text-arena-navy-800/40 font-medium text-lg">Nenhuma comanda encontrada.</p>
+                    <p className="text-arena-navy-800/40 font-medium text-lg">
+                        {isLoading ? "Carregando comandas..." : "Nenhuma comanda encontrada."}
+                    </p>
                 </div>
             ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-                    {filteredOrders.map((order) => (
+                <div className={cn(
+                    "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 transition-opacity",
+                    isLoading && "opacity-60 pointer-events-none"
+                )}>
+                    {orders.map((order) => (
                         <Card
                             key={order.id}
                             onClick={() => router.push(`/dashboard/arenas/${arenaId}/stations/${stationId}/orders/${order.id}`)}
@@ -180,6 +247,51 @@ export function StationDetailPageClient({ arenaId, stationId, initialStation, in
                             </CardContent>
                         </Card>
                     ))}
+                </div>
+            )}
+
+            {total > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                    <p className="text-xs font-bold text-arena-navy-800/40">
+                        Exibindo {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total} comanda{total !== 1 ? "s" : ""}
+                    </p>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center bg-white border border-arena-navy-800/10 rounded-xl px-3 h-9">
+                            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
+                                <SelectTrigger className="border-none shadow-none focus:ring-0 h-full p-0 text-xs font-bold text-arena-navy-800/60">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PAGE_SIZE_OPTIONS.map((size) => (
+                                        <SelectItem key={size} value={String(size)}>{size} por página</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 rounded-xl border-arena-navy-800/10"
+                                disabled={page === 1 || isLoading}
+                                onClick={() => setPage(page - 1)}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="text-xs font-bold text-arena-navy-800/60 px-2">
+                                {page} / {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 rounded-xl border-arena-navy-800/10"
+                                disabled={page >= totalPages || isLoading}
+                                onClick={() => setPage(page + 1)}
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
