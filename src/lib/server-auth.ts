@@ -35,6 +35,9 @@ export type ArenaAccessProfile = AuthenticatedDbUser & {
   arenaUserId: string | null
 }
 
+export const WEB_BACKOFFICE_ACCESS_DENIED_MESSAGE =
+  'Esta conta é de atleta e não possui acesso ao painel web. Use o app mobile para acessar sua conta de atleta.'
+
 type PublicTableName = keyof Database['public']['Tables']
 
 type ArenaScopedResourceOptions = {
@@ -80,6 +83,61 @@ export async function requireAuthenticatedDbUser(): Promise<AuthenticatedDbUser>
     authUserId,
     dbUserId: data.id,
   }
+}
+
+export async function hasWebBackofficeAccess(dbUserId: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin()
+
+  const { data: dbUser, error: userError } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', dbUserId)
+    .maybeSingle()
+
+  if (userError) {
+    throw new Error(`Failed to verify web access user: ${userError.message}`)
+  }
+
+  if (dbUser?.role === 'admin') return true
+
+  const { data: ownedArena, error: ownedArenaError } = await supabase
+    .from('arenas')
+    .select('id')
+    .eq('owner_id', dbUserId)
+    .limit(1)
+    .maybeSingle()
+
+  if (ownedArenaError) {
+    throw new Error(`Failed to verify web access arena ownership: ${ownedArenaError.message}`)
+  }
+
+  if (ownedArena) return true
+
+  const { data: linkedArena, error: linkedArenaError } = await supabase
+    .from('arena_users')
+    .select('id')
+    .eq('user_id', dbUserId)
+    .in('role', ['Gestor', 'Atendente', 'Caixa'])
+    .in('status', ['Ativo', 'ativo', 'active'])
+    .limit(1)
+    .maybeSingle()
+
+  if (linkedArenaError) {
+    throw new Error(`Failed to verify web access arena membership: ${linkedArenaError.message}`)
+  }
+
+  return Boolean(linkedArena)
+}
+
+export async function requireWebBackofficeAccess(): Promise<AuthenticatedDbUser> {
+  const currentUser = await requireAuthenticatedDbUser()
+  const canAccessWeb = await hasWebBackofficeAccess(currentUser.dbUserId)
+
+  if (!canAccessWeb) {
+    throw new AuthorizationError(WEB_BACKOFFICE_ACCESS_DENIED_MESSAGE, 403)
+  }
+
+  return currentUser
 }
 
 export async function assertArenaAccess(arenaId: string): Promise<ArenaAccessProfile> {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { EmailOtpType } from "@supabase/supabase-js"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { provisionAfterSignUpAction } from "@/modules/auth/actions/authActions"
+import { ensureWebBackofficeAccessAction, provisionAfterSignUpAction } from "@/modules/auth/actions/authActions"
 
 function normalizeRedirectPath(value: string | null) {
     if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -39,6 +39,11 @@ export async function GET(request: Request) {
     const provision = await provisionAfterSignUpAction()
     if (!provision.success) {
         console.error("[auth/callback] provisionAfterSignUpAction failed:", provision.error)
+    }
+
+    const webAccess = await ensureWebBackofficeAccessAction()
+    if (!webAccess.success) {
+        return NextResponse.redirect(new URL(`/sign-in?error=${encodeURIComponent(webAccess.error)}`, url.origin))
     }
 
     return NextResponse.redirect(new URL(next, url.origin))

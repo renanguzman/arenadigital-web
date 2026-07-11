@@ -6,7 +6,7 @@ import { ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Logo } from '@/components/shared/Logo'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
-import { provisionAfterSignUpAction } from '@/modules/auth/actions/authActions'
+import { ensureWebBackofficeAccessAction, provisionAfterSignUpAction } from '@/modules/auth/actions/authActions'
 
 const inputLight =
   'w-full rounded-lg border border-zinc-700 bg-white px-3 py-2.5 text-sm text-black placeholder-zinc-500 outline-none transition focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400'
@@ -35,6 +35,11 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
 
+  React.useEffect(() => {
+    const errorMessage = searchParams.get('error')
+    if (errorMessage) toast.error(errorMessage)
+  }, [searchParams])
+
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -51,15 +56,19 @@ export default function SignInPage() {
       return
     }
 
-    void provisionAfterSignUpAction()
-      .then((provision) => {
-        if (!provision.success) {
-          console.error('provisionAfterSignUpAction:', provision.error)
-        }
-      })
-      .catch((provisionError) => {
-        console.error('provisionAfterSignUpAction:', provisionError)
-      })
+    const provision = await provisionAfterSignUpAction()
+    if (!provision.success) {
+      console.error('provisionAfterSignUpAction:', provision.error)
+    }
+
+    const webAccess = await ensureWebBackofficeAccessAction()
+    if (!webAccess.success) {
+      await supabase.auth.signOut()
+      setLoading(false)
+      toast.error(webAccess.error)
+      return
+    }
+
     window.location.replace(redirectTo)
   }
 

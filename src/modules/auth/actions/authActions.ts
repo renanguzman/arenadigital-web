@@ -3,8 +3,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getSupabaseAdmin } from "@/lib/supabase-server"
 import { provisionOwnerArena } from "@/modules/users/actions/userActions"
-import { findUserByCpf, findUserByEmail, normalizeEmail } from "@/lib/account-identity"
+import { findUserByCpf, findUserByEmail, normalizeEmail, resolveAuthenticatedDbUser } from "@/lib/account-identity"
 import { onlyDigits } from "@/lib/brasil-document"
+import { hasWebBackofficeAccess, WEB_BACKOFFICE_ACCESS_DENIED_MESSAGE } from "@/lib/server-auth"
 
 type AddressData = {
     cep?: string
@@ -70,7 +71,7 @@ export async function startSignUpAction(input: SignUpInput): Promise<ActionResul
         if (existingUserByEmail) {
             return {
                 success: false,
-                error: "Já existe uma conta com este e-mail. Entre com essa conta e cadastre a arena pelo dashboard.",
+                error: "Já existe uma conta com este e-mail. Se esta é uma conta de atleta, use o app mobile. O painel web é exclusivo para gestores e equipes de arena.",
             }
         }
 
@@ -143,6 +144,36 @@ export async function provisionAfterSignUpAction(): Promise<ActionResult<{ arena
         return { success: true, data: { arenaCreated: false } }
     } catch (error) {
         console.error("provisionAfterSignUpAction error:", error)
+        return { success: false, error: getErrorMessage(error) }
+    }
+}
+
+export async function ensureWebBackofficeAccessAction(): Promise<ActionResult> {
+    try {
+        const supabase = await createSupabaseServerClient()
+        const { data: authData, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !authData.user) {
+            return { success: false, error: "Usuário não autenticado" }
+        }
+
+        const admin = getSupabaseAdmin()
+        const dbUser = await resolveAuthenticatedDbUser(admin, authData.user.id)
+
+        if (!dbUser?.id) {
+            await supabase.auth.signOut()
+            return { success: false, error: "Usuário não provisionado para acessar o painel web." }
+        }
+
+        const canAccessWeb = await hasWebBackofficeAccess(dbUser.id)
+        if (!canAccessWeb) {
+            await supabase.auth.signOut()
+            return { success: false, error: WEB_BACKOFFICE_ACCESS_DENIED_MESSAGE }
+        }
+
+        return { success: true }
+    } catch (error) {
+        console.error("ensureWebBackofficeAccessAction error:", error)
         return { success: false, error: getErrorMessage(error) }
     }
 }
