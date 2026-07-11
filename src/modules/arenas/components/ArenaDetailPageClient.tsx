@@ -16,6 +16,7 @@ import {
   CalendarDays,
   Clock,
   LayoutGrid,
+  Smartphone,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -231,8 +232,18 @@ export function ArenaDetailPageClient({
 
         {activeTab === 'espacos' && (
           <div className="space-y-6">
-            {courts.length > 0 && (
-              <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3">
+              <Button
+                asChild
+                className="bg-arena-navy-800/10 hover:bg-arena-navy-800/20 text-arena-navy-800 font-bold gap-2"
+              >
+                <Link href={`/dashboard/arenas/${arenaId}/mobile-content`}>
+                  <Smartphone className="w-4 h-4" />
+                  Conteúdo do app
+                </Link>
+              </Button>
+              {courts.length > 0 && (
+                <>
                 <Button
                   onClick={() => setIsAvailableTimesOpen(true)}
                   className="bg-arena-navy-800/10 hover:bg-arena-navy-800/20 text-arena-navy-800 font-bold gap-2"
@@ -247,8 +258,9 @@ export function ArenaDetailPageClient({
                   <CalendarDays className="w-4 h-4" />
                   Ver operação do dia
                 </Button>
-              </div>
-            )}
+                </>
+              )}
+            </div>
             {courts.length === 0 ? (
               <Card className="bg-white/50 border-dashed border-2 py-20 flex flex-col items-center justify-center">
                 <PlusCircle className="h-12 w-12 text-arena-navy-800/20 mb-4" />
