@@ -22,6 +22,48 @@ export interface MobileContentOption {
   name: string
 }
 
+export type AppHomeContentKind = 'announcement' | 'promotion' | 'ad' | 'news'
+export type AppHomeContentCtaKind = 'none' | 'external_url' | 'go_to_jogos' | 'go_to_buscar' | 'go_to_perfil'
+
+export interface AppHomeContentInput {
+  id?: string
+  kind: AppHomeContentKind
+  title: string
+  description?: string | null
+  image_url?: string | null
+  cta_label?: string | null
+  cta_url?: string | null
+  cta_kind?: AppHomeContentCtaKind
+  city_id?: number | null
+  sport_id?: string | null
+  priority?: number
+  starts_at?: string
+  ends_at?: string | null
+  active?: boolean
+}
+
+export interface AppHomeContent {
+  id: string
+  kind: AppHomeContentKind
+  title: string
+  description: string | null
+  image_url: string | null
+  cta_label: string | null
+  cta_url: string | null
+  cta_kind: AppHomeContentCtaKind
+  city_id: number | null
+  sport_id: string | null
+  priority: number
+  starts_at: string
+  ends_at: string | null
+  active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  sports?: MobileContentOption | null
+  municipios?: { codigo_ibge: number; nome: string; estados?: { uf: string } | null } | null
+}
+
 export interface MobilePromotion {
   id: string
   arena_id: string

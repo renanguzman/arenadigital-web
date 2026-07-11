@@ -3,9 +3,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { revalidatePath } from 'next/cache'
-import { assertArenaBackofficeAccess } from '@/lib/server-auth'
+import { assertArenaBackofficeAccess, assertPlatformAdminAccess } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import type {
+  AppHomeContent,
+  AppHomeContentInput,
   ArenaHighlightInput,
   ArenaPromotionInput,
   MobileContentOption,
@@ -18,6 +20,7 @@ import type {
 
 const MOBILE_CONTENT_REVALIDATE_PATHS = [
   '/dashboard',
+  '/dashboard/admin/mobile-content',
   '/dashboard/settings/arenas',
 ]
 
@@ -28,6 +31,94 @@ function revalidateMobileContent(arenaId?: string) {
 
 function normalizeError(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback
+}
+
+export async function listAppHomeContentAction(): Promise<MobileContentResult<AppHomeContent[]>> {
+  try {
+    await assertPlatformAdminAccess()
+    const supabase = getSupabaseAdmin() as any
+    const { data, error } = await supabase
+      .from('app_home_content')
+      .select('*, sports(id, name), municipios(codigo_ibge, nome, estados(uf))')
+      .order('priority', { ascending: false })
+      .order('created_at', { ascending: false })
+
+    if (error) throw new Error(error.message)
+    return { success: true, data: (data ?? []) as AppHomeContent[] }
+  } catch (err) {
+    return { success: false, data: [], error: normalizeError(err, 'Erro ao listar conteúdos globais') }
+  }
+}
+
+export async function upsertAppHomeContentAction(input: AppHomeContentInput): Promise<MobileContentResult<AppHomeContent | null>> {
+  try {
+    const admin = await assertPlatformAdminAccess()
+    const supabase = getSupabaseAdmin() as any
+    const payload = {
+      kind: input.kind,
+      title: input.title,
+      description: input.description ?? null,
+      image_url: input.image_url ?? null,
+      cta_label: input.cta_label ?? null,
+      cta_url: input.cta_url ?? null,
+      cta_kind: input.cta_kind ?? 'none',
+      city_id: input.city_id ?? null,
+      sport_id: input.sport_id ?? null,
+      priority: input.priority ?? 0,
+      starts_at: input.starts_at ?? new Date().toISOString(),
+      ends_at: input.ends_at ?? null,
+      active: input.active ?? true,
+      created_by: admin.dbUserId,
+    }
+
+    const query = input.id
+      ? supabase.from('app_home_content').update(payload).eq('id', input.id)
+      : supabase.from('app_home_content').insert(payload)
+
+    const { data, error } = await query.select('*').single()
+    if (error) throw new Error(error.message)
+    revalidateMobileContent()
+    return { success: true, data: data as AppHomeContent }
+  } catch (err) {
+    return { success: false, data: null, error: normalizeError(err, 'Erro ao salvar conteúdo global') }
+  }
+}
+
+export async function setAppHomeContentActiveAction(
+  contentId: string,
+  active: boolean
+): Promise<MobileContentResult<null>> {
+  try {
+    await assertPlatformAdminAccess()
+    const supabase = getSupabaseAdmin() as any
+    const { error } = await supabase
+      .from('app_home_content')
+      .update({ active })
+      .eq('id', contentId)
+
+    if (error) throw new Error(error.message)
+    revalidateMobileContent()
+    return { success: true, data: null }
+  } catch (err) {
+    return { success: false, data: null, error: normalizeError(err, 'Erro ao alterar conteúdo global') }
+  }
+}
+
+export async function deleteAppHomeContentAction(contentId: string): Promise<MobileContentResult<null>> {
+  try {
+    await assertPlatformAdminAccess()
+    const supabase = getSupabaseAdmin() as any
+    const { error } = await supabase
+      .from('app_home_content')
+      .delete()
+      .eq('id', contentId)
+
+    if (error) throw new Error(error.message)
+    revalidateMobileContent()
+    return { success: true, data: null }
+  } catch (err) {
+    return { success: false, data: null, error: normalizeError(err, 'Erro ao excluir conteúdo global') }
+  }
 }
 
 export async function listArenaPromotionsAction(arenaId: string): Promise<MobileContentResult<MobilePromotion[]>> {

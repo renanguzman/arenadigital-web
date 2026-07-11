@@ -52,7 +52,7 @@ function normalizeEmailRedirectTo(value: string) {
 
 // Inicia o cadastro de um novo gestor.
 // Cria entrada em auth.users via supabase.auth.signUp (envia link de confirmação por email).
-// O trigger on_auth_user_created já cria a linha em public.users com nome/cpf vindos do metadata.
+// O trigger on_auth_user_created já cria a linha em public.users com nome/documento vindos do metadata.
 // A criação da arena fica para depois do callback de confirmação (provisionAfterSignUpAction).
 export async function startSignUpAction(input: SignUpInput): Promise<ActionResult> {
     try {
@@ -77,7 +77,7 @@ export async function startSignUpAction(input: SignUpInput): Promise<ActionResul
         if (existingUserByCpf && normalizeEmail(existingUserByCpf.email) !== email) {
             return {
                 success: false,
-                error: "Este CPF já está vinculado a outro e-mail. Use o e-mail cadastrado ou recupere o acesso.",
+                error: "Este CPF/CNPJ já está vinculado a outro e-mail. Use o e-mail cadastrado ou recupere o acesso.",
             }
         }
 
@@ -128,7 +128,7 @@ export async function provisionAfterSignUpAction(): Promise<ActionResult<{ arena
         const phone = typeof meta.phone === "string" ? meta.phone : undefined
         const addressData = meta.addressData
 
-        // Garante linha em public.users com cpf/phone (trigger faz nome+role, mas pode faltar cpf em casos de OAuth)
+        // Garante linha em public.users com documento/phone (trigger faz nome+role, mas pode faltar documento em casos de OAuth)
         const admin = getSupabaseAdmin()
         const cpf = typeof meta.cpf === "string" ? meta.cpf : undefined
         if (cpf) {

@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 import { startSignUpAction } from "@/modules/auth/actions/authActions"
-import { isValidCpf, isValidCpfOrCnpj, onlyDigits } from "@/lib/brasil-document"
+import { isValidCpfOrCnpj } from "@/lib/brasil-document"
 
 const maskCpf = (value: string) => {
     return value
@@ -55,7 +55,6 @@ type MunicipioRow = { codigo_ibge: number; nome: string; codigo_uf: number }
 export function CustomSignUp() {
     const [firstName, setFirstName] = React.useState("")
     const [lastName, setLastName] = React.useState("")
-    const [cpf, setCpf] = React.useState("")
     const [phone, setPhone] = React.useState("")
     const [arenaName, setArenaName] = React.useState("")
     const [arenaDocument, setArenaDocument] = React.useState("")
@@ -172,13 +171,8 @@ export function CustomSignUp() {
             return
         }
 
-        if (!isValidCpf(onlyDigits(cpf))) {
-            toast.error("Informe um CPF válido para o responsável.")
-            return
-        }
-
         if (!isValidCpfOrCnpj(arenaDocument)) {
-            toast.error("Informe um CPF ou CNPJ válido para a arena.")
+            toast.error("Informe um CPF ou CNPJ válido.")
             return
         }
 
@@ -200,7 +194,7 @@ export function CustomSignUp() {
             emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
             firstName,
             lastName,
-            cpf,
+            cpf: arenaDocument,
             phone,
             arenaName,
             arenaDocument,
@@ -277,8 +271,8 @@ export function CustomSignUp() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label htmlFor="cpf" className="text-white/70">CPF</Label>
-                        <Input id="cpf" value={cpf} onChange={(e) => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" className="bg-white border-none h-12 rounded-lg text-black" required />
+                        <Label htmlFor="arenaDocument" className="text-white/70">CPF/CNPJ</Label>
+                        <Input id="arenaDocument" value={arenaDocument} onChange={(e) => setArenaDocument(maskCpfCnpj(e.target.value))} placeholder="000.000.000-00 ou 00.000.000/0000-00" className="bg-white border-none h-12 rounded-lg text-black" required />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="phone" className="text-white/70">Telefone da Arena</Label>
@@ -288,10 +282,6 @@ export function CustomSignUp() {
                 <div className="space-y-2">
                     <Label htmlFor="arenaName" className="text-white/70">Nome da Arena</Label>
                     <Input id="arenaName" value={arenaName} placeholder="Ex: Arena Beach Tennis" onChange={(e) => setArenaName(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black" required />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="arenaDocument" className="text-white/70">CPF/CNPJ da Arena</Label>
-                    <Input id="arenaDocument" value={arenaDocument} onChange={(e) => setArenaDocument(maskCpfCnpj(e.target.value))} placeholder="00.000.000/0000-00" className="bg-white border-none h-12 rounded-lg text-black" required />
                 </div>
             </div>
 

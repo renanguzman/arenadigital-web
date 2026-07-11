@@ -19,6 +19,12 @@ export type AuthenticatedDbUser = {
   authUserId: string
 }
 
+export type PlatformAdminProfile = AuthenticatedDbUser & {
+  email: string
+  name: string | null
+  role: 'admin'
+}
+
 export type ArenaMembershipRole = 'Gestor' | 'Atendente' | 'Caixa'
 
 export type ArenaAccessProfile = AuthenticatedDbUser & {
@@ -128,6 +134,32 @@ export async function assertArenaAccess(arenaId: string): Promise<ArenaAccessPro
     role,
     assignedStationId: linkedArena.station_id ?? null,
     arenaUserId: linkedArena.id ?? null,
+  }
+}
+
+export async function assertPlatformAdminAccess(): Promise<PlatformAdminProfile> {
+  const currentUser = await requireAuthenticatedDbUser()
+  const supabase = getSupabaseAdmin()
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('email, name, role')
+    .eq('id', currentUser.dbUserId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to verify platform admin access: ${error.message}`)
+  }
+
+  if (data?.role !== 'admin') {
+    throw new AuthorizationError('Forbidden', 403)
+  }
+
+  return {
+    ...currentUser,
+    email: data.email,
+    name: data.name,
+    role: 'admin',
   }
 }
 

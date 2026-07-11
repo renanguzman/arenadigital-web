@@ -17,6 +17,7 @@ import {
     Package,
     BarChart2,
     ClipboardPen,
+    ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,6 +26,7 @@ import { UserMenu } from "@/components/auth/UserMenu";
 import { Logo } from "@/components/shared/Logo";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useArena } from "@/contexts/ArenaContext";
+import { useDbUser } from "@/contexts/UserContext";
 import { ArenaSelector } from "./ArenaSelector";
 
 /** Item ativo do menu — ligado a `--arena-accent` em globals.css */
@@ -34,10 +36,12 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
     const pathname = usePathname();
     const { isCollapsed, toggleSidebar } = useSidebar();
     const { selectedArena, selectedArenaDetails } = useArena();
+    const { dbUser } = useDbUser();
 
     // Perfis de acesso
     const isCashier = selectedArenaDetails?.role === "Caixa" && !selectedArenaDetails?.isOwner;
     const isAdmin = selectedArenaDetails?.isOwner || selectedArenaDetails?.role === "Gestor";
+    const isPlatformAdmin = dbUser?.role === "admin";
     const canAccessSubscription = Boolean(isAdmin);
 
     const arenaHref = selectedArena ? `/dashboard/arenas/${selectedArena}` : "/dashboard/arenas";
@@ -242,6 +246,42 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                                 </Button>
                             );
                         })}
+
+                        {isPlatformAdmin && (
+                            <Button
+                                variant="ghost"
+                                className={cn(
+                                    "transition-colors flex items-center rounded-md",
+                                    isCollapsed
+                                        ? cn(
+                                              "h-10 w-10 shrink-0 justify-center p-0",
+                                              pathname.startsWith("/dashboard/admin")
+                                                  ? cn(navActiveText, "bg-white/10 hover:bg-white/15")
+                                                  : "text-white hover:bg-white/10 hover:text-white",
+                                          )
+                                        : cn(
+                                              "w-full gap-1.5 justify-start text-white hover:bg-white/10 hover:text-white",
+                                              pathname.startsWith("/dashboard/admin") &&
+                                                  cn(navActiveText, "bg-white/5 hover:bg-white/10 hover:text-arena-accent"),
+                                          ),
+                                )}
+                                asChild
+                                onClick={onNavItemClick}
+                            >
+                                <Link
+                                    href="/dashboard/admin/mobile-content"
+                                    title={isCollapsed ? "Admin app" : ""}
+                                    className={cn(isCollapsed && "flex size-full items-center justify-center")}
+                                >
+                                    <ShieldCheck className={cn(
+                                        "h-5 w-5 transition-all duration-300",
+                                        !isCollapsed && "mr-2",
+                                        pathname.startsWith("/dashboard/admin") && navActiveText
+                                    )} />
+                                    {!isCollapsed && <span className="font-medium text-sm">Admin app</span>}
+                                </Link>
+                            </Button>
+                        )}
 
                         {!isCashier && (
                         <div>
