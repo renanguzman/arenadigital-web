@@ -24,6 +24,10 @@ function normalizeRedirectPath(value: string | null) {
   return value
 }
 
+function isCreateArenaRedirect(value: string) {
+  return value === '/criar-arena' || value.startsWith('/criar-arena?')
+}
+
 export default function SignInPage() {
   const searchParams = useSearchParams()
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
@@ -61,12 +65,14 @@ export default function SignInPage() {
       console.error('provisionAfterSignUpAction:', provision.error)
     }
 
-    const webAccess = await ensureWebBackofficeAccessAction()
-    if (!webAccess.success) {
-      await supabase.auth.signOut()
-      setLoading(false)
-      toast.error(webAccess.error)
-      return
+    if (!isCreateArenaRedirect(redirectTo)) {
+      const webAccess = await ensureWebBackofficeAccessAction()
+      if (!webAccess.success) {
+        await supabase.auth.signOut()
+        setLoading(false)
+        toast.error(webAccess.error)
+        return
+      }
     }
 
     window.location.replace(redirectTo)

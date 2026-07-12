@@ -11,7 +11,11 @@ import { supabase as supabasePublic } from "@/shared/database/supabaseClient"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
-import { startSignUpAction } from "@/modules/auth/actions/authActions"
+import {
+    checkArenaSignupEmailAction,
+    startExistingAccountArenaSignUpAction,
+    startSignUpAction,
+} from "@/modules/auth/actions/authActions"
 import { isValidCpfOrCnpj } from "@/lib/brasil-document"
 
 const maskCpf = (value: string) => {
@@ -51,6 +55,7 @@ const maskCpfCnpj = (value: string) => {
 
 type EstadoRow = { codigo_uf: number; nome: string; uf: string }
 type MunicipioRow = { codigo_ibge: number; nome: string; codigo_uf: number }
+type AccountMode = "email" | "new-user" | "existing-account-can-create-arena" | "existing-web-user"
 
 export function CustomSignUp() {
     const [firstName, setFirstName] = React.useState("")
@@ -103,13 +108,17 @@ export function CustomSignUp() {
     }, [selectedEstadoId])
 
     const [emailAddress, setEmailAddress] = React.useState("")
+    const [accountMode, setAccountMode] = React.useState<AccountMode>("email")
+    const [accountName, setAccountName] = React.useState<string | null>(null)
     const [password, setPassword] = React.useState("")
     const [confirmPassword, setConfirmPassword] = React.useState("")
     const [showPassword, setShowPassword] = React.useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
 
     const [pendingVerification, setPendingVerification] = React.useState(false)
+    const [pendingExistingAccount, setPendingExistingAccount] = React.useState(false)
     const [loading, setLoading] = React.useState(false)
+    const [emailLookupLoading, setEmailLookupLoading] = React.useState(false)
 
     const passwordRequirements = React.useMemo(() => ([
         { label: "Mínimo de 8 caracteres", valid: password.length >= 8 },
@@ -120,6 +129,50 @@ export function CustomSignUp() {
     ]), [password])
 
     const isPasswordValid = passwordRequirements.every((req) => req.valid)
+
+    const isExistingAccountFlow = accountMode === "existing-account-can-create-arena"
+
+    const resetEmailCheck = () => {
+        setAccountMode("email")
+        setAccountName(null)
+        setPassword("")
+        setConfirmPassword("")
+        setPendingExistingAccount(false)
+    }
+
+    const handleEmailContinue = async () => {
+        const cleanEmail = emailAddress.trim().toLowerCase()
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+            toast.error("Informe um e-mail válido.")
+            return
+        }
+
+        setEmailAddress(cleanEmail)
+        setEmailLookupLoading(true)
+        const res = await checkArenaSignupEmailAction(cleanEmail)
+        setEmailLookupLoading(false)
+
+        if (!res.success) {
+            toast.error(res.error)
+            return
+        }
+
+        if (!res.data) {
+            toast.error("Não foi possível verificar esse e-mail agora.")
+            return
+        }
+
+        setAccountMode(res.data.status)
+        setAccountName(res.data.name ?? null)
+
+        if (res.data.status === "existing-account-can-create-arena") {
+            toast.success("Encontramos sua conta. Você pode criar uma arena com este mesmo e-mail.")
+        }
+
+        if (res.data.status === "existing-web-user") {
+            toast.info("Essa conta já possui acesso ao painel web.")
+        }
+    }
 
     const handleCepBlur = async () => {
         const cleanCep = cep.replace(/\D/g, '')
@@ -166,7 +219,17 @@ export function CustomSignUp() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (!isPasswordValid) {
+        if (accountMode === "email") {
+            await handleEmailContinue()
+            return
+        }
+
+        if (accountMode === "existing-web-user") {
+            toast.error("Essa conta já possui acesso ao painel web. Faça login para continuar.")
+            return
+        }
+
+        if (!isExistingAccountFlow && !isPasswordValid) {
             toast.error("A senha não atende a todos os requisitos.")
             return
         }
@@ -176,7 +239,7 @@ export function CustomSignUp() {
             return
         }
 
-        if (password !== confirmPassword) {
+        if (!isExistingAccountFlow && password !== confirmPassword) {
             toast.error("As senhas não coincidem.")
             return
         }
@@ -188,27 +251,39 @@ export function CustomSignUp() {
 
         setLoading(true)
 
-        const res = await startSignUpAction({
-            email: emailAddress,
-            password,
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
-            firstName,
-            lastName,
-            cpf: arenaDocument,
-            phone,
-            arenaName,
-            arenaDocument,
-            addressData: {
-                cep,
-                state,
-                city,
-                id_municipio: municipioId,
-                neighborhood,
-                street,
-                number: addressNumber,
-                complement,
-            },
-        })
+        const addressData = {
+            cep,
+            state,
+            city,
+            id_municipio: municipioId,
+            neighborhood,
+            street,
+            number: addressNumber,
+            complement,
+        }
+
+        const emailRedirectTo = `${window.location.origin}/auth/callback?next=/dashboard`
+        const res = isExistingAccountFlow
+            ? await startExistingAccountArenaSignUpAction({
+                email: emailAddress,
+                emailRedirectTo,
+                phone,
+                arenaName,
+                arenaDocument,
+                addressData,
+            })
+            : await startSignUpAction({
+                email: emailAddress,
+                password,
+                emailRedirectTo,
+                firstName,
+                lastName,
+                cpf: arenaDocument,
+                phone,
+                arenaName,
+                arenaDocument,
+                addressData,
+            })
 
         setLoading(false)
 
@@ -217,6 +292,7 @@ export function CustomSignUp() {
             return
         }
 
+        setPendingExistingAccount(isExistingAccountFlow)
         setPendingVerification(true)
         toast.success("Link de confirmação enviado para seu e-mail!")
     }
@@ -228,10 +304,15 @@ export function CustomSignUp() {
                     <Check className="h-6 w-6" />
                 </div>
                 <div className="space-y-2">
-                    <h2 className="text-xl font-semibold text-white">Confirme seu e-mail</h2>
+                    <h2 className="text-xl font-semibold text-white">
+                        {pendingExistingAccount ? "Confirme para criar sua arena" : "Confirme seu e-mail"}
+                    </h2>
                     <p className="text-sm leading-relaxed text-white/75">
-                        Enviamos um link de confirmação para <span className="font-semibold text-white">{emailAddress}</span>.
-                        Abra o e-mail e clique no link para ativar sua conta e entrar no dashboard.
+                        {pendingExistingAccount
+                            ? "Enviamos um link para confirmar que este e-mail é seu. Ao abrir o link, você poderá concluir a criação da arena sem refazer cadastro de atleta."
+                            : "Enviamos um link de confirmação para ativar sua conta e entrar no dashboard."}
+                        {" "}
+                        <span className="font-semibold text-white">{emailAddress}</span>
                     </p>
                 </div>
                 <Link href="/sign-in" className="block">
@@ -256,9 +337,68 @@ export function CustomSignUp() {
 
     return (
         <form onSubmit={handleSubmit} className="w-full space-y-6">
-
             <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-white border-b border-white/20 pb-2">Dados Pessoais (Responsável)</h2>
+                <h2 className="text-xl font-semibold text-white border-b border-white/20 pb-2">E-mail da conta</h2>
+                <div className="space-y-2">
+                    <Label htmlFor="email" className="text-white/70">E-mail</Label>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <Input
+                            id="email"
+                            type="email"
+                            value={emailAddress}
+                            onChange={(e) => {
+                                setEmailAddress(e.target.value)
+                                if (accountMode !== "email") resetEmailCheck()
+                            }}
+                            className="bg-white border-none h-12 rounded-lg text-black"
+                            disabled={emailLookupLoading || loading}
+                            required
+                        />
+                        <Button
+                            type="button"
+                            onClick={handleEmailContinue}
+                            disabled={emailLookupLoading || loading}
+                            className="h-12 shrink-0 rounded-lg bg-white px-5 text-sm font-bold text-arena-navy-800 hover:bg-white/90"
+                        >
+                            {emailLookupLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {accountMode === "email" ? "Continuar" : "Verificar novamente"}
+                        </Button>
+                    </div>
+                </div>
+
+                {accountMode === "new-user" && (
+                    <p className="rounded-lg border border-green-400/30 bg-green-500/10 px-3 py-2 text-sm text-green-100">
+                        E-mail disponível. Continue o cadastro para criar sua conta gestora.
+                    </p>
+                )}
+
+                {accountMode === "existing-account-can-create-arena" && (
+                    <p className="rounded-lg border border-arena-button/40 bg-arena-button/10 px-3 py-2 text-sm text-white/85">
+                        {accountName ? `${accountName}, encontramos sua conta.` : "Encontramos sua conta."} Você pode criar uma arena com este mesmo e-mail. Vamos confirmar por e-mail antes de liberar o painel.
+                    </p>
+                )}
+
+                {accountMode === "existing-web-user" && (
+                    <div className="space-y-3 rounded-lg border border-white/15 bg-white/10 px-3 py-3 text-sm text-white/85">
+                        <p>
+                            {accountName ? `${accountName}, essa conta` : "Essa conta"} já possui acesso ao painel web.
+                        </p>
+                        <Link href="/sign-in" className="block">
+                            <Button type="button" className="w-full bg-arena-button hover:bg-arena-button-hover h-11 rounded-lg font-bold">
+                                Ir para login
+                            </Button>
+                        </Link>
+                    </div>
+                )}
+            </div>
+
+            {(accountMode === "new-user" || accountMode === "existing-account-can-create-arena") && (
+                <>
+            <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-white border-b border-white/20 pb-2">
+                    {accountMode === "new-user" ? "Dados Pessoais (Responsável)" : "Dados da Arena"}
+                </h2>
+                {accountMode === "new-user" && (
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="firstName" className="text-white/70">Nome</Label>
@@ -269,6 +409,7 @@ export function CustomSignUp() {
                         <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black" required />
                     </div>
                 </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="arenaDocument" className="text-white/70">CPF/CNPJ</Label>
@@ -415,77 +556,77 @@ export function CustomSignUp() {
                 </div>
             </div>
 
-            <div className="space-y-4 pt-2">
-                <h2 className="text-xl font-semibold text-white border-b border-white/20 pb-2">Dados de Acesso</h2>
-                <div className="space-y-2">
-                    <Label htmlFor="email" className="text-white/70">E-mail (Login)</Label>
-                    <Input id="email" type="email" value={emailAddress} onChange={(e) => setEmailAddress(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black" required />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="password" className="text-white/70">Senha</Label>
-                        <div className="relative">
-                            <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black pr-10" required />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword((prev) => !prev)}
-                                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                            >
-                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                            </button>
+            {accountMode === "new-user" && (
+                <div className="space-y-4 pt-2">
+                    <h2 className="text-xl font-semibold text-white border-b border-white/20 pb-2">Senha de acesso</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="password" className="text-white/70">Senha</Label>
+                            <div className="relative">
+                                <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black pr-10" required />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword((prev) => !prev)}
+                                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                >
+                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="confirmPassword" className="text-white/70">Confirme a Senha</Label>
+                            <div className="relative">
+                                <Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black pr-10" required />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                                    aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                >
+                                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="confirmPassword" className="text-white/70">Confirme a Senha</Label>
-                        <div className="relative">
-                            <Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black pr-10" required />
-                            <button
-                                type="button"
-                                onClick={() => setShowConfirmPassword((prev) => !prev)}
-                                aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                            >
-                                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                            </button>
-                        </div>
-                    </div>
-                </div>
 
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-1">
-                    {passwordRequirements.map((req) => (
-                        <li
-                            key={req.label}
-                            className={cn(
-                                "flex items-center gap-2 text-sm transition-colors",
-                                req.valid ? "text-green-400" : "text-white/50"
-                            )}
-                        >
-                            <span
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-1">
+                        {passwordRequirements.map((req) => (
+                            <li
+                                key={req.label}
                                 className={cn(
-                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-                                    req.valid ? "bg-green-500 text-white" : "bg-white/15 text-white/50"
+                                    "flex items-center gap-2 text-sm transition-colors",
+                                    req.valid ? "text-green-400" : "text-white/50"
                                 )}
                             >
-                                {req.valid ? <Check className="h-3 w-3" strokeWidth={3} /> : <X className="h-3 w-3" strokeWidth={3} />}
-                            </span>
-                            {req.label}
-                        </li>
-                    ))}
-                </ul>
+                                <span
+                                    className={cn(
+                                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+                                        req.valid ? "bg-green-500 text-white" : "bg-white/15 text-white/50"
+                                    )}
+                                >
+                                    {req.valid ? <Check className="h-3 w-3" strokeWidth={3} /> : <X className="h-3 w-3" strokeWidth={3} />}
+                                </span>
+                                {req.label}
+                            </li>
+                        ))}
+                    </ul>
 
-                {confirmPassword.length > 0 && password !== confirmPassword && (
-                    <p className="text-sm text-red-400">As senhas não coincidem.</p>
-                )}
-            </div>
+                    {confirmPassword.length > 0 && password !== confirmPassword && (
+                        <p className="text-sm text-red-400">As senhas não coincidem.</p>
+                    )}
+                </div>
+            )}
 
             <Button
                 type="submit"
                 disabled={loading}
                 className="w-full bg-arena-button hover:bg-arena-button-hover h-12 rounded-lg text-lg font-bold shadow-lg mt-8"
             >
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Criar Conta"}
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : accountMode === "new-user" ? "Criar Conta" : "Confirmar e criar arena"}
             </Button>
+                </>
+            )}
         </form>
     )
 }

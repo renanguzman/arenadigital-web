@@ -143,6 +143,59 @@ export type Database = {
           },
         ]
       }
+      pending_web_arena_signups: {
+        Row: {
+          address_data: Json
+          arena_document: string | null
+          arena_name: string
+          completed_at: string | null
+          confirmed_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          phone: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          address_data?: Json
+          arena_document?: string | null
+          arena_name: string
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          phone?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          address_data?: Json
+          arena_document?: string | null
+          arena_name?: string
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          phone?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_web_arena_signups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arena_users: {
         Row: {
           arena_id: string

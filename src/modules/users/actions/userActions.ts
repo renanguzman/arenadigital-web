@@ -72,7 +72,7 @@ export async function provisionOwnerArena(
     phone?: string,
     addressData?: unknown,
     arenaDocument?: string,
-) {
+): Promise<string | null> {
     const supabase = getSupabaseAdmin();
     const arenaAddress = normalizeOwnerArenaAddressData(addressData);
 
@@ -82,7 +82,7 @@ export async function provisionOwnerArena(
     if (existingArena) {
         await ensureOwnerArenaUserLink(supabase, existingArena.id, ownerId);
         await ensureExperimentalSubscription({ arenaId: existingArena.id, actorId: ownerId });
-        return;
+        return existingArena.id;
     }
 
     const cleanArenaDocument = onlyDigits(arenaDocument);
@@ -119,7 +119,10 @@ export async function provisionOwnerArena(
     if (newArena) {
         await ensureOwnerArenaUserLink(supabase, newArena.id, ownerId);
         await ensureExperimentalSubscription({ arenaId: newArena.id, actorId: ownerId });
+        return newArena.id;
     }
+
+    return null;
 }
 
 type ArenaUserFormData = {

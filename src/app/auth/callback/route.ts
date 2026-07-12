@@ -11,6 +11,10 @@ function normalizeRedirectPath(value: string | null) {
     return value
 }
 
+function isCreateArenaRedirect(value: string) {
+    return value === "/criar-arena" || value.startsWith("/criar-arena?")
+}
+
 export async function GET(request: Request) {
     const url = new URL(request.url)
     const code = url.searchParams.get("code")
@@ -41,9 +45,11 @@ export async function GET(request: Request) {
         console.error("[auth/callback] provisionAfterSignUpAction failed:", provision.error)
     }
 
-    const webAccess = await ensureWebBackofficeAccessAction()
-    if (!webAccess.success) {
-        return NextResponse.redirect(new URL(`/sign-in?error=${encodeURIComponent(webAccess.error)}`, url.origin))
+    if (!isCreateArenaRedirect(next)) {
+        const webAccess = await ensureWebBackofficeAccessAction()
+        if (!webAccess.success) {
+            return NextResponse.redirect(new URL(`/sign-in?error=${encodeURIComponent(webAccess.error)}`, url.origin))
+        }
     }
 
     return NextResponse.redirect(new URL(next, url.origin))
