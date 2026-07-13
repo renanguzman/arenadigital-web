@@ -36,7 +36,7 @@ export type ArenaAccessProfile = AuthenticatedDbUser & {
 }
 
 export const WEB_BACKOFFICE_ACCESS_DENIED_MESSAGE =
-  'Esta conta é de atleta e não possui acesso ao painel web. Use o app mobile para acessar sua conta de atleta.'
+  'Esta conta é exclusiva do app de atletas e não acessa o painel web. Para gerenciar uma arena, cadastre uma conta gestora com outro e-mail.'
 
 type PublicTableName = keyof Database['public']['Tables']
 

@@ -6,7 +6,6 @@ import { provisionOwnerArena } from "@/modules/users/actions/userActions"
 import { findUserByCpf, findUserByEmail, normalizeEmail, resolveAuthenticatedDbUser } from "@/lib/account-identity"
 import { isValidCpfOrCnpj, onlyDigits } from "@/lib/brasil-document"
 import { hasWebBackofficeAccess, WEB_BACKOFFICE_ACCESS_DENIED_MESSAGE } from "@/lib/server-auth"
-import type { Json } from "@/types/supabase.types"
 
 type AddressData = {
     cep?: string
@@ -32,15 +31,6 @@ type SignUpInput = {
     addressData: AddressData
 }
 
-type ExistingAccountArenaSignUpInput = Omit<SignUpInput, "password" | "firstName" | "lastName" | "cpf">
-
-type PendingArenaSignup = {
-    id: string
-    arenaName: string
-    email: string
-    expiresAt: string
-}
-
 type ActionResult<T = undefined> =
     | { success: true; data?: T }
     | { success: false; error: string }
@@ -61,33 +51,6 @@ function normalizeEmailRedirectTo(value: string) {
     }
 }
 
-function buildCreateArenaRedirectTo(value: string, pendingId: string) {
-    const callbackUrl = normalizeEmailRedirectTo(value)
-    if (!callbackUrl) return undefined
-
-    const url = new URL(callbackUrl)
-    const next = new URLSearchParams({ pending: pendingId })
-    url.searchParams.set("next", `/criar-arena?${next.toString()}`)
-    return url.toString()
-}
-
-function normalizeArenaAddressData(value: AddressData): Json {
-    const clean: Record<string, string | number> = {}
-
-    for (const [key, rawValue] of Object.entries(value)) {
-        if (typeof rawValue === "number") {
-            clean[key] = rawValue
-            continue
-        }
-
-        if (typeof rawValue === "string" && rawValue.trim().length > 0) {
-            clean[key] = rawValue.trim()
-        }
-    }
-
-    return clean
-}
-
 function validateArenaSignupData(input: Pick<SignUpInput, "arenaName" | "arenaDocument" | "phone" | "addressData">) {
     if (!input.arenaName.trim()) return "Informe o nome da arena."
     if (!input.phone.trim()) return "Informe o telefone da arena."
@@ -98,7 +61,7 @@ function validateArenaSignupData(input: Pick<SignUpInput, "arenaName" | "arenaDo
 }
 
 export async function checkArenaSignupEmailAction(emailInput: string): Promise<ActionResult<{
-    status: "new-user" | "existing-account-can-create-arena" | "existing-web-user"
+    status: "new-user" | "existing-app-user" | "existing-web-user"
     name?: string | null
 }>> {
     try {
@@ -126,7 +89,7 @@ export async function checkArenaSignupEmailAction(emailInput: string): Promise<A
         return {
             success: true,
             data: {
-                status: "existing-account-can-create-arena",
+                status: "existing-app-user",
                 name: existingUser.name,
             },
         }
@@ -159,7 +122,7 @@ export async function startSignUpAction(input: SignUpInput): Promise<ActionResul
         if (existingUserByEmail) {
             return {
                 success: false,
-                error: "Já existe uma conta com este e-mail. Se esta é uma conta de atleta, use o app mobile. O painel web é exclusivo para gestores e equipes de arena.",
+                error: "Já existe uma conta com este e-mail. O painel web é exclusivo para gestores e o app é exclusivo para atletas. Use outro e-mail para cadastrar uma arena.",
             }
         }
 
@@ -194,76 +157,6 @@ export async function startSignUpAction(input: SignUpInput): Promise<ActionResul
         return { success: true }
     } catch (error) {
         console.error("startSignUpAction error:", error)
-        return { success: false, error: getErrorMessage(error) }
-    }
-}
-
-export async function startExistingAccountArenaSignUpAction(input: ExistingAccountArenaSignUpInput): Promise<ActionResult> {
-    try {
-        const validationError = validateArenaSignupData(input)
-        if (validationError) return { success: false, error: validationError }
-
-        const supabase = await createSupabaseServerClient()
-        const admin = getSupabaseAdmin()
-        const email = normalizeEmail(input.email)
-        const existingUser = await findUserByEmail(admin, email)
-
-        if (!existingUser) {
-            return { success: false, error: "Não encontramos uma conta com este e-mail. Revise o e-mail e tente novamente." }
-        }
-
-        const canAccessWeb = await hasWebBackofficeAccess(existingUser.id)
-        if (canAccessWeb) {
-            return { success: false, error: "Essa conta já possui acesso ao painel web. Faça login para continuar." }
-        }
-
-        await admin
-            .from("pending_web_arena_signups")
-            .update({ status: "expired" })
-            .eq("user_id", existingUser.id)
-            .eq("status", "pending")
-
-        const { data: pending, error: pendingError } = await admin
-            .from("pending_web_arena_signups")
-            .insert({
-                user_id: existingUser.id,
-                email,
-                arena_name: input.arenaName.trim(),
-                phone: input.phone.trim(),
-                arena_document: input.arenaDocument,
-                address_data: normalizeArenaAddressData(input.addressData),
-            })
-            .select("id")
-            .single()
-
-        if (pendingError || !pending?.id) {
-            return { success: false, error: pendingError?.message ?? "Não foi possível preparar a criação da arena." }
-        }
-
-        const emailRedirectTo = buildCreateArenaRedirectTo(input.emailRedirectTo, pending.id)
-        if (!emailRedirectTo) {
-            return { success: false, error: "URL de confirmação inválida." }
-        }
-
-        const { error } = await supabase.auth.signInWithOtp({
-            email,
-            options: {
-                shouldCreateUser: false,
-                emailRedirectTo,
-            },
-        })
-
-        if (error) {
-            await admin
-                .from("pending_web_arena_signups")
-                .update({ status: "expired" })
-                .eq("id", pending.id)
-            return { success: false, error: error.message }
-        }
-
-        return { success: true }
-    } catch (error) {
-        console.error("startExistingAccountArenaSignUpAction error:", error)
         return { success: false, error: getErrorMessage(error) }
     }
 }
@@ -332,112 +225,6 @@ export async function ensureWebBackofficeAccessAction(): Promise<ActionResult> {
         return { success: true }
     } catch (error) {
         console.error("ensureWebBackofficeAccessAction error:", error)
-        return { success: false, error: getErrorMessage(error) }
-    }
-}
-
-export async function getPendingArenaSignupAction(pendingId: string): Promise<ActionResult<PendingArenaSignup>> {
-    try {
-        const supabase = await createSupabaseServerClient()
-        const { data: authData, error: authError } = await supabase.auth.getUser()
-
-        if (authError || !authData.user) {
-            return { success: false, error: "Usuário não autenticado" }
-        }
-
-        const admin = getSupabaseAdmin()
-        const dbUser = await resolveAuthenticatedDbUser(admin, authData.user.id)
-        if (!dbUser?.id) return { success: false, error: "Usuário não provisionado." }
-
-        const { data: pending, error } = await admin
-            .from("pending_web_arena_signups")
-            .select("id, arena_name, email, expires_at, status")
-            .eq("id", pendingId)
-            .eq("user_id", dbUser.id)
-            .maybeSingle()
-
-        if (error) return { success: false, error: error.message }
-        if (!pending) return { success: false, error: "Não encontramos essa solicitação de criação de arena." }
-        if (pending.status !== "pending") return { success: false, error: "Essa solicitação já foi usada ou expirou." }
-        if (new Date(pending.expires_at).getTime() < Date.now()) {
-            await admin.from("pending_web_arena_signups").update({ status: "expired" }).eq("id", pending.id)
-            return { success: false, error: "Essa solicitação expirou. Faça o cadastro da arena novamente." }
-        }
-
-        await admin
-            .from("pending_web_arena_signups")
-            .update({ confirmed_at: new Date().toISOString() })
-            .eq("id", pending.id)
-            .is("confirmed_at", null)
-
-        return {
-            success: true,
-            data: {
-                id: pending.id,
-                arenaName: pending.arena_name,
-                email: pending.email,
-                expiresAt: pending.expires_at,
-            },
-        }
-    } catch (error) {
-        console.error("getPendingArenaSignupAction error:", error)
-        return { success: false, error: getErrorMessage(error) }
-    }
-}
-
-export async function completePendingArenaSignupAction(pendingId: string): Promise<ActionResult<{ arenaId: string | null }>> {
-    try {
-        const supabase = await createSupabaseServerClient()
-        const { data: authData, error: authError } = await supabase.auth.getUser()
-
-        if (authError || !authData.user) {
-            return { success: false, error: "Usuário não autenticado" }
-        }
-
-        const admin = getSupabaseAdmin()
-        const dbUser = await resolveAuthenticatedDbUser(admin, authData.user.id)
-        if (!dbUser?.id) return { success: false, error: "Usuário não provisionado." }
-
-        const { data: pending, error } = await admin
-            .from("pending_web_arena_signups")
-            .select("id, user_id, email, arena_name, phone, arena_document, address_data, status, expires_at")
-            .eq("id", pendingId)
-            .eq("user_id", dbUser.id)
-            .maybeSingle()
-
-        if (error) return { success: false, error: error.message }
-        if (!pending) return { success: false, error: "Não encontramos essa solicitação de criação de arena." }
-        if (pending.status !== "pending") return { success: false, error: "Essa solicitação já foi usada ou expirou." }
-        if (new Date(pending.expires_at).getTime() < Date.now()) {
-            await admin.from("pending_web_arena_signups").update({ status: "expired" }).eq("id", pending.id)
-            return { success: false, error: "Essa solicitação expirou. Faça o cadastro da arena novamente." }
-        }
-
-        const arenaId = await provisionOwnerArena(
-            dbUser.id,
-            pending.arena_name,
-            pending.phone ?? undefined,
-            pending.address_data,
-            pending.arena_document ?? undefined
-        )
-
-        await admin
-            .from("users")
-            .update({ role: "gestor" })
-            .eq("id", dbUser.id)
-            .eq("role", "atleta")
-
-        await admin
-            .from("pending_web_arena_signups")
-            .update({
-                status: "completed",
-                completed_at: new Date().toISOString(),
-            })
-            .eq("id", pending.id)
-
-        return { success: true, data: { arenaId } }
-    } catch (error) {
-        console.error("completePendingArenaSignupAction error:", error)
         return { success: false, error: getErrorMessage(error) }
     }
 }

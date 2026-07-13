@@ -13,7 +13,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils"
 import {
     checkArenaSignupEmailAction,
-    startExistingAccountArenaSignUpAction,
     startSignUpAction,
 } from "@/modules/auth/actions/authActions"
 import { isValidCpfOrCnpj } from "@/lib/brasil-document"
@@ -55,7 +54,7 @@ const maskCpfCnpj = (value: string) => {
 
 type EstadoRow = { codigo_uf: number; nome: string; uf: string }
 type MunicipioRow = { codigo_ibge: number; nome: string; codigo_uf: number }
-type AccountMode = "email" | "new-user" | "existing-account-can-create-arena" | "existing-web-user"
+type AccountMode = "email" | "new-user" | "existing-app-user" | "existing-web-user"
 
 export function CustomSignUp() {
     const [firstName, setFirstName] = React.useState("")
@@ -116,7 +115,6 @@ export function CustomSignUp() {
     const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
 
     const [pendingVerification, setPendingVerification] = React.useState(false)
-    const [pendingExistingAccount, setPendingExistingAccount] = React.useState(false)
     const [loading, setLoading] = React.useState(false)
     const [emailLookupLoading, setEmailLookupLoading] = React.useState(false)
 
@@ -130,14 +128,11 @@ export function CustomSignUp() {
 
     const isPasswordValid = passwordRequirements.every((req) => req.valid)
 
-    const isExistingAccountFlow = accountMode === "existing-account-can-create-arena"
-
     const resetEmailCheck = () => {
         setAccountMode("email")
         setAccountName(null)
         setPassword("")
         setConfirmPassword("")
-        setPendingExistingAccount(false)
     }
 
     const handleEmailContinue = async () => {
@@ -165,8 +160,8 @@ export function CustomSignUp() {
         setAccountMode(res.data.status)
         setAccountName(res.data.name ?? null)
 
-        if (res.data.status === "existing-account-can-create-arena") {
-            toast.success("Encontramos sua conta. Você pode criar uma arena com este mesmo e-mail.")
+        if (res.data.status === "existing-app-user") {
+            toast.error("Este e-mail já é usado no app de atletas.")
         }
 
         if (res.data.status === "existing-web-user") {
@@ -229,7 +224,12 @@ export function CustomSignUp() {
             return
         }
 
-        if (!isExistingAccountFlow && !isPasswordValid) {
+        if (accountMode === "existing-app-user") {
+            toast.error("Este e-mail já está vinculado ao app de atletas. Use outro e-mail para cadastrar uma arena.")
+            return
+        }
+
+        if (!isPasswordValid) {
             toast.error("A senha não atende a todos os requisitos.")
             return
         }
@@ -239,7 +239,7 @@ export function CustomSignUp() {
             return
         }
 
-        if (!isExistingAccountFlow && password !== confirmPassword) {
+        if (password !== confirmPassword) {
             toast.error("As senhas não coincidem.")
             return
         }
@@ -263,27 +263,18 @@ export function CustomSignUp() {
         }
 
         const emailRedirectTo = `${window.location.origin}/auth/callback?next=/dashboard`
-        const res = isExistingAccountFlow
-            ? await startExistingAccountArenaSignUpAction({
-                email: emailAddress,
-                emailRedirectTo,
-                phone,
-                arenaName,
-                arenaDocument,
-                addressData,
-            })
-            : await startSignUpAction({
-                email: emailAddress,
-                password,
-                emailRedirectTo,
-                firstName,
-                lastName,
-                cpf: arenaDocument,
-                phone,
-                arenaName,
-                arenaDocument,
-                addressData,
-            })
+        const res = await startSignUpAction({
+            email: emailAddress,
+            password,
+            emailRedirectTo,
+            firstName,
+            lastName,
+            cpf: arenaDocument,
+            phone,
+            arenaName,
+            arenaDocument,
+            addressData,
+        })
 
         setLoading(false)
 
@@ -292,7 +283,6 @@ export function CustomSignUp() {
             return
         }
 
-        setPendingExistingAccount(isExistingAccountFlow)
         setPendingVerification(true)
         toast.success("Link de confirmação enviado para seu e-mail!")
     }
@@ -305,12 +295,10 @@ export function CustomSignUp() {
                 </div>
                 <div className="space-y-2">
                     <h2 className="text-xl font-semibold text-white">
-                        {pendingExistingAccount ? "Confirme para criar sua arena" : "Confirme seu e-mail"}
+                        Confirme seu e-mail
                     </h2>
                     <p className="text-sm leading-relaxed text-white/75">
-                        {pendingExistingAccount
-                            ? "Enviamos um link para confirmar que este e-mail é seu. Ao abrir o link, você poderá concluir a criação da arena sem refazer cadastro de atleta."
-                            : "Enviamos um link de confirmação para ativar sua conta e entrar no dashboard."}
+                        Enviamos um link de confirmação para ativar sua conta gestora e entrar no dashboard.
                         {" "}
                         <span className="font-semibold text-white">{emailAddress}</span>
                     </p>
@@ -372,10 +360,13 @@ export function CustomSignUp() {
                     </p>
                 )}
 
-                {accountMode === "existing-account-can-create-arena" && (
-                    <p className="rounded-lg border border-arena-button/40 bg-arena-button/10 px-3 py-2 text-sm text-white/85">
-                        {accountName ? `${accountName}, encontramos sua conta.` : "Encontramos sua conta."} Você pode criar uma arena com este mesmo e-mail. Vamos confirmar por e-mail antes de liberar o painel.
-                    </p>
+                {accountMode === "existing-app-user" && (
+                    <div className="space-y-2 rounded-lg border border-amber-300/40 bg-amber-300/10 px-3 py-3 text-sm text-amber-50">
+                        <p className="font-semibold">Este e-mail já é usado no app de atletas.</p>
+                        <p>
+                            Para manter os acessos separados, contas do app não entram no painel web. Use outro e-mail para cadastrar uma arena.
+                        </p>
+                    </div>
                 )}
 
                 {accountMode === "existing-web-user" && (
@@ -392,13 +383,12 @@ export function CustomSignUp() {
                 )}
             </div>
 
-            {(accountMode === "new-user" || accountMode === "existing-account-can-create-arena") && (
+            {accountMode === "new-user" && (
                 <>
             <div className="space-y-4">
                 <h2 className="text-xl font-semibold text-white border-b border-white/20 pb-2">
-                    {accountMode === "new-user" ? "Dados Pessoais (Responsável)" : "Dados da Arena"}
+                    Dados Pessoais (Responsável)
                 </h2>
-                {accountMode === "new-user" && (
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="firstName" className="text-white/70">Nome</Label>
@@ -409,7 +399,6 @@ export function CustomSignUp() {
                         <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="bg-white border-none h-12 rounded-lg text-black" required />
                     </div>
                 </div>
-                )}
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="arenaDocument" className="text-white/70">CPF/CNPJ</Label>
@@ -556,7 +545,6 @@ export function CustomSignUp() {
                 </div>
             </div>
 
-            {accountMode === "new-user" && (
                 <div className="space-y-4 pt-2">
                     <h2 className="text-xl font-semibold text-white border-b border-white/20 pb-2">Senha de acesso</h2>
                     <div className="grid grid-cols-2 gap-4">
@@ -616,14 +604,13 @@ export function CustomSignUp() {
                         <p className="text-sm text-red-400">As senhas não coincidem.</p>
                     )}
                 </div>
-            )}
 
             <Button
                 type="submit"
                 disabled={loading}
                 className="w-full bg-arena-button hover:bg-arena-button-hover h-12 rounded-lg text-lg font-bold shadow-lg mt-8"
             >
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : accountMode === "new-user" ? "Criar Conta" : "Confirmar e criar arena"}
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Criar Conta"}
             </Button>
                 </>
             )}
