@@ -33,6 +33,7 @@ interface Booking {
     start_time: string;
     end_time: string;
     status: string | null;
+    payment_expires_at?: string | null;
     price?: number;
     sports?: {
         id: string;
@@ -186,6 +187,13 @@ function generateSlotsForDate(date: Date, dayConfigs: any[] | null): SlotTime[] 
     return generateSlotsForDayConfig(cfg)
 }
 
+function blocksAvailability(booking: Booking) {
+    if (booking.status === 'confirmed' || booking.status === 'reservado') return true
+    if (booking.status !== 'pending_payment') return false
+    if (!booking.payment_expires_at) return true
+    return new Date(booking.payment_expires_at).getTime() > Date.now()
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export function DayOperationModal({ isOpen, onClose, arenaId, arenaName, courts }: DayOperationModalProps) {
@@ -275,7 +283,7 @@ export function DayOperationModal({ isOpen, onClose, arenaId, arenaName, courts 
                 end.toISOString()
             );
             if (res.data) {
-                setFutureBookings((res.data as unknown as Booking[]).filter(b => b.status !== 'cancelled'));
+                setFutureBookings((res.data as unknown as Booking[]).filter(blocksAvailability));
             }
         };
         loadFutureBookings();
@@ -347,7 +355,7 @@ export function DayOperationModal({ isOpen, onClose, arenaId, arenaName, courts 
         })
         // Include slots from actual bookings so they always appear even outside config
         filteredBookings.forEach(b => {
-            if (b.status === 'cancelled') return
+            if (!blocksAvailability(b)) return
             const bStart = parseISO(b.start_time)
             const h = getHours(bStart), m = getMinutes(bStart)
             map.set(`${h}:${m}`, { hour: h, minute: m })
@@ -361,7 +369,7 @@ export function DayOperationModal({ isOpen, onClose, arenaId, arenaName, courts 
 
         return filteredBookings.find(b => {
             if (b.court_id !== courtId) return false;
-            if (b.status === 'cancelled') return false;
+            if (!blocksAvailability(b)) return false;
 
             const bStart = parseISO(b.start_time);
             const bEnd = parseISO(b.end_time);
@@ -559,7 +567,7 @@ export function DayOperationModal({ isOpen, onClose, arenaId, arenaName, courts 
                             {sortedCourts.map(court => {
                                 const checked = visibleCourtIds.has(court.id)
                                 const hasBooking = filteredBookings.some(
-                                    b => b.court_id === court.id && b.status !== 'cancelled'
+                                    b => b.court_id === court.id && blocksAvailability(b)
                                 )
                                 return (
                                     <button

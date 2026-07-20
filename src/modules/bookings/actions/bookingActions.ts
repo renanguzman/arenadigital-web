@@ -61,6 +61,13 @@ function revalidateBookingFinancePaths(arenaId: string) {
     revalidatePath(`/dashboard/reports/${arenaId}/status-pagamentos`)
 }
 
+function isBlockingBookingStatus(row: { status: string | null; payment_expires_at?: string | null }): boolean {
+    if (row.status === 'confirmed' || row.status === 'reservado') return true
+    if (row.status !== 'pending_payment') return false
+    if (!row.payment_expires_at) return true
+    return new Date(row.payment_expires_at).getTime() > Date.now()
+}
+
 async function maybeConfirmSplitBooking(
     supabase: ReturnType<typeof getSupabaseAdmin>,
     bookingId: string
@@ -260,6 +267,14 @@ export interface BookingConflict {
     proposedDate: string  // data/hora que o usuário tentou reservar (formatada)
 }
 
+type BookingConflictRow = {
+    athlete_name: string | null
+    start_time: string
+    end_time: string
+    status: string | null
+    payment_expires_at?: string | null
+}
+
 /**
  * Verifica conflitos de horário para uma lista de períodos (avulso com recorrência ou mensalista).
  * Retorna todos os conflitos encontrados sem bloquear — a decisão de prosseguir fica no cliente.
@@ -278,9 +293,9 @@ export async function checkBookingConflictsAction(
         for (const slot of slots) {
             let query = supabase
                 .from('bookings')
-                .select('athlete_name, start_time, end_time')
+                .select('athlete_name, start_time, end_time, status, payment_expires_at')
                 .eq('court_id', courtId)
-                .in('status', ['confirmed', 'reservado'])
+                .in('status', ['confirmed', 'reservado', 'pending_payment'])
                 .lt('start_time', slot.endTime)
                 .gt('end_time', slot.startTime)
 
@@ -288,12 +303,12 @@ export async function checkBookingConflictsAction(
                 query = query.neq('id', excludeBookingId)
             }
 
-            const { data, error } = await query.limit(1)
+            const { data, error } = await query.limit(50)
 
             if (error) throw new Error(error.message)
 
-            if (data && data.length > 0) {
-                const existing = data[0] as any
+            const existing = ((data ?? []) as unknown as BookingConflictRow[]).find(isBlockingBookingStatus)
+            if (existing) {
                 conflicts.push({
                     date: existing.start_time,
                     startTime: format(new Date(existing.start_time), 'HH:mm', { locale: ptBR }),

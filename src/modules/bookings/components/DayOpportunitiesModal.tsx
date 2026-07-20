@@ -16,6 +16,7 @@ interface Booking {
     start_time: string
     end_time: string
     status: string | null
+    payment_expires_at?: string | null
     atleta?: {
         id: string
         nome_perfil: string
@@ -40,6 +41,13 @@ interface Props {
     courtId: string
     currentDate: Date
     todayBookings: Booking[]
+}
+
+function blocksAvailability(booking: Booking) {
+    if (booking.status === 'confirmed' || booking.status === 'reservado') return true
+    if (booking.status !== 'pending_payment') return false
+    if (!booking.payment_expires_at) return true
+    return new Date(booking.payment_expires_at).getTime() > Date.now()
 }
 
 export function DayOpportunitiesModal({ isOpen, onClose, arenaId, courtId, currentDate, todayBookings }: Props) {
@@ -67,7 +75,7 @@ export function DayOpportunitiesModal({ isOpen, onClose, arenaId, courtId, curre
             // All hours occupied today (by the hour block they start/span)
             const occupiedHours = new Set<number>()
             for (const b of todayBookings) {
-                if (b.status === 'cancelled') continue
+                if (!blocksAvailability(b)) continue
                 const startH = new Date(b.start_time).getHours()
                 const endH = new Date(b.end_time).getHours()
                 for (let h = startH; h < endH; h++) occupiedHours.add(h)
@@ -76,7 +84,7 @@ export function DayOpportunitiesModal({ isOpen, onClose, arenaId, courtId, curre
             // Athlete IDs already booked today (to exclude them from leads)
             const todayAthleteIds = new Set<string>(
                 todayBookings
-                    .filter(b => b.status !== 'cancelled' && b.athlete_id)
+                    .filter(b => blocksAvailability(b) && b.athlete_id)
                     .map(b => b.athlete_id!)
             )
 
@@ -84,7 +92,7 @@ export function DayOpportunitiesModal({ isOpen, onClose, arenaId, courtId, curre
             const athleteMap = new Map<string, Lead>()
 
             for (const b of result.data) {
-                if (b.status === 'cancelled') continue
+                if (!blocksAvailability(b as Booking)) continue
                 if (!b.atleta?.telefone) continue
 
                 const bDate = new Date(b.start_time)

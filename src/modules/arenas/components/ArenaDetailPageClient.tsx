@@ -99,6 +99,14 @@ function formatAvailableDays(days: string[] | null | undefined) {
     .join(', ');
 }
 
+function blocksAvailability(booking: Booking) {
+  if (booking.status === 'confirmed' || booking.status === 'reservado') return true;
+  if (booking.status !== 'pending_payment') return false;
+  const expiresAt = (booking as Booking & { payment_expires_at?: string | null }).payment_expires_at;
+  if (!expiresAt) return true;
+  return new Date(expiresAt).getTime() > Date.now();
+}
+
 export function ArenaDetailPageClient({
   arenaId,
   arenaName,
@@ -187,7 +195,7 @@ export function ArenaDetailPageClient({
       const courtBookings = bookings.filter(
         (b) =>
           b.court_id === court.id &&
-          (b.status === 'confirmed' || b.status === 'reservado')
+          blocksAvailability(b)
       ).length;
       return { status: 'open', booked: courtBookings, total: totalSlots };
     }
@@ -204,7 +212,7 @@ export function ArenaDetailPageClient({
     const courtBookings = bookings.filter(
       (b) =>
         b.court_id === court.id &&
-        (b.status === 'confirmed' || b.status === 'reservado')
+        blocksAvailability(b)
     ).length;
     return { status: 'open', booked: courtBookings, total: totalSlots };
   };

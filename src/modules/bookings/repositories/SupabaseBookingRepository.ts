@@ -5,6 +5,22 @@ import type { Booking, CreateBookingDTO, UpdateBookingDTO } from '../types/booki
 const WITH_RELATIONS =
     '*, courts(id, name), sports(id, name), atleta:athlete_id(id, nome_perfil, telefone), booking_services(id, booking_id, product_id, quantity, unit_price, products(id, name)), booking_participants(id, atleta_id, funcao, status, valor, pago_em, atleta:atleta_id(id, nome_perfil, telefone))' as const;
 
+type ConflictBookingRow = {
+  id: string
+  athlete_name: string | null
+  start_time: string
+  end_time: string
+  status: string | null
+  payment_expires_at?: string | null
+}
+
+function isBlockingBooking(row: ConflictBookingRow): boolean {
+  if (row.status === 'confirmed' || row.status === 'reservado') return true
+  if (row.status !== 'pending_payment') return false
+  if (!row.payment_expires_at) return true
+  return new Date(row.payment_expires_at).getTime() > Date.now()
+}
+
 export class SupabaseBookingRepository implements IBookingRepository {
   constructor(private readonly client: SupabaseClient) {}
 
@@ -62,9 +78,9 @@ export class SupabaseBookingRepository implements IBookingRepository {
   ): Promise<void> {
     let query = this.client
       .from('bookings')
-      .select('id, athlete_name, start_time, end_time, status')
+      .select('id, athlete_name, start_time, end_time, status, payment_expires_at')
       .eq('court_id', courtId)
-      .in('status', ['confirmed', 'reservado'])
+      .in('status', ['confirmed', 'reservado', 'pending_payment'])
       .lt('start_time', endTime)
       .gt('end_time', startTime);
 
@@ -72,11 +88,11 @@ export class SupabaseBookingRepository implements IBookingRepository {
       query = query.neq('id', options.excludeBookingId);
     }
 
-    const { data, error } = await query.limit(1);
+    const { data, error } = await query.limit(50);
 
     if (error) throw new Error(`SupabaseBookingRepository.checkConflict: ${error.message}`);
-    if (data && data.length > 0) {
-      const conflicting = data[0] as any;
+    const conflicting = ((data ?? []) as unknown as ConflictBookingRow[]).find(isBlockingBooking);
+    if (conflicting) {
       throw new Error(
         `Conflito de horário: já existe uma reserva para ${conflicting.athlete_name ?? 'outro atleta'} nesta quadra no período solicitado.`
       );

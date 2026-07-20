@@ -37,6 +37,9 @@ function statusPresentation(status: string | null | undefined) {
     if (status === "reservado") {
         return { label: "Pendente pagamento", className: "bg-amber-100 text-amber-900 border-transparent" }
     }
+    if (status === "pending_payment") {
+        return { label: "Pix pendente no app", className: "bg-orange-100 text-orange-900 border-transparent" }
+    }
     if (status === "cancelled") {
         return { label: "Cancelado", className: "bg-red-100 text-red-800 border-transparent" }
     }
@@ -60,7 +63,8 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
     const endTime = parseISO(booking.end_time)
     const status = statusPresentation(booking.status)
     const isMensalista = booking.booking_type === "mensalista" || !!booking.plano_mensalista_id
-    const canEdit = Boolean(onEdit) && !isMensalista && booking.status !== "cancelled"
+    const mobilePixPending = booking.status === "pending_payment"
+    const canEdit = Boolean(onEdit) && !isMensalista && booking.status !== "cancelled" && !mobilePixPending
     const mensalistaReservadoBlock = isMensalista && booking.status === "reservado"
     const avulsoReservado = !isMensalista && booking.status === "reservado"
     const canCancel = avulsoReservado
@@ -216,6 +220,14 @@ export function BookingDetailsModal({ isOpen, onClose, onSuccess, onEdit, bookin
                                 <p className="mt-1 text-sm font-semibold text-arena-navy-800">{court.name}</p>
                             </div>
                         </div>
+
+                        {mobilePixPending && (
+                            <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-medium text-orange-900">
+                                Esta reserva foi criada pelo app e está aguardando pagamento Pix. O horário fica
+                                bloqueado temporariamente e será confirmado automaticamente pelo webhook do Asaas após o
+                                pagamento.
+                            </div>
+                        )}
 
                         {splitBilling && billingParticipants.length > 0 ? (
                             <div>

@@ -91,12 +91,21 @@ const getSportStyles = (sportName: string) => {
     return { bg: 'bg-[#F1F5F9]', border: 'border-[#94A3B8]', text: 'text-[#334155]', textSecondary: 'text-[#334155]/60' }
 }
 
+function blocksAvailability(booking: Booking) {
+    if (booking.status === 'confirmed' || booking.status === 'reservado') return true
+    if (booking.status !== 'pending_payment') return false
+    const expiresAt = (booking as Booking & { payment_expires_at?: string | null }).payment_expires_at
+    if (!expiresAt) return true
+    return new Date(expiresAt).getTime() > Date.now()
+}
+
 function SingleBookingCard({ booking, court, slot, isEnd, onClick }: {
     booking: Booking; court: Court; slot: SlotTime; isEnd: boolean; onClick?: () => void
 }) {
     const bStart = parseISO(booking.start_time)
     const isStart = slot.hour === getHours(bStart) && slot.minute === getMinutes(bStart)
     const isReservado = booking.status === 'reservado'
+    const isPendingPix = booking.status === 'pending_payment'
     const sportStyles = getSportStyles(booking.sports?.name || court.sports?.[0]?.name || '')
     const reservadoStyles = {
         bg: 'bg-amber-50',
@@ -104,7 +113,14 @@ function SingleBookingCard({ booking, court, slot, isEnd, onClick }: {
         text: 'text-amber-800',
         textSecondary: 'text-amber-600',
     }
-    const styles = isReservado ? reservadoStyles : sportStyles
+    const pendingPixStyles = {
+        bg: 'bg-orange-50',
+        border: 'border-orange-400 border-dashed',
+        text: 'text-orange-800',
+        textSecondary: 'text-orange-600',
+    }
+    const styles = isPendingPix ? pendingPixStyles : isReservado ? reservadoStyles : sportStyles
+    const statusLabel = isPendingPix ? 'Pix pendente' : isReservado ? 'Ag. Confirmação' : 'Confirmado'
     return (
         <div
             className={cn(
@@ -119,7 +135,7 @@ function SingleBookingCard({ booking, court, slot, isEnd, onClick }: {
             {isStart && (
                 <>
                     <span className={cn("text-[9px] font-black uppercase tracking-wider leading-none", styles.textSecondary)}>
-                        {isReservado ? 'Ag. Confirmação' : 'Confirmado'}
+                        {statusLabel}
                     </span>
                     <span className={cn("text-[11px] font-bold text-center line-clamp-1 px-1", styles.text)}>
                         {formatBookingParticipantLabel(booking)}{!isReservado && booking.price !== undefined && ` | R$ ${booking.price}`}
@@ -259,7 +275,7 @@ export function CourtCalendarPageClient({ arenaId, courtId, initialCourt, initia
             const end = addMonths(new Date(), 2)
             const res = await getBookingsByCourtAction(arenaId, courtId, start.toISOString(), end.toISOString())
             if (res.success && res.data) {
-                setFutureBookings((res.data as Booking[]).filter(b => b.status !== 'cancelled'))
+                setFutureBookings((res.data as Booking[]).filter(blocksAvailability))
             }
         }
         loadFutureBookings()
@@ -292,7 +308,7 @@ export function CourtCalendarPageClient({ arenaId, courtId, initialCourt, initia
         const slotStart = new Date(date)
         slotStart.setHours(slot.hour, slot.minute, 0, 0)
         return bookings.filter(b => {
-            if (b.status === 'cancelled') return false
+            if (!blocksAvailability(b)) return false
             const bookingStart = parseISO(b.start_time)
             const bookingEnd = parseISO(b.end_time)
             return slotStart >= bookingStart && slotStart < bookingEnd
@@ -382,7 +398,7 @@ export function CourtCalendarPageClient({ arenaId, courtId, initialCourt, initia
     const slotKeySet = new Set(baseSlotsForView.map(s => `${s.hour}:${s.minute}`))
     const extraSlots: SlotTime[] = []
     for (const b of bookings) {
-        if (b.status === 'cancelled') continue
+        if (!blocksAvailability(b)) continue
         const bStart = parseISO(b.start_time)
         const isInView = viewMode === 'day'
             ? isSameDay(bStart, currentDate)
@@ -623,7 +639,8 @@ export function CourtCalendarPageClient({ arenaId, courtId, initialCourt, initia
                     selectedBooking &&
                     selectedBooking.booking_type !== "mensalista" &&
                     !selectedBooking.plano_mensalista_id &&
-                    selectedBooking.status !== "cancelled"
+                    selectedBooking.status !== "cancelled" &&
+                    selectedBooking.status !== "pending_payment"
                         ? () => {
                               if (!selectedBooking) return
                               const s = parseISO(selectedBooking.start_time)
