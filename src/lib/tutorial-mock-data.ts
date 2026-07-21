@@ -1,5 +1,5 @@
 import type { Booking, PlanoMensalistaComDetalhes } from '@/modules/bookings/types/booking.types'
-import type { Product } from '@/modules/products/types/product.types'
+import type { Product, ProductCategory } from '@/modules/products/types/product.types'
 import type { Athlete } from '@/modules/athletes/components/AthletesTable'
 import type { LoyaltyTransaction } from '@/modules/loyalty/types/loyalty.types'
 import type { ArenaFinanceDailyRow, ArenaFinanceSummary, Transaction } from '@/modules/finance/types/finance.types'
@@ -147,19 +147,38 @@ export function buildTutorialStations(arenaId: string) {
   ]
 }
 
+export function buildTutorialProductCategories(arenaId: string): ProductCategory[] {
+  return [
+    ['tutorial-category-1', 'Bebidas'],
+    ['tutorial-category-2', 'Acessorios'],
+  ].map(([id, name], index) => ({
+    id: String(id),
+    arena_id: arenaId,
+    name: String(name),
+    kind: 'product',
+    sort_order: index,
+    active: true,
+    created_by: null,
+    created_at: NOW,
+    updated_at: NOW,
+  }))
+}
+
 export function buildTutorialProducts(arenaId: string): Product[] {
   return [
-    ['tutorial-product-1', 'Agua mineral', 5, 48, 'Bebidas'],
-    ['tutorial-product-2', 'Isotonico', 9, 24, 'Bebidas'],
-    ['tutorial-product-3', 'Bola Beach Tennis', 18, 12, 'Loja'],
-  ].map(([id, name, price, stock, stationType]) => ({
+    ['tutorial-product-1', 'Agua mineral', 5, 48, 'Bebidas', 'tutorial-category-1', 'Bebidas'],
+    ['tutorial-product-2', 'Isotonico', 9, 24, 'Bebidas', 'tutorial-category-1', 'Bebidas'],
+    ['tutorial-product-3', 'Bola Beach Tennis', 18, 12, 'Loja', 'tutorial-category-2', 'Acessorios'],
+  ].map(([id, name, price, stock, stationType, categoryId, categoryName]) => ({
     id: String(id),
     arena_id: arenaId,
     name: String(name),
     price: Number(price),
     stock_quantity: Number(stock),
     catalog_kind: 'product',
-    item_type: 'product',
+    item_type: String(categoryName),
+    category_id: String(categoryId),
+    category: { id: String(categoryId), name: String(categoryName) },
     station_id: null,
     station_type_id: null,
     status: 'Ativo',

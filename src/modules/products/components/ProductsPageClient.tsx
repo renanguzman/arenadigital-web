@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Plus, Search, MoreHorizontal, Edit, Trash, PackagePlus, History, Filter, Eye } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Edit, Trash, PackagePlus, History, Eye, Receipt, Tags, TrendingUp } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import {
     Select,
@@ -24,15 +24,20 @@ import { Badge } from "@/components/ui/badge"
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs"
 import { toast } from "sonner"
 import { getProductsByArenaAction, deleteProductAction } from "@/modules/products/actions/stockActions"
+import { getCategoriesByArenaAction } from "@/modules/products/actions/categoryActions"
 import {
     isCatalogService,
     normalizeCatalogStatus,
     type CatalogAvailabilityStatus,
     type Product,
+    type ProductCategory,
 } from "@/modules/products/types/product.types"
 import { ProductFormModal } from "@/modules/products/components/ProductFormModal"
 import { StockEntryModal } from "@/modules/products/components/StockEntryModal"
 import { StockHistoryModal } from "@/modules/products/components/StockHistoryModal"
+import { CategoriesManagerModal } from "@/modules/products/components/CategoriesManagerModal"
+import { BulkPriceAdjustModal } from "@/modules/products/components/BulkPriceAdjustModal"
+import { PriceHistoryModal } from "@/modules/products/components/PriceHistoryModal"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
@@ -68,6 +73,7 @@ interface Props {
     arenaName: string
     initialProducts: Product[]
     initialStationTypes: { id: string; name: string }[]
+    initialCategories: ProductCategory[]
 }
 
 function CatalogListToolbar({
@@ -76,6 +82,11 @@ function CatalogListToolbar({
     searchPlaceholder,
     statusFilter,
     onStatusFilterChange,
+    categoryFilter,
+    onCategoryFilterChange,
+    categoryOptions,
+    onManageCategories,
+    onBulkAdjust,
     ctaLabel,
     onCta,
 }: {
@@ -84,6 +95,11 @@ function CatalogListToolbar({
     searchPlaceholder: string
     statusFilter: CatalogStatusFilter
     onStatusFilterChange: (v: CatalogStatusFilter) => void
+    categoryFilter: string
+    onCategoryFilterChange: (v: string) => void
+    categoryOptions: ProductCategory[]
+    onManageCategories: () => void
+    onBulkAdjust: () => void
     ctaLabel: string
     onCta: () => void
 }) {
@@ -99,15 +115,19 @@ function CatalogListToolbar({
                 <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:gap-3">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 shrink-0 border-0 text-arena-navy-800 shadow-none hover:bg-slate-100"
-                    aria-label="Filtros"
-                >
-                    <Filter className="h-4 w-4" />
-                </Button>
+                <Select value={categoryFilter} onValueChange={onCategoryFilterChange}>
+                    <SelectTrigger className={statusSelectTriggerClass}>
+                        <SelectValue placeholder="Todas as categorias" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todas as categorias</SelectItem>
+                        {categoryOptions.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <Select
                     value={statusFilter}
                     onValueChange={(v) => onStatusFilterChange(v as CatalogStatusFilter)}
@@ -121,6 +141,24 @@ function CatalogListToolbar({
                         <SelectItem value="Inativo">Inativo</SelectItem>
                     </SelectContent>
                 </Select>
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onManageCategories}
+                    className="h-10 shrink-0 rounded-md border-slate-300 px-3 text-sm font-semibold text-arena-navy-800 shadow-none hover:bg-slate-50"
+                >
+                    <Tags className="mr-2 h-4 w-4" />
+                    Categorias
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onBulkAdjust}
+                    className="h-10 shrink-0 rounded-md border-slate-300 px-3 text-sm font-semibold text-arena-navy-800 shadow-none hover:bg-slate-50"
+                >
+                    <TrendingUp className="mr-2 h-4 w-4" />
+                    Reajustar preços
+                </Button>
                 <Button type="button" onClick={onCta} className={primaryCtaClass}>
                     <Plus className="mr-2 h-4 w-4" />
                     {ctaLabel}
@@ -130,12 +168,21 @@ function CatalogListToolbar({
     )
 }
 
-export function ProductsPageClient({ arenaId, arenaName, initialProducts, initialStationTypes }: Props) {
+export function ProductsPageClient({
+    arenaId,
+    arenaName,
+    initialProducts,
+    initialStationTypes,
+    initialCategories,
+}: Props) {
     const [products, setProducts] = useState<Product[]>(initialProducts)
+    const [categories, setCategories] = useState<ProductCategory[]>(initialCategories)
     const [searchProducts, setSearchProducts] = useState("")
     const [searchServices, setSearchServices] = useState("")
     const [productStatusFilter, setProductStatusFilter] = useState<CatalogStatusFilter>("all")
     const [serviceStatusFilter, setServiceStatusFilter] = useState<CatalogStatusFilter>("all")
+    const [productCategoryFilter, setProductCategoryFilter] = useState("all")
+    const [serviceCategoryFilter, setServiceCategoryFilter] = useState("all")
     const [activeTab, setActiveTab] = useState<"products" | "services">("products")
 
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -146,6 +193,10 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
     const [isStockEntryOpen, setIsStockEntryOpen] = useState(false)
     const [stockHistoryProduct, setStockHistoryProduct] = useState<Product | null>(null)
     const [isStockHistoryOpen, setIsStockHistoryOpen] = useState(false)
+    const [priceHistoryProduct, setPriceHistoryProduct] = useState<Product | null>(null)
+    const [isPriceHistoryOpen, setIsPriceHistoryOpen] = useState(false)
+    const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
+    const [isBulkAdjustOpen, setIsBulkAdjustOpen] = useState(false)
 
     const [productPendingDelete, setProductPendingDelete] = useState<Product | null>(null)
     const [isDeletingCatalog, setIsDeletingCatalog] = useState(false)
@@ -154,6 +205,24 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
     const refreshProducts = () => {
         getProductsByArenaAction(arenaId).then((res) => setProducts(res.data ?? []))
     }
+
+    const refreshCategories = () => {
+        getCategoriesByArenaAction(arenaId).then((res) => setCategories(res.data ?? []))
+    }
+
+    const refreshCatalog = () => {
+        refreshProducts()
+        refreshCategories()
+    }
+
+    const productCategories = useMemo(
+        () => categories.filter((c) => c.kind === "product"),
+        [categories]
+    )
+    const serviceCategories = useMemo(
+        () => categories.filter((c) => c.kind === "service"),
+        [categories]
+    )
 
     const stockProducts = useMemo(
         () => products.filter((p) => !isCatalogService(p)),
@@ -203,18 +272,20 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                 p.name.toLowerCase().includes(searchProducts.toLowerCase()) ||
                 p.item_type.toLowerCase().includes(searchProducts.toLowerCase())
             if (!matchesSearch) return false
+            if (productCategoryFilter !== "all" && p.category_id !== productCategoryFilter) return false
             if (productStatusFilter === "all") return true
             return normalizeCatalogStatus(p.status) === productStatusFilter
         })
-    }, [stockProducts, searchProducts, productStatusFilter])
+    }, [stockProducts, searchProducts, productStatusFilter, productCategoryFilter])
 
     const filteredServices = useMemo(() => {
         return serviceProducts.filter((p) => {
             if (!p.name.toLowerCase().includes(searchServices.toLowerCase())) return false
+            if (serviceCategoryFilter !== "all" && p.category_id !== serviceCategoryFilter) return false
             if (serviceStatusFilter === "all") return true
             return normalizeCatalogStatus(p.status) === serviceStatusFilter
         })
-    }, [serviceProducts, searchServices, serviceStatusFilter])
+    }, [serviceProducts, searchServices, serviceStatusFilter, serviceCategoryFilter])
 
     const actionsTriggerClass =
         "h-8 w-8 text-arena-navy-800/60 bg-[#F1F5F9] hover:bg-[#E2E8F0] hover:text-arena-navy-800"
@@ -252,6 +323,11 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                             searchPlaceholder="Buscar produtos..."
                             statusFilter={productStatusFilter}
                             onStatusFilterChange={setProductStatusFilter}
+                            categoryFilter={productCategoryFilter}
+                            onCategoryFilterChange={setProductCategoryFilter}
+                            categoryOptions={productCategories}
+                            onManageCategories={() => setIsCategoriesOpen(true)}
+                            onBulkAdjust={() => setIsBulkAdjustOpen(true)}
                             ctaLabel="Cadastrar produto"
                             onCta={() => openCreate("product")}
                         />
@@ -261,7 +337,7 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                                 <thead>
                                     <tr className={arenaDataTable.theadRow}>
                                         <th className={arenaDataTable.th}>Nome</th>
-                                        <th className={arenaDataTable.th}>Tipo de item</th>
+                                        <th className={arenaDataTable.th}>Categoria</th>
                                         <th className={arenaDataTable.th}>Tipo de estação</th>
                                         <th className={arenaDataTable.th}>Valor</th>
                                         <th className={arenaDataTable.th}>Estoque</th>
@@ -283,7 +359,9 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                                             return (
                                                 <tr key={product.id} className={arenaDataTable.tbodyRow}>
                                                     <td className={arenaDataTable.tdBold}>{product.name}</td>
-                                                    <td className={arenaDataTable.td}>{product.item_type}</td>
+                                                    <td className={arenaDataTable.td}>
+                                                        {product.category?.name ?? product.item_type ?? "—"}
+                                                    </td>
                                                     <td className={arenaDataTable.td}>
                                                         <Badge variant="outline">
                                                             {product.station_type?.name ?? "—"}
@@ -361,6 +439,15 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                                                                         <History className="mr-2 h-4 w-4 text-blue-500" />
                                                                         Ver movimentações
                                                                     </DropdownMenuItem>
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => {
+                                                                            setPriceHistoryProduct(product)
+                                                                            setIsPriceHistoryOpen(true)
+                                                                        }}
+                                                                    >
+                                                                        <Receipt className="mr-2 h-4 w-4 text-amber-500" />
+                                                                        Histórico de preços
+                                                                    </DropdownMenuItem>
                                                                     <DropdownMenuSeparator />
                                                                     <DropdownMenuItem onClick={() => setDetailProduct(product)}>
                                                                         <Eye className="mr-2 h-4 w-4 text-slate-600" />
@@ -400,6 +487,11 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                             searchPlaceholder="Buscar serviços..."
                             statusFilter={serviceStatusFilter}
                             onStatusFilterChange={setServiceStatusFilter}
+                            categoryFilter={serviceCategoryFilter}
+                            onCategoryFilterChange={setServiceCategoryFilter}
+                            categoryOptions={serviceCategories}
+                            onManageCategories={() => setIsCategoriesOpen(true)}
+                            onBulkAdjust={() => setIsBulkAdjustOpen(true)}
                             ctaLabel="Cadastrar serviço"
                             onCta={() => openCreate("service")}
                         />
@@ -409,7 +501,7 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                                 <thead>
                                     <tr className={arenaDataTable.theadRow}>
                                         <th className={arenaDataTable.th}>Nome</th>
-                                        <th className={arenaDataTable.th}>Tipo</th>
+                                        <th className={arenaDataTable.th}>Categoria</th>
                                         <th className={arenaDataTable.th}>Valor</th>
                                         <th className={arenaDataTable.th}>Status</th>
                                         <th className={arenaDataTable.th}>Criado em</th>
@@ -430,7 +522,9 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                                             return (
                                             <tr key={product.id} className={arenaDataTable.tbodyRow}>
                                                 <td className={arenaDataTable.tdBold}>{product.name}</td>
-                                                <td className={arenaDataTable.td}>{product.item_type}</td>
+                                                <td className={arenaDataTable.td}>
+                                                    {product.category?.name ?? product.item_type ?? "—"}
+                                                </td>
                                                 <td className={arenaDataTable.td}>
                                                     {new Intl.NumberFormat("pt-BR", {
                                                         style: "currency",
@@ -475,6 +569,15 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                                                                 <DropdownMenuItem onClick={() => setDetailProduct(product)}>
                                                                     <Eye className="mr-2 h-4 w-4 text-slate-600" />
                                                                     Ver detalhes
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        setPriceHistoryProduct(product)
+                                                                        setIsPriceHistoryOpen(true)
+                                                                    }}
+                                                                >
+                                                                    <Receipt className="mr-2 h-4 w-4 text-amber-500" />
+                                                                    Histórico de preços
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem onClick={() => openEdit(product)}>
@@ -546,9 +649,9 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                                     {!isCatalogService(detailProduct) ? (
                                         <>
                                             <div className="space-y-1">
-                                                <p className={detailLabelClass}>Tipo de item</p>
+                                                <p className={detailLabelClass}>Categoria</p>
                                                 <p className="text-base font-semibold text-arena-navy-800">
-                                                    {detailProduct.item_type}
+                                                    {detailProduct.category?.name ?? detailProduct.item_type ?? "—"}
                                                 </p>
                                             </div>
                                             <div className="space-y-1">
@@ -561,9 +664,9 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                                     ) : (
                                         <>
                                             <div className="space-y-1">
-                                                <p className={detailLabelClass}>Tipo</p>
+                                                <p className={detailLabelClass}>Categoria</p>
                                                 <p className="text-base font-semibold text-arena-navy-800">
-                                                    {detailProduct.item_type}
+                                                    {detailProduct.category?.name ?? detailProduct.item_type ?? "—"}
                                                 </p>
                                             </div>
                                         </>
@@ -644,6 +747,27 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                 product={editingProduct}
                 catalogKind={modalCatalogKind}
                 stationTypes={initialStationTypes}
+                categories={categories}
+                onSuccess={refreshProducts}
+            />
+
+            <CategoriesManagerModal
+                arenaId={arenaId}
+                kind={activeTab === "services" ? "service" : "product"}
+                open={isCategoriesOpen}
+                onOpenChange={setIsCategoriesOpen}
+                categories={categories}
+                products={products}
+                onChanged={refreshCatalog}
+            />
+
+            <BulkPriceAdjustModal
+                arenaId={arenaId}
+                kind={activeTab === "services" ? "service" : "product"}
+                open={isBulkAdjustOpen}
+                onOpenChange={setIsBulkAdjustOpen}
+                categories={categories}
+                products={products}
                 onSuccess={refreshProducts}
             />
 
@@ -662,6 +786,14 @@ export function ProductsPageClient({ arenaId, arenaName, initialProducts, initia
                     product={stockHistoryProduct}
                     open={isStockHistoryOpen}
                     onOpenChange={setIsStockHistoryOpen}
+                />
+            )}
+
+            {priceHistoryProduct && (
+                <PriceHistoryModal
+                    product={priceHistoryProduct}
+                    open={isPriceHistoryOpen}
+                    onOpenChange={setIsPriceHistoryOpen}
                 />
             )}
         </div>

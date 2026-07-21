@@ -1385,10 +1385,126 @@ export type Database = {
           },
         ]
       }
+      product_categories: {
+        Row: {
+          active: boolean
+          arena_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          arena_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          arena_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_categories_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_price_history: {
+        Row: {
+          adjustment_percent: number | null
+          arena_id: string
+          batch_id: string | null
+          change_type: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_price: number
+          old_price: number
+          product_id: string
+          reason: string | null
+        }
+        Insert: {
+          adjustment_percent?: number | null
+          arena_id: string
+          batch_id?: string | null
+          change_type?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_price: number
+          old_price: number
+          product_id: string
+          reason?: string | null
+        }
+        Update: {
+          adjustment_percent?: number | null
+          arena_id?: string
+          batch_id?: string | null
+          change_type?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_price?: number
+          old_price?: number
+          product_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_price_history_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           arena_id: string
           catalog_kind: string
+          category_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -1405,6 +1521,7 @@ export type Database = {
         Insert: {
           arena_id: string
           catalog_kind?: string
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1421,6 +1538,7 @@ export type Database = {
         Update: {
           arena_id?: string
           catalog_kind?: string
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1440,6 +1558,13 @@ export type Database = {
             columns: ["arena_id"]
             isOneToOne: false
             referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
             referencedColumns: ["id"]
           },
           {

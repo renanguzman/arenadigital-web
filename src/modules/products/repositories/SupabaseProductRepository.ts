@@ -8,7 +8,7 @@ export class SupabaseProductRepository implements IProductRepository {
   async findByArena(arenaId: string): Promise<Product[]> {
     const { data: rows, error } = await this.client
       .from('products')
-      .select('*, station_type:station_types(*)')
+      .select('*, station_type:station_types(*), category:product_categories(id, name)')
       .eq('arena_id', arenaId)
       .order('created_at', { ascending: false });
 

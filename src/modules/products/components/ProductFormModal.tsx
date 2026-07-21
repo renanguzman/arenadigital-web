@@ -29,13 +29,18 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { createProductAction, updateProductAction } from "@/modules/products/actions/stockActions"
-import { isCatalogService, normalizeCatalogStatus, type Product } from "@/modules/products/types/product.types"
+import {
+    isCatalogService,
+    normalizeCatalogStatus,
+    type Product,
+    type ProductCategory,
+} from "@/modules/products/types/product.types"
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 
 const productFormSchema = z.object({
     name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-    item_type: z.enum(["Alimentação", "Bebida", "Vestimenta", "Acessório"]),
+    category_id: z.string().min(1, "Selecione a categoria"),
     station_type_id: z.string().min(1, "Selecione o tipo de estação"),
     price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
         message: "Preço deve ser um número válido e positivo",
@@ -43,18 +48,9 @@ const productFormSchema = z.object({
     status: z.enum(["Ativo", "Inativo"]),
 })
 
-const SERVICE_ITEM_TYPES = [
-    "Aluguel",
-    "Saúde e bem-estar",
-    "Educação e evolução técnica",
-    "Entretenimento",
-    "Conveniência",
-    "Outro",
-] as const
-
 const serviceFormSchema = z.object({
     name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-    item_type: z.enum(SERVICE_ITEM_TYPES),
+    category_id: z.string().min(1, "Selecione a categoria"),
     price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
         message: "Preço deve ser um número válido e positivo",
     }),
@@ -63,26 +59,6 @@ const serviceFormSchema = z.object({
 
 type ProductFormValues = z.infer<typeof productFormSchema>
 type ServiceFormValues = z.infer<typeof serviceFormSchema>
-
-const PRODUCT_ITEM_TYPES = ["Alimentação", "Bebida", "Vestimenta", "Acessório"] as const
-
-function coerceProductItemType(raw: string | null | undefined): ProductFormValues["item_type"] {
-    const t = (raw ?? "").trim()
-    if ((PRODUCT_ITEM_TYPES as readonly string[]).includes(t)) {
-        return t as ProductFormValues["item_type"]
-    }
-    return "Alimentação"
-}
-
-function coerceServiceItemType(raw: string | null | undefined): (typeof SERVICE_ITEM_TYPES)[number] {
-    if (raw && (SERVICE_ITEM_TYPES as readonly string[]).includes(raw)) {
-        return raw as (typeof SERVICE_ITEM_TYPES)[number]
-    }
-    if (raw === "Aula") return "Educação e evolução técnica"
-    if (raw === "Taxa") return "Conveniência"
-    if (raw === "Serviço") return "Outro"
-    return "Aluguel"
-}
 
 function coerceProductCatalogStatus(product: Product | null | undefined): "Ativo" | "Inativo" {
     if (!product) return "Inativo"
@@ -134,6 +110,8 @@ export interface ProductFormModalProps {
     onSuccess: () => void
     /** Tipos de estação (carregados na página); usados no cadastro/edição de produto. */
     stationTypes: StationTypeOption[]
+    /** Categorias da arena (carregadas na página); filtradas pelo kind do formulário. */
+    categories: ProductCategory[]
     /** Modo ao criar novo registro (sem `product`). Com edição, o tipo vem do próprio registro. */
     catalogKind?: "product" | "service"
 }
@@ -148,7 +126,7 @@ function effectiveCatalogKind(
 
 const EMPTY_PRODUCT_FORM: ProductFormValues = {
     name: "",
-    item_type: "Alimentação",
+    category_id: "",
     station_type_id: "",
     price: "",
     status: "Inativo",
@@ -156,7 +134,7 @@ const EMPTY_PRODUCT_FORM: ProductFormValues = {
 
 const EMPTY_SERVICE_FORM: ServiceFormValues = {
     name: "",
-    item_type: "Aluguel",
+    category_id: "",
     price: "",
     status: "Ativo",
 }
@@ -178,10 +156,17 @@ function resolveStationTypeId(p: Product): string {
     return ""
 }
 
+function resolveCategoryId(p: Product): string {
+    if (typeof p.category_id === "string" && p.category_id.length > 0) return p.category_id
+    const c = p.category
+    if (c && typeof c.id === "string" && c.id.length > 0) return c.id
+    return ""
+}
+
 function productToFormValues(p: Product): ProductFormValues {
     return {
         name: p.name || "",
-        item_type: coerceProductItemType(p.item_type),
+        category_id: resolveCategoryId(p),
         station_type_id: resolveStationTypeId(p),
         price: p.price != null ? String(p.price) : "",
         status: coerceProductCatalogStatus(p),
@@ -191,7 +176,7 @@ function productToFormValues(p: Product): ProductFormValues {
 function productToServiceFormValues(p: Product): ServiceFormValues {
     return {
         name: p.name || "",
-        item_type: coerceServiceItemType(p.item_type),
+        category_id: resolveCategoryId(p),
         price: p.price != null ? String(p.price) : "",
         status: normalizeCatalogStatus(p.status),
     }
@@ -204,6 +189,7 @@ function ProductFormInner({
     onOpenChange,
     kind,
     stationTypes,
+    categories,
 }: {
     arenaId: string
     product: Product | null | undefined
@@ -211,8 +197,15 @@ function ProductFormInner({
     onOpenChange: (open: boolean) => void
     kind: "product" | "service"
     stationTypes: StationTypeOption[]
+    categories: ProductCategory[]
 }) {
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    // Categorias do kind: ativas + a categoria atual do item (mesmo se inativa), para não perder o vínculo na edição
+    const currentCategoryId = product ? resolveCategoryId(product) : ""
+    const kindCategories = categories.filter(
+        (c) => c.kind === kind && (c.active || c.id === currentCategoryId)
+    )
 
     const productForm = useForm<ProductFormValues>({
         resolver: zodResolver(productFormSchema),
@@ -253,10 +246,16 @@ function ProductFormInner({
             toast.error("Selecione um tipo de estação válido.")
             return
         }
+        const selectedCategory = kindCategories.find((c) => c.id === data.category_id)
+        if (!selectedCategory) {
+            toast.error("Selecione uma categoria válida.")
+            return
+        }
         if (product) {
             const res = await updateProductAction(arenaId, product.id, {
                 name: data.name,
-                item_type: data.item_type,
+                category_id: data.category_id,
+                item_type: selectedCategory.name,
                 station_id: null,
                 station_type_id: data.station_type_id,
                 price: Number(data.price),
@@ -268,7 +267,8 @@ function ProductFormInner({
             const res = await createProductAction(arenaId, {
                 arena_id: arenaId,
                 name: data.name,
-                item_type: data.item_type,
+                category_id: data.category_id,
+                item_type: selectedCategory.name,
                 station_id: null,
                 station_type_id: data.station_type_id,
                 price: Number(data.price),
@@ -281,10 +281,16 @@ function ProductFormInner({
     }
 
     async function submitService(data: ServiceFormValues) {
+        const selectedCategory = kindCategories.find((c) => c.id === data.category_id)
+        if (!selectedCategory) {
+            toast.error("Selecione uma categoria válida.")
+            return
+        }
         const baseInput = {
             arena_id: arenaId,
             name: data.name,
-            item_type: data.item_type,
+            category_id: data.category_id,
+            item_type: selectedCategory.name,
             station_id: null,
             station_type_id: null,
             price: Number(data.price),
@@ -357,20 +363,23 @@ function ProductFormInner({
 
                     <FormField
                         control={serviceForm.control}
-                        name="item_type"
+                        name="category_id"
                         render={({ field }) => (
                             <FormItem className="space-y-2">
-                                <FormLabel className={serviceLabelClass}>Tipo</FormLabel>
+                                <FormLabel className={serviceLabelClass}>Categoria</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
-                                        <SelectTrigger className={serviceSelectTriggerClass}>
-                                            <SelectValue placeholder="Selecione o tipo" />
+                                        <SelectTrigger
+                                            className={serviceSelectTriggerClass}
+                                            disabled={kindCategories.length === 0}
+                                        >
+                                            <SelectValue placeholder="Selecione a categoria" />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent className={selectContentClass}>
-                                        {SERVICE_ITEM_TYPES.map((t) => (
-                                            <SelectItem key={t} value={t} className={selectItemClass}>
-                                                {t}
+                                        {kindCategories.map((c) => (
+                                            <SelectItem key={c.id} value={c.id} className={selectItemClass}>
+                                                {c.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -379,6 +388,13 @@ function ProductFormInner({
                             </FormItem>
                         )}
                     />
+
+                    {kindCategories.length === 0 && (
+                        <p className="text-sm leading-relaxed text-amber-800">
+                            Nenhuma categoria de serviço cadastrada. Use &quot;Gerenciar categorias&quot; no Catálogo
+                            antes de cadastrar serviços.
+                        </p>
+                    )}
 
                     <FormField
                         control={serviceForm.control}
@@ -475,29 +491,25 @@ function ProductFormInner({
 
                 <FormField
                     control={productForm.control}
-                    name="item_type"
+                    name="category_id"
                     render={({ field }) => (
                         <FormItem className="space-y-1.5">
-                            <FormLabel className={formLabelClass}>Tipo de item</FormLabel>
+                            <FormLabel className={formLabelClass}>Categoria</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                    <SelectTrigger className={selectTriggerClass}>
-                                        <SelectValue placeholder="Selecione..." />
+                                    <SelectTrigger
+                                        className={selectTriggerClass}
+                                        disabled={kindCategories.length === 0}
+                                    >
+                                        <SelectValue placeholder="Selecione a categoria..." />
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent className={selectContentClass}>
-                                    <SelectItem value="Alimentação" className={selectItemClass}>
-                                        Alimentação
-                                    </SelectItem>
-                                    <SelectItem value="Bebida" className={selectItemClass}>
-                                        Bebida
-                                    </SelectItem>
-                                    <SelectItem value="Vestimenta" className={selectItemClass}>
-                                        Vestimenta
-                                    </SelectItem>
-                                    <SelectItem value="Acessório" className={selectItemClass}>
-                                        Acessório
-                                    </SelectItem>
+                                    {kindCategories.map((c) => (
+                                        <SelectItem key={c.id} value={c.id} className={selectItemClass}>
+                                            {c.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                             <FormMessage />
@@ -586,6 +598,13 @@ function ProductFormInner({
                     </p>
                 )}
 
+                {kindCategories.length === 0 && (
+                    <p className="text-sm leading-relaxed text-amber-800">
+                        Nenhuma categoria de produto cadastrada. Use &quot;Gerenciar categorias&quot; no Catálogo antes
+                        de incluir produtos.
+                    </p>
+                )}
+
                 <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:justify-end">
                     <Button
                         type="button"
@@ -599,7 +618,7 @@ function ProductFormInner({
                     <Button
                         type="submit"
                         className={footerButtonPrimaryClass}
-                        disabled={isSubmitting || stationTypes.length === 0}
+                        disabled={isSubmitting || stationTypes.length === 0 || kindCategories.length === 0}
                     >
                         {isSubmitting ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -622,6 +641,7 @@ export function ProductFormModal({
     product,
     onSuccess,
     stationTypes,
+    categories,
     catalogKind = "product",
 }: ProductFormModalProps) {
     const kind = effectiveCatalogKind(product ?? null, catalogKind)
@@ -636,7 +656,7 @@ export function ProductFormModal({
               : "Novo produto"
 
     const productDescription =
-        "Informe nome, tipo de item, tipo de estação, valor e status de catálogo (Ativo ou Inativo), independente do estoque. O estoque é atualizado apenas por lançamentos de entrada."
+        "Informe nome, categoria, tipo de estação, valor e status de catálogo (Ativo ou Inativo), independente do estoque. O estoque é atualizado apenas por lançamentos de entrada."
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -658,6 +678,7 @@ export function ProductFormModal({
                         onOpenChange={onOpenChange}
                         kind={kind}
                         stationTypes={stationTypes}
+                        categories={categories}
                     />
                 )}
             </DialogContent>

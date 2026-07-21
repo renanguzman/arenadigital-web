@@ -56,8 +56,38 @@ export async function updateProductAction(arenaId: string, productId: string, in
         if ('arena_id' in input && input.arena_id && input.arena_id !== arenaId) {
             throw new Error('Produto não pertence à arena informada')
         }
-        const repo = new SupabaseProductRepository(getSupabaseAdmin())
+        const supabase = getSupabaseAdmin()
+
+        // Preço anterior para registrar no histórico quando houver alteração
+        let oldPrice: number | null = null
+        if (typeof input.price === 'number') {
+            const { data: current, error: currentError } = await supabase
+                .from('products')
+                .select('price')
+                .eq('id', productId)
+                .single()
+            if (currentError) throw new Error(currentError.message)
+            oldPrice = current.price
+        }
+
+        const repo = new SupabaseProductRepository(supabase)
         const data = await repo.update(productId, input)
+
+        if (typeof input.price === 'number' && oldPrice !== null && oldPrice !== input.price) {
+            const { dbUserId } = await requireAuthenticatedDbUser()
+            const { error: historyError } = await supabase.from('product_price_history').insert([{
+                product_id: productId,
+                arena_id: arenaId,
+                old_price: oldPrice,
+                new_price: input.price,
+                change_type: 'manual',
+                changed_by: dbUserId,
+            }])
+            if (historyError) {
+                console.error('product_price_history (manual):', historyError.message)
+            }
+        }
+
         revalidatePath(`/dashboard/settings/products/${arenaId}`)
         return { success: true, data }
     } catch (err) {

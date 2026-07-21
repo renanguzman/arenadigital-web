@@ -205,16 +205,40 @@ O acesso ao sistema ocorre por meio de login, disponível a partir da landing pa
 
 ---
 
-### 5.9 Gestão de Produtos
-- Cadastro de produtos
+### 5.9 Gestão de Produtos (Catálogo)
+- Cadastro de produtos e serviços
 - Edição de dados do produto
-- Ativação/desativação
+- Ativação/desativação (status Ativo / Inativo)
 - Informações gerais:
   - Nome
-  - Tipo (Alimentação / Bebida / Vestimenta / Acessório)
-  - Status (Em Estoque / Em Falta)
+  - Categoria (família do item, cadastrada pelo gestor)
+  - Tipo de estação (produtos)
+  - Status (Ativo / Inativo)
   - Valor (valor unitário)
 - Associação com arena
+- Controle de estoque com histórico de movimentações (entradas, saídas e estornos)
+
+#### 5.9.1 Categorias de Produtos e Serviços
+- **Status:** Implementado (21/07/2026).
+- CRUD de categorias por arena, separadas por escopo (produtos e serviços).
+- Cada produto/serviço pertence a uma categoria (família), organizando o catálogo.
+- Categorias podem ser renomeadas, reordenadas e inativadas.
+- Categorias com itens vinculados não podem ser excluídas, apenas inativadas.
+- Filtro por categoria na listagem do catálogo.
+
+#### 5.9.2 Reajuste de Preço em Massa
+- **Status:** Implementado (21/07/2026).
+- Objetivo: permitir ao gestor reajustar o preço de todos os itens de uma categoria de uma vez (ex.: +10% em todas as bebidas).
+- Tipos de reajuste: percentual (ex.: +10%, -5%) ou valor fixo (ex.: +R$ 1,00).
+- Regras de arredondamento: sem arredondamento (2 casas) ou terminação comercial ,00 / ,50 / ,90.
+- Opção de incluir itens inativos; por padrão atinge apenas itens Ativos.
+- **Preview obrigatório:** antes de confirmar, o gestor vê a tabela com preço atual → preço novo de cada item.
+
+#### 5.9.3 Histórico de Alterações de Preço
+- **Status:** Implementado (21/07/2026).
+- Registro de toda alteração de preço, individual (edição do item) ou em massa.
+- Cada registro guarda preço anterior, novo preço, tipo (manual/em massa), percentual aplicado, motivo, autor e data.
+- Consulta por produto/serviço através de modal de histórico.
 
 ---
 

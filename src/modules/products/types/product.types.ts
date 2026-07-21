@@ -9,7 +9,52 @@ export type UpdateProductDTO = Database['public']['Tables']['products']['Update'
 export type Product = Row & {
   station_type?: { id: string; name: string } | null;
   station?: { id: string; name: string } | null;
+  category?: { id: string; name: string } | null;
 };
+
+export type ProductCategory = Database['public']['Tables']['product_categories']['Row'];
+export type CreateProductCategoryDTO = Database['public']['Tables']['product_categories']['Insert'];
+export type UpdateProductCategoryDTO = Database['public']['Tables']['product_categories']['Update'];
+
+/** Escopo da categoria: espelha `products.catalog_kind`. */
+export type ProductCategoryKind = 'product' | 'service';
+
+export type PriceHistoryEntry = Database['public']['Tables']['product_price_history']['Row'] & {
+  user?: { name: string } | null;
+};
+
+/** Arredondamento aplicado ao reajuste em massa. */
+export type PriceRoundingMode = 'exact' | 'end00' | 'end50' | 'end90';
+
+/** Tipo de reajuste em massa: percentual (+10%) ou valor fixo (+R$ 1,00). */
+export type PriceAdjustmentType = 'percent' | 'fixed';
+
+export function applyPriceRounding(value: number, mode: PriceRoundingMode): number {
+  const positive = Math.max(0, value);
+  switch (mode) {
+    case 'end00':
+      return Math.max(0, Math.round(positive));
+    case 'end50':
+      return Math.max(0, Math.round(positive * 2) / 2);
+    case 'end90': {
+      const rounded = Math.round(positive) - 0.1;
+      return rounded > 0 ? Number(rounded.toFixed(2)) : Number(positive.toFixed(2));
+    }
+    case 'exact':
+    default:
+      return Number(positive.toFixed(2));
+  }
+}
+
+export function computeAdjustedPrice(
+  current: number,
+  type: PriceAdjustmentType,
+  amount: number,
+  rounding: PriceRoundingMode,
+): number {
+  const raw = type === 'percent' ? current * (1 + amount / 100) : current + amount;
+  return applyPriceRounding(raw, rounding);
+}
 
 /** Valores persistidos em `products.status` (check no banco após migration ativo/inativo). */
 export type CatalogAvailabilityStatus = 'Ativo' | 'Inativo';

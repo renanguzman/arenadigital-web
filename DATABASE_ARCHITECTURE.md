@@ -197,6 +197,9 @@ O sistema de Ponto de Venda (PDV) das estações exige o controle rigoroso do es
 
 - **Tabela `products`:** Cadastro do produto.
   - `id`, `arena_id`, `name`, `description`, `price`, `status`.
+  - `catalog_kind` ('product' ou 'service'): distingue produtos com estoque de serviços cobráveis (ex.: aluguel de raquete).
+  - `category_id` (FK -> `product_categories`, nullable): categoria/família do item. Ver seção 2.11.
+  - `item_type` (text): mantido por compatibilidade (comandas e busca agrupam por ele). É sincronizado com o nome da categoria vinculada ao criar/editar item ou renomear a categoria.
   - `stock_quantity` (integer, default 0): Guarda o saldo atual do produto em estoque. O status do produto ("Em estoque" ou "Sem estoque") no frontend passou a ser derivado ativamente dessa coluna (em regra: `stock_quantity > 0`).
 - **Tabela `product_stock_entries`:** Registra exclusivamente as entradas físicas e recebimento de mercadorias.
   - `id`, `product_id`, `arena_id`, `quantity`, `entry_date`, `supplier`, `description`, `invoice_number`, `registered_by` (FK -> `users`), `created_at`.
@@ -206,6 +209,21 @@ O sistema de Ponto de Venda (PDV) das estações exige o controle rigoroso do es
   1. A entrada de um estoque insere um registro em `product_stock_entries`, cria um evento `entrada` em `product_stock_movements` e incrementa o `stock_quantity` do produto.
   2. O lançamento de itens numa comanda cria a saída do estoque: um evento `saida` em `product_stock_movements` e um decremento direto no saldo do produto. Regras de tela bloqueiam novos lançamentos que extrapolam o saldo (`quantity > stock_quantity`).
   3. O cancelamento de uma comanda (`status = 'cancelled'`) localiza os itens estornados, adiciona o saldo de volta no produto e lança um novo movimento do tipo `entrada` com a flag `cancellation`.
+
+### 2.11. Categorias de Catálogo e Histórico de Preços (`product_categories` e `product_price_history`)
+
+Evolução do Catálogo para agrupar produtos/serviços por família e dar controle e auditoria sobre a precificação.
+
+- **Tabela `product_categories`:** Categorias por arena, gerenciadas pelo próprio gestor.
+  - `id`, `arena_id` (FK -> `arenas`), `name`, `kind` ('product' ou 'service'), `sort_order`, `active`, `created_by` (FK -> `users`), `created_at`, `updated_at`.
+  - Unicidade: `(arena_id, kind, name)` — não há categorias duplicadas por nome dentro do mesmo escopo.
+  - Categorias com produtos vinculados **não podem ser excluídas** (apenas inativadas). Renomear uma categoria sincroniza o `item_type` dos produtos vinculados.
+- **Tabela `product_price_history`:** Log de auditoria de toda alteração de preço (individual ou em massa).
+  - `id`, `product_id` (FK -> `products`), `arena_id`, `old_price`, `new_price`, `change_type` ('manual' ou 'bulk'), `adjustment_percent` (nullable, preenchido em reajuste percentual), `batch_id` (nullable, agrupa os itens de um mesmo reajuste em massa), `reason` (nullable), `changed_by` (FK -> `users`), `created_at`.
+- **Fluxo do Frontend e Backend:**
+  1. **Alteração individual:** ao salvar um produto/serviço com preço diferente do atual, `updateProductAction` grava uma linha `manual` em `product_price_history`.
+  2. **Reajuste em massa:** `bulkAdjustPricesAction` recebe categoria, tipo (percentual ou valor fixo), arredondamento (exato, terminação ,00/,50/,90) e flag de incluir inativos. Calcula os novos preços, aplica com preview obrigatório na UI e grava uma linha `bulk` por item alterado, todas com o mesmo `batch_id`. Em caso de erro, faz rollback dos preços já atualizados e apaga o lote de histórico.
+  3. **Backfill inicial:** a migração cria categorias a partir dos `item_type` existentes de cada arena e vincula os produtos automaticamente.
 
 ---
 

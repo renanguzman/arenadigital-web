@@ -144,7 +144,70 @@ bookings
 - end_time (timestamp)
 - status (confirmed | cancelled)
 - created_at (timestamp)
+```
 
+### 6.2 Catálogo (Produtos, Categorias e Preços)
+
+```sql
+products
+- id (uuid, pk)
+- arena_id (uuid, fk)
+- name (text)
+- catalog_kind (product | service)
+- category_id (uuid, fk -> product_categories, nullable)
+- item_type (text)            -- mantido por compat (comandas/busca); sincronizado com o nome da categoria
+- station_type_id (uuid, fk, nullable)
+- price (numeric)
+- stock_quantity (int, default 0)
+- status (Ativo | Inativo)
+- created_by / updated_by (uuid, fk -> users)
+- created_at / updated_at (timestamp)
+
+product_categories
+- id (uuid, pk)
+- arena_id (uuid, fk)
+- name (text)
+- kind (product | service)
+- sort_order (int, default 0)
+- active (boolean, default true)
+- created_by (uuid, fk -> users)
+- created_at / updated_at (timestamp)
+- unique (arena_id, kind, name)
+
+product_price_history
+- id (uuid, pk)
+- product_id (uuid, fk -> products)
+- arena_id (uuid, fk)
+- old_price (numeric)
+- new_price (numeric)
+- change_type (manual | bulk)
+- adjustment_percent (numeric, nullable)   -- preenchido em reajuste percentual
+- batch_id (uuid, nullable)                -- agrupa itens de um mesmo reajuste em massa
+- reason (text, nullable)
+- changed_by (uuid, fk -> users)
+- created_at (timestamp)
+```
+
+#### Server Actions do Catálogo (Next.js)
+
+O módulo `src/modules/products` expõe server actions (não endpoints REST):
+
+**Categorias** (`actions/categoryActions.ts`):
+- `getCategoriesByArenaAction(arenaId)`
+- `createCategoryAction(arenaId, { name, kind })`
+- `updateCategoryAction(arenaId, categoryId, { name?, active?, sort_order? })` — renomear sincroniza `item_type` dos produtos vinculados
+- `deleteCategoryAction(arenaId, categoryId)` — bloqueado se houver itens vinculados
+
+**Preços** (`actions/priceActions.ts`):
+- `getPriceHistoryByProductAction(productId)`
+- `bulkAdjustPricesAction(arenaId, { category_id, adjustment_type, amount, rounding, include_inactive, reason? })` — aplica reajuste em massa com rollback transacional e registro de histórico por `batch_id`
+
+**Produtos** (`actions/stockActions.ts`):
+- `updateProductAction` grava histórico `manual` em `product_price_history` quando o preço muda.
+
+Utilitários de cálculo em `types/product.types.ts`: `computeAdjustedPrice` e `applyPriceRounding` (compartilhados entre preview no cliente e aplicação no servidor, garantindo consistência).
+
+---
 
 7. Endpoints — Web Gestor
 Autenticação / Sessão
