@@ -236,24 +236,37 @@ export async function generateAgentReply(input: GenerateAgentReplyInput): Promis
   const finalText =
     replyText?.trim() || input.agent.fallbackMessage?.trim() || DEFAULT_FALLBACK_MESSAGE
 
-  // 6) Enviar a resposta e registrar o outbound.
-  const sent = await whatsapp.sendText({
-    phoneNumberId: input.channel.phoneNumberId,
-    accessToken: input.channel.accessToken,
-    toWaId: input.inbound.from,
-    text: finalText,
-  })
+  // 6) Enviar a resposta e registrar o outbound (registra mesmo se o envio falhar,
+  //    para observabilidade — ex.: entrega barrada por restrição do provedor).
+  let sentWaMessageId: string | null = null
+  let sendError: string | null = null
+  try {
+    const sent = await whatsapp.sendText({
+      phoneNumberId: input.channel.phoneNumberId,
+      accessToken: input.channel.accessToken,
+      toWaId: input.inbound.from,
+      text: finalText,
+    })
+    sentWaMessageId = sent.waMessageId
+  } catch (err) {
+    sendError = err instanceof Error ? err.message : String(err)
+    console.error('[ai-agent] falha ao enviar resposta', {
+      arenaId: input.arenaId,
+      error: sendError,
+    })
+  }
 
   await conversationRepo.recordMessage({
     conversationId: input.conversationId,
     arenaId: input.arenaId,
     direction: 'outbound',
-    waMessageId: sent.waMessageId,
+    waMessageId: sentWaMessageId,
     content: finalText,
     contentType: 'text',
     llmModel: input.agent.model,
     promptTokens,
     completionTokens,
-    status: 'sent',
+    status: sendError ? 'failed' : 'sent',
+    errorMessage: sendError,
   })
 }
