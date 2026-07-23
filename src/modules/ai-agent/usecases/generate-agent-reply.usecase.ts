@@ -192,6 +192,7 @@ export async function generateAgentReply(input: GenerateAgentReplyInput): Promis
 
   // 5) Loop de tool calling.
   const toolCtx = { data: dataRepo, arenaId: input.arenaId }
+  const toolTrace: Array<{ round: number; name: string; arguments: unknown; result: unknown }> = []
   let promptTokens = 0
   let completionTokens = 0
   let replyText: string | null = null
@@ -220,6 +221,7 @@ export async function generateAgentReply(input: GenerateAgentReplyInput): Promis
         } catch (err) {
           toolResult = { error: err instanceof Error ? err.message : 'tool error' }
         }
+        toolTrace.push({ round, name: call.name, arguments: call.arguments, result: toolResult })
         messages.push({
           role: 'tool',
           toolCallId: call.id,
@@ -281,6 +283,7 @@ export async function generateAgentReply(input: GenerateAgentReplyInput): Promis
     llmModel: input.agent.model,
     promptTokens,
     completionTokens,
+    toolCalls: toolTrace.length ? toolTrace : undefined,
     status: sendError ? 'failed' : 'sent',
     errorMessage: sendError,
   })
