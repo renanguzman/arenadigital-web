@@ -10,10 +10,155 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      app_home_content: {
+        Row: {
+          active: boolean
+          city_id: number | null
+          created_at: string
+          created_by: string | null
+          cta_kind: string
+          cta_label: string | null
+          cta_url: string | null
+          description: string | null
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          kind: string
+          priority: number
+          sport_id: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          city_id?: number | null
+          created_at?: string
+          created_by?: string | null
+          cta_kind?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          kind?: string
+          priority?: number
+          sport_id?: string | null
+          starts_at?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          city_id?: number | null
+          created_at?: string
+          created_by?: string | null
+          cta_kind?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          kind?: string
+          priority?: number
+          sport_id?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_home_content_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "municipios"
+            referencedColumns: ["codigo_ibge"]
+          },
+          {
+            foreignKeyName: "app_home_content_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_home_content_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_ai_agents: {
+        Row: {
+          arena_id: string
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          fallback_message: string | null
+          id: string
+          max_output_tokens: number
+          model: string
+          monthly_token_cap: number | null
+          persona_prompt: string | null
+          status: string
+          temperature: number
+          updated_at: string
+        }
+        Insert: {
+          arena_id: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          fallback_message?: string | null
+          id?: string
+          max_output_tokens?: number
+          model?: string
+          monthly_token_cap?: number | null
+          persona_prompt?: string | null
+          status?: string
+          temperature?: number
+          updated_at?: string
+        }
+        Update: {
+          arena_id?: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          fallback_message?: string | null
+          id?: string
+          max_output_tokens?: number
+          model?: string
+          monthly_token_cap?: number | null
+          persona_prompt?: string | null
+          status?: string
+          temperature?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_ai_agents_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: true
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arena_ai_agents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arena_comodidades: {
         Row: {
           arena_id: string
@@ -40,6 +185,217 @@ export type Database = {
             columns: ["comodidade_id"]
             isOneToOne: false
             referencedRelation: "comodidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_highlights: {
+        Row: {
+          active: boolean
+          arena_id: string
+          city_id: number | null
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          priority: number
+          sport_id: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          arena_id: string
+          city_id?: number | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          priority?: number
+          sport_id?: string | null
+          starts_at?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          arena_id?: string
+          city_id?: number | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          priority?: number
+          sport_id?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_highlights_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arena_highlights_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "municipios"
+            referencedColumns: ["codigo_ibge"]
+          },
+          {
+            foreignKeyName: "arena_highlights_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_payment_accounts: {
+        Row: {
+          arena_id: string
+          asaas_account_id: string | null
+          asaas_wallet_id: string | null
+          created_at: string
+          holder_document: string | null
+          holder_name: string | null
+          id: string
+          metadata: Json
+          pix_key: string | null
+          platform_fee_basis_points: number
+          provider: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          arena_id: string
+          asaas_account_id?: string | null
+          asaas_wallet_id?: string | null
+          created_at?: string
+          holder_document?: string | null
+          holder_name?: string | null
+          id?: string
+          metadata?: Json
+          pix_key?: string | null
+          platform_fee_basis_points?: number
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          arena_id?: string
+          asaas_account_id?: string | null
+          asaas_wallet_id?: string | null
+          created_at?: string
+          holder_document?: string | null
+          holder_name?: string | null
+          id?: string
+          metadata?: Json
+          pix_key?: string | null
+          platform_fee_basis_points?: number
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_payment_accounts_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_promotions: {
+        Row: {
+          active: boolean
+          arena_id: string
+          court_id: string | null
+          created_at: string
+          description: string | null
+          end_time: string | null
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          original_price: number | null
+          price: number | null
+          priority: number
+          sport_id: string | null
+          start_time: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+          weekday: number | null
+        }
+        Insert: {
+          active?: boolean
+          arena_id: string
+          court_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          original_price?: number | null
+          price?: number | null
+          priority?: number
+          sport_id?: string | null
+          start_time?: string | null
+          starts_at?: string
+          title: string
+          updated_at?: string
+          weekday?: number | null
+        }
+        Update: {
+          active?: boolean
+          arena_id?: string
+          court_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          original_price?: number | null
+          price?: number | null
+          priority?: number
+          sport_id?: string | null
+          start_time?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+          weekday?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_promotions_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arena_promotions_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arena_promotions_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
             referencedColumns: ["id"]
           },
         ]
@@ -83,13 +439,13 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           experimental_started_at: string | null
+          gateway_checkout_id: string | null
+          gateway_customer_id: string | null
+          gateway_subscription_id: string | null
           id: string
           plan_id: string | null
           plan_key: string
           status: string
-          gateway_customer_id: string | null
-          gateway_subscription_id: string | null
-          gateway_checkout_id: string | null
           updated_at: string
         }
         Insert: {
@@ -100,13 +456,13 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           experimental_started_at?: string | null
+          gateway_checkout_id?: string | null
+          gateway_customer_id?: string | null
+          gateway_subscription_id?: string | null
           id?: string
           plan_id?: string | null
           plan_key: string
           status?: string
-          gateway_customer_id?: string | null
-          gateway_subscription_id?: string | null
-          gateway_checkout_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -117,13 +473,13 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           experimental_started_at?: string | null
+          gateway_checkout_id?: string | null
+          gateway_customer_id?: string | null
+          gateway_subscription_id?: string | null
           id?: string
           plan_id?: string | null
           plan_key?: string
           status?: string
-          gateway_customer_id?: string | null
-          gateway_subscription_id?: string | null
-          gateway_checkout_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -139,59 +495,6 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "subscription_plans"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pending_web_arena_signups: {
-        Row: {
-          address_data: Json
-          arena_document: string | null
-          arena_name: string
-          completed_at: string | null
-          confirmed_at: string | null
-          created_at: string
-          email: string
-          expires_at: string
-          id: string
-          phone: string | null
-          status: string
-          user_id: string
-        }
-        Insert: {
-          address_data?: Json
-          arena_document?: string | null
-          arena_name: string
-          completed_at?: string | null
-          confirmed_at?: string | null
-          created_at?: string
-          email: string
-          expires_at?: string
-          id?: string
-          phone?: string | null
-          status?: string
-          user_id: string
-        }
-        Update: {
-          address_data?: Json
-          arena_document?: string | null
-          arena_name?: string
-          completed_at?: string | null
-          confirmed_at?: string | null
-          created_at?: string
-          email?: string
-          expires_at?: string
-          id?: string
-          phone?: string | null
-          status?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pending_web_arena_signups_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -236,17 +539,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "arena_users_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "arena_users_station_id_fkey"
             columns: ["station_id"]
             isOneToOne: false
             referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arena_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -386,143 +689,179 @@ export type Database = {
           },
         ]
       }
-      payment_checkout_attempts: {
+      athlete_app_entitlements: {
         Row: {
-          arena_id: string
-          checkout_id: string
+          atleta_id: string
           created_at: string
-          created_by_user_id: string | null
-          gateway_customer_id: string | null
+          current_period_end: string | null
+          expires_at: string | null
           id: string
-          metadata: Json | null
-          paid_at: string | null
-          plan_id: string | null
-          plan_key: string
-          provider: string
-          replaces_gateway_subscription_id: string | null
-          result_gateway_subscription_id: string | null
+          metadata: Json
+          plan: string
           status: string
           updated_at: string
         }
         Insert: {
-          arena_id: string
-          checkout_id: string
+          atleta_id: string
           created_at?: string
-          created_by_user_id?: string | null
-          gateway_customer_id?: string | null
+          current_period_end?: string | null
+          expires_at?: string | null
           id?: string
-          metadata?: Json | null
-          paid_at?: string | null
-          plan_id?: string | null
-          plan_key: string
-          provider: string
-          replaces_gateway_subscription_id?: string | null
-          result_gateway_subscription_id?: string | null
+          metadata?: Json
+          plan?: string
           status?: string
           updated_at?: string
         }
         Update: {
-          arena_id?: string
-          checkout_id?: string
+          atleta_id?: string
           created_at?: string
-          created_by_user_id?: string | null
-          gateway_customer_id?: string | null
+          current_period_end?: string | null
+          expires_at?: string | null
           id?: string
-          metadata?: Json | null
-          paid_at?: string | null
-          plan_id?: string | null
-          plan_key?: string
-          provider?: string
-          replaces_gateway_subscription_id?: string | null
-          result_gateway_subscription_id?: string | null
+          metadata?: Json
+          plan?: string
           status?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "payment_checkout_attempts_arena_id_fkey"
-            columns: ["arena_id"]
-            isOneToOne: false
-            referencedRelation: "arenas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_checkout_attempts_created_by_user_id_fkey"
-            columns: ["created_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_checkout_attempts_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "subscription_plans"
+            foreignKeyName: "athlete_app_entitlements_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: true
+            referencedRelation: "atleta"
             referencedColumns: ["id"]
           },
         ]
       }
-      payment_webhook_events: {
+      athlete_app_plan_catalog: {
         Row: {
-          arena_id: string | null
-          attempts: number
+          billing_period: string
           created_at: string
-          error_message: string | null
-          event_type: string
-          gateway_checkout_id: string | null
-          gateway_subscription_id: string | null
-          id: string
-          payload: Json | null
-          processed_at: string | null
-          processing_started_at: string | null
-          provider: string
-          provider_event_id: string
-          received_at: string
-          status: string
+          currency: string
+          features: Json
+          is_active: boolean
+          key: string
+          label: string
+          price_cents: number
+          store_product_id: string
           updated_at: string
         }
         Insert: {
-          arena_id?: string | null
-          attempts?: number
+          billing_period?: string
           created_at?: string
-          error_message?: string | null
-          event_type: string
-          gateway_checkout_id?: string | null
-          gateway_subscription_id?: string | null
-          id?: string
-          payload?: Json | null
-          processed_at?: string | null
-          processing_started_at?: string | null
-          provider: string
-          provider_event_id: string
-          received_at?: string
-          status?: string
+          currency?: string
+          features?: Json
+          is_active?: boolean
+          key: string
+          label: string
+          price_cents: number
+          store_product_id: string
           updated_at?: string
         }
         Update: {
-          arena_id?: string | null
-          attempts?: number
+          billing_period?: string
           created_at?: string
-          error_message?: string | null
-          event_type?: string
-          gateway_checkout_id?: string | null
-          gateway_subscription_id?: string | null
+          currency?: string
+          features?: Json
+          is_active?: boolean
+          key?: string
+          label?: string
+          price_cents?: number
+          store_product_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      athlete_billing_customers: {
+        Row: {
+          atleta_id: string
+          created_at: string
+          gateway_customer_id: string
+          id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          atleta_id: string
+          created_at?: string
+          gateway_customer_id: string
           id?: string
-          payload?: Json | null
-          processed_at?: string | null
-          processing_started_at?: string | null
           provider?: string
-          provider_event_id?: string
-          received_at?: string
-          status?: string
+          updated_at?: string
+        }
+        Update: {
+          atleta_id?: string
+          created_at?: string
+          gateway_customer_id?: string
+          id?: string
+          provider?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "payment_webhook_events_arena_id_fkey"
-            columns: ["arena_id"]
+            foreignKeyName: "athlete_billing_customers_atleta_id_fkey"
+            columns: ["atleta_id"]
             isOneToOne: false
-            referencedRelation: "arenas"
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      athlete_store_subscriptions: {
+        Row: {
+          atleta_id: string
+          created_at: string
+          current_period_end: string | null
+          expires_at: string | null
+          id: string
+          last_verified_at: string | null
+          original_transaction_id: string | null
+          platform: string
+          product_id: string
+          purchase_token: string | null
+          raw_response: Json
+          status: string
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          atleta_id: string
+          created_at?: string
+          current_period_end?: string | null
+          expires_at?: string | null
+          id?: string
+          last_verified_at?: string | null
+          original_transaction_id?: string | null
+          platform: string
+          product_id: string
+          purchase_token?: string | null
+          raw_response?: Json
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          atleta_id?: string
+          created_at?: string
+          current_period_end?: string | null
+          expires_at?: string | null
+          id?: string
+          last_verified_at?: string | null
+          original_transaction_id?: string | null
+          platform?: string
+          product_id?: string
+          purchase_token?: string | null
+          raw_response?: Json
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_store_subscriptions_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
             referencedColumns: ["id"]
           },
         ]
@@ -548,6 +887,9 @@ export type Database = {
           instagram: string | null
           nome_perfil: string
           origem_cadastro: string | null
+          push_last_sent_at: string | null
+          push_notifications_enabled: boolean
+          push_token: string | null
           telefone: string | null
           tiktok: string | null
           updated_at: string
@@ -572,6 +914,9 @@ export type Database = {
           instagram?: string | null
           nome_perfil: string
           origem_cadastro?: string | null
+          push_last_sent_at?: string | null
+          push_notifications_enabled?: boolean
+          push_token?: string | null
           telefone?: string | null
           tiktok?: string | null
           updated_at?: string
@@ -596,6 +941,9 @@ export type Database = {
           instagram?: string | null
           nome_perfil?: string
           origem_cadastro?: string | null
+          push_last_sent_at?: string | null
+          push_notifications_enabled?: boolean
+          push_token?: string | null
           telefone?: string | null
           tiktok?: string | null
           updated_at?: string
@@ -707,19 +1055,37 @@ export type Database = {
           data_criacao: string
           id: string
           id_atleta: string
+          id_esporte: string | null
+          id_nivel_anterior: string | null
           id_nivel_habilidade_esporte: string
+          id_nivel_novo: string | null
+          is_public: boolean
+          metadata: Json
+          origem: string
         }
         Insert: {
           data_criacao?: string
           id?: string
           id_atleta: string
+          id_esporte?: string | null
+          id_nivel_anterior?: string | null
           id_nivel_habilidade_esporte: string
+          id_nivel_novo?: string | null
+          is_public?: boolean
+          metadata?: Json
+          origem?: string
         }
         Update: {
           data_criacao?: string
           id?: string
           id_atleta?: string
+          id_esporte?: string | null
+          id_nivel_anterior?: string | null
           id_nivel_habilidade_esporte?: string
+          id_nivel_novo?: string | null
+          is_public?: boolean
+          metadata?: Json
+          origem?: string
         }
         Relationships: [
           {
@@ -730,8 +1096,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "atleta_esporte_historico_id_esporte_fkey"
+            columns: ["id_esporte"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atleta_esporte_historico_id_nivel_anterior_fkey"
+            columns: ["id_nivel_anterior"]
+            isOneToOne: false
+            referencedRelation: "nivel_habilidade_esporte"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "atleta_esporte_historico_id_nivel_fkey"
             columns: ["id_nivel_habilidade_esporte"]
+            isOneToOne: false
+            referencedRelation: "nivel_habilidade_esporte"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atleta_esporte_historico_id_nivel_novo_fkey"
+            columns: ["id_nivel_novo"]
             isOneToOne: false
             referencedRelation: "nivel_habilidade_esporte"
             referencedColumns: ["id"]
@@ -910,6 +1297,334 @@ export type Database = {
           },
         ]
       }
+      booking_payment_webhook_events: {
+        Row: {
+          booking_id: string | null
+          booking_payment_id: string | null
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          provider: string
+          provider_event_id: string
+          received_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          booking_id?: string | null
+          booking_payment_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          provider?: string
+          provider_event_id: string
+          received_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          booking_id?: string | null
+          booking_payment_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          provider?: string
+          provider_event_id?: string
+          received_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_payment_webhook_events_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payment_webhook_events_booking_payment_id_fkey"
+            columns: ["booking_payment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_payments: {
+        Row: {
+          amount_cents: number
+          arena_id: string
+          arena_split_basis_points: number
+          atleta_id: string
+          booking_id: string
+          created_at: string
+          expired_at: string | null
+          external_reference: string
+          failed_at: string | null
+          gateway_customer_id: string | null
+          gateway_payment_id: string | null
+          id: string
+          paid_at: string | null
+          pix_expires_at: string | null
+          pix_payload: string | null
+          pix_qr_code_base64: string | null
+          platform_fee_basis_points: number
+          provider: string
+          raw_response: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          arena_id: string
+          arena_split_basis_points?: number
+          atleta_id: string
+          booking_id: string
+          created_at?: string
+          expired_at?: string | null
+          external_reference: string
+          failed_at?: string | null
+          gateway_customer_id?: string | null
+          gateway_payment_id?: string | null
+          id?: string
+          paid_at?: string | null
+          pix_expires_at?: string | null
+          pix_payload?: string | null
+          pix_qr_code_base64?: string | null
+          platform_fee_basis_points?: number
+          provider?: string
+          raw_response?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          arena_id?: string
+          arena_split_basis_points?: number
+          atleta_id?: string
+          booking_id?: string
+          created_at?: string
+          expired_at?: string | null
+          external_reference?: string
+          failed_at?: string | null
+          gateway_customer_id?: string | null
+          gateway_payment_id?: string | null
+          id?: string
+          paid_at?: string | null
+          pix_expires_at?: string | null
+          pix_payload?: string | null
+          pix_qr_code_base64?: string | null
+          platform_fee_basis_points?: number
+          provider?: string
+          raw_response?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_payments_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_result_confirmations: {
+        Row: {
+          atleta_id: string
+          booking_result_id: string
+          created_at: string
+          id: string
+          note: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          atleta_id: string
+          booking_result_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          atleta_id?: string
+          booking_result_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_result_confirmations_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_result_confirmations_booking_result_id_fkey"
+            columns: ["booking_result_id"]
+            isOneToOne: false
+            referencedRelation: "booking_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_result_players: {
+        Row: {
+          atleta_id: string
+          created_at: string
+          id: string
+          side_id: string
+        }
+        Insert: {
+          atleta_id: string
+          created_at?: string
+          id?: string
+          side_id: string
+        }
+        Update: {
+          atleta_id?: string
+          created_at?: string
+          id?: string
+          side_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_result_players_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_result_players_side_id_fkey"
+            columns: ["side_id"]
+            isOneToOne: false
+            referencedRelation: "booking_result_sides"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_result_sides: {
+        Row: {
+          booking_result_id: string
+          created_at: string
+          id: string
+          id_time: string | null
+          label: string
+          score: number
+        }
+        Insert: {
+          booking_result_id: string
+          created_at?: string
+          id?: string
+          id_time?: string | null
+          label: string
+          score?: number
+        }
+        Update: {
+          booking_result_id?: string
+          created_at?: string
+          id?: string
+          id_time?: string | null
+          label?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_result_sides_booking_result_id_fkey"
+            columns: ["booking_result_id"]
+            isOneToOne: false
+            referencedRelation: "booking_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_result_sides_id_time_fkey"
+            columns: ["id_time"]
+            isOneToOne: false
+            referencedRelation: "times"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_results: {
+        Row: {
+          booking_id: string
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          reported_by: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          booking_id: string
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          reported_by: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          booking_id?: string
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          reported_by?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_results_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_results_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_services: {
         Row: {
           booking_id: string
@@ -963,6 +1678,8 @@ export type Database = {
           created_at: string
           end_time: string
           id: string
+          payment_confirmed_at: string | null
+          payment_expires_at: string | null
           plano_mensalista_id: string | null
           price: number | null
           recurrence_id: string | null
@@ -980,6 +1697,8 @@ export type Database = {
           created_at?: string
           end_time: string
           id?: string
+          payment_confirmed_at?: string | null
+          payment_expires_at?: string | null
           plano_mensalista_id?: string | null
           price?: number | null
           recurrence_id?: string | null
@@ -997,6 +1716,8 @@ export type Database = {
           created_at?: string
           end_time?: string
           id?: string
+          payment_confirmed_at?: string | null
+          payment_expires_at?: string | null
           plano_mensalista_id?: string | null
           price?: number | null
           recurrence_id?: string | null
@@ -1027,10 +1748,181 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_plano_mensalista_id_fkey"
+            columns: ["plano_mensalista_id"]
+            isOneToOne: false
+            referencedRelation: "planos_mensalista"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookings_sport_id_fkey"
             columns: ["sport_id"]
             isOneToOne: false
             referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comentario_escopo: {
+        Row: {
+          escopo: string
+          id: string
+        }
+        Insert: {
+          escopo: string
+          id?: string
+        }
+        Update: {
+          escopo?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      comentario_sentimento: {
+        Row: {
+          id: string
+          sentimento: string
+        }
+        Insert: {
+          id?: string
+          sentimento: string
+        }
+        Update: {
+          id?: string
+          sentimento?: string
+        }
+        Relationships: []
+      }
+      comentario_time_last_read: {
+        Row: {
+          atleta_id: string
+          id: string
+          last_read_at: string
+          time_id: string
+        }
+        Insert: {
+          atleta_id: string
+          id?: string
+          last_read_at?: string
+          time_id: string
+        }
+        Update: {
+          atleta_id?: string
+          id?: string
+          last_read_at?: string
+          time_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comentario_time_last_read_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comentario_time_last_read_time_id_fkey"
+            columns: ["time_id"]
+            isOneToOne: false
+            referencedRelation: "times"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comentarios_atleta_para_time: {
+        Row: {
+          atleta_id: string
+          comentario_pai_id: string | null
+          comentario_template_id: string | null
+          data_criacao: string
+          id: string
+          lido: boolean
+          texto: string | null
+          time_id: string
+        }
+        Insert: {
+          atleta_id: string
+          comentario_pai_id?: string | null
+          comentario_template_id?: string | null
+          data_criacao?: string
+          id?: string
+          lido?: boolean
+          texto?: string | null
+          time_id: string
+        }
+        Update: {
+          atleta_id?: string
+          comentario_pai_id?: string | null
+          comentario_template_id?: string | null
+          data_criacao?: string
+          id?: string
+          lido?: boolean
+          texto?: string | null
+          time_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comentarios_atleta_para_time_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comentarios_atleta_para_time_comentario_pai_id_fkey"
+            columns: ["comentario_pai_id"]
+            isOneToOne: false
+            referencedRelation: "comentarios_atleta_para_time"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comentarios_atleta_para_time_comentario_template_id_fkey"
+            columns: ["comentario_template_id"]
+            isOneToOne: false
+            referencedRelation: "comentarios_template"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comentarios_atleta_para_time_time_id_fkey"
+            columns: ["time_id"]
+            isOneToOne: false
+            referencedRelation: "times"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comentarios_template: {
+        Row: {
+          comentario_escopo_id: string
+          comentario_sentimento_id: string
+          id: string
+          texto: string
+        }
+        Insert: {
+          comentario_escopo_id: string
+          comentario_sentimento_id: string
+          id?: string
+          texto: string
+        }
+        Update: {
+          comentario_escopo_id?: string
+          comentario_sentimento_id?: string
+          id?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comentarios_template_comentario_escopo_id_fkey"
+            columns: ["comentario_escopo_id"]
+            isOneToOne: false
+            referencedRelation: "comentario_escopo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comentarios_template_comentario_sentimento_id_fkey"
+            columns: ["comentario_sentimento_id"]
+            isOneToOne: false
+            referencedRelation: "comentario_sentimento"
             referencedColumns: ["id"]
           },
         ]
@@ -1263,6 +2155,587 @@ export type Database = {
           },
         ]
       }
+      notification_events: {
+        Row: {
+          atleta_id: string
+          body: string | null
+          created_at: string
+          id: string
+          payload: Json
+          read_at: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          atleta_id: string
+          body?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          atleta_id?: string
+          body?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_events_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      open_game_requests: {
+        Row: {
+          atleta_id: string
+          created_at: string
+          id: string
+          message: string | null
+          open_game_id: string
+          responded_at: string | null
+          status: string
+        }
+        Insert: {
+          atleta_id: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          open_game_id: string
+          responded_at?: string | null
+          status?: string
+        }
+        Update: {
+          atleta_id?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          open_game_id?: string
+          responded_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "open_game_requests_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "open_game_requests_open_game_id_fkey"
+            columns: ["open_game_id"]
+            isOneToOne: false
+            referencedRelation: "open_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      open_games: {
+        Row: {
+          arena_id: string
+          booking_id: string | null
+          created_at: string
+          current_players: number
+          date: string
+          end_time: string
+          expires_at: string | null
+          id: string
+          level_max_id: string | null
+          level_min_id: string | null
+          needed_players: number
+          notes: string | null
+          owner_atleta_id: string
+          sport_id: string
+          start_time: string
+          status: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          arena_id: string
+          booking_id?: string | null
+          created_at?: string
+          current_players?: number
+          date: string
+          end_time: string
+          expires_at?: string | null
+          id?: string
+          level_max_id?: string | null
+          level_min_id?: string | null
+          needed_players?: number
+          notes?: string | null
+          owner_atleta_id: string
+          sport_id: string
+          start_time: string
+          status?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          arena_id?: string
+          booking_id?: string | null
+          created_at?: string
+          current_players?: number
+          date?: string
+          end_time?: string
+          expires_at?: string | null
+          id?: string
+          level_max_id?: string | null
+          level_min_id?: string | null
+          needed_players?: number
+          notes?: string | null
+          owner_atleta_id?: string
+          sport_id?: string
+          start_time?: string
+          status?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "open_games_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "open_games_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "open_games_level_max_id_fkey"
+            columns: ["level_max_id"]
+            isOneToOne: false
+            referencedRelation: "nivel_habilidade_esporte"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "open_games_level_min_id_fkey"
+            columns: ["level_min_id"]
+            isOneToOne: false
+            referencedRelation: "nivel_habilidade_esporte"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "open_games_owner_atleta_id_fkey"
+            columns: ["owner_atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "open_games_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_checkout_attempts: {
+        Row: {
+          arena_id: string
+          checkout_id: string
+          created_at: string
+          created_by_user_id: string | null
+          gateway_customer_id: string | null
+          id: string
+          metadata: Json | null
+          paid_at: string | null
+          plan_id: string | null
+          plan_key: string
+          provider: string
+          replaces_gateway_subscription_id: string | null
+          result_gateway_subscription_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          arena_id: string
+          checkout_id: string
+          created_at?: string
+          created_by_user_id?: string | null
+          gateway_customer_id?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          plan_id?: string | null
+          plan_key: string
+          provider: string
+          replaces_gateway_subscription_id?: string | null
+          result_gateway_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          arena_id?: string
+          checkout_id?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          gateway_customer_id?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          plan_id?: string | null
+          plan_key?: string
+          provider?: string
+          replaces_gateway_subscription_id?: string | null
+          result_gateway_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_checkout_attempts_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_checkout_attempts_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_checkout_attempts_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_webhook_events: {
+        Row: {
+          arena_id: string | null
+          attempts: number
+          created_at: string
+          error_message: string | null
+          event_type: string
+          gateway_checkout_id: string | null
+          gateway_subscription_id: string | null
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          processing_started_at: string | null
+          provider: string
+          provider_event_id: string
+          received_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          arena_id?: string | null
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          gateway_checkout_id?: string | null
+          gateway_subscription_id?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          provider: string
+          provider_event_id: string
+          received_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          arena_id?: string | null
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          gateway_checkout_id?: string | null
+          gateway_subscription_id?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          provider?: string
+          provider_event_id?: string
+          received_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_webhook_events_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_web_arena_signups: {
+        Row: {
+          address_data: Json
+          arena_document: string | null
+          arena_name: string
+          completed_at: string | null
+          confirmed_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          phone: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          address_data?: Json
+          arena_document?: string | null
+          arena_name: string
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          phone?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          address_data?: Json
+          arena_document?: string | null
+          arena_name?: string
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          phone?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_web_arena_signups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planos_mensalista: {
+        Row: {
+          arena_id: string
+          athlete_id: string
+          athlete_name: string
+          court_id: string
+          created_at: string | null
+          data_inicio: string
+          dia_semana: number
+          horario_fim: string
+          horario_inicio: string
+          id: string
+          sessoes_por_mes: number
+          sport_id: string | null
+          status: string
+          valor_mensal: number
+        }
+        Insert: {
+          arena_id: string
+          athlete_id: string
+          athlete_name: string
+          court_id: string
+          created_at?: string | null
+          data_inicio: string
+          dia_semana: number
+          horario_fim: string
+          horario_inicio: string
+          id?: string
+          sessoes_por_mes?: number
+          sport_id?: string | null
+          status?: string
+          valor_mensal: number
+        }
+        Update: {
+          arena_id?: string
+          athlete_id?: string
+          athlete_name?: string
+          court_id?: string
+          created_at?: string | null
+          data_inicio?: string
+          dia_semana?: number
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          sessoes_por_mes?: number
+          sport_id?: string | null
+          status?: string
+          valor_mensal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planos_mensalista_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planos_mensalista_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planos_mensalista_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planos_mensalista_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_categories: {
+        Row: {
+          active: boolean
+          arena_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          arena_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          arena_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_categories_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_price_history: {
+        Row: {
+          adjustment_percent: number | null
+          arena_id: string
+          batch_id: string | null
+          change_type: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_price: number
+          old_price: number
+          product_id: string
+          reason: string | null
+        }
+        Insert: {
+          adjustment_percent?: number | null
+          arena_id: string
+          batch_id?: string | null
+          change_type?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_price: number
+          old_price: number
+          product_id: string
+          reason?: string | null
+        }
+        Update: {
+          adjustment_percent?: number | null
+          arena_id?: string
+          batch_id?: string | null
+          change_type?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_price?: number
+          old_price?: number
+          product_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_price_history_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_stock_entries: {
         Row: {
           arena_id: string
@@ -1381,121 +2854,6 @@ export type Database = {
             columns: ["registered_by"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      product_categories: {
-        Row: {
-          active: boolean
-          arena_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          kind: string
-          name: string
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          arena_id: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          kind?: string
-          name: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          arena_id?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          kind?: string
-          name?: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_categories_arena_id_fkey"
-            columns: ["arena_id"]
-            isOneToOne: false
-            referencedRelation: "arenas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_categories_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      product_price_history: {
-        Row: {
-          adjustment_percent: number | null
-          arena_id: string
-          batch_id: string | null
-          change_type: string
-          changed_by: string | null
-          created_at: string
-          id: string
-          new_price: number
-          old_price: number
-          product_id: string
-          reason: string | null
-        }
-        Insert: {
-          adjustment_percent?: number | null
-          arena_id: string
-          batch_id?: string | null
-          change_type?: string
-          changed_by?: string | null
-          created_at?: string
-          id?: string
-          new_price: number
-          old_price: number
-          product_id: string
-          reason?: string | null
-        }
-        Update: {
-          adjustment_percent?: number | null
-          arena_id?: string
-          batch_id?: string | null
-          change_type?: string
-          changed_by?: string | null
-          created_at?: string
-          id?: string
-          new_price?: number
-          old_price?: number
-          product_id?: string
-          reason?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_price_history_arena_id_fkey"
-            columns: ["arena_id"]
-            isOneToOne: false
-            referencedRelation: "arenas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_price_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_price_history_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -1658,82 +3016,175 @@ export type Database = {
           },
         ]
       }
-      planos_mensalista: {
+      rotativo_courts: {
         Row: {
-          arena_id: string
-          athlete_id: string
-          athlete_name: string
           court_id: string
-          created_at: string
-          data_inicio: string
-          dia_semana: number
-          horario_fim: string
-          horario_inicio: string
           id: string
-          sessoes_por_mes: number
-          sport_id: string | null
-          status: string
-          valor_mensal: number
+          rotativo_id: string
         }
         Insert: {
-          arena_id: string
-          athlete_id: string
-          athlete_name: string
           court_id: string
-          created_at?: string
-          data_inicio: string
-          dia_semana: number
-          horario_fim: string
-          horario_inicio: string
           id?: string
-          sessoes_por_mes?: number
-          sport_id?: string | null
-          status?: string
-          valor_mensal: number
+          rotativo_id: string
         }
         Update: {
-          arena_id?: string
-          athlete_id?: string
-          athlete_name?: string
           court_id?: string
-          created_at?: string
-          data_inicio?: string
-          dia_semana?: number
-          horario_fim?: string
-          horario_inicio?: string
           id?: string
-          sessoes_por_mes?: number
-          sport_id?: string | null
-          status?: string
-          valor_mensal?: number
+          rotativo_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "planos_mensalista_arena_id_fkey"
-            columns: ["arena_id"]
-            isOneToOne: false
-            referencedRelation: "arenas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "planos_mensalista_athlete_id_fkey"
-            columns: ["athlete_id"]
-            isOneToOne: false
-            referencedRelation: "atleta"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "planos_mensalista_court_id_fkey"
+            foreignKeyName: "rotativo_courts_court_id_fkey"
             columns: ["court_id"]
             isOneToOne: false
             referencedRelation: "courts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "planos_mensalista_sport_id_fkey"
-            columns: ["sport_id"]
+            foreignKeyName: "rotativo_courts_rotativo_id_fkey"
+            columns: ["rotativo_id"]
             isOneToOne: false
-            referencedRelation: "sports"
+            referencedRelation: "rotativos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rotativo_credito_lotes: {
+        Row: {
+          arena_id: string
+          atleta_id: string
+          created_at: string
+          created_by: string | null
+          data_vencimento: string
+          id: string
+          quantidade_inicial: number
+          quantidade_restante: number
+        }
+        Insert: {
+          arena_id: string
+          atleta_id: string
+          created_at?: string
+          created_by?: string | null
+          data_vencimento: string
+          id?: string
+          quantidade_inicial: number
+          quantidade_restante: number
+        }
+        Update: {
+          arena_id?: string
+          atleta_id?: string
+          created_at?: string
+          created_by?: string | null
+          data_vencimento?: string
+          id?: string
+          quantidade_inicial?: number
+          quantidade_restante?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotativo_credito_lotes_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotativo_credito_lotes_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotativo_credito_lotes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rotativo_credito_movimentos: {
+        Row: {
+          arena_id: string
+          atleta_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          inscricao_id: string | null
+          lote_id: string | null
+          modo_pagamento_id: string | null
+          quantidade: number
+          tipo: string
+          valor_pago: number | null
+        }
+        Insert: {
+          arena_id: string
+          atleta_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inscricao_id?: string | null
+          lote_id?: string | null
+          modo_pagamento_id?: string | null
+          quantidade: number
+          tipo: string
+          valor_pago?: number | null
+        }
+        Update: {
+          arena_id?: string
+          atleta_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inscricao_id?: string | null
+          lote_id?: string | null
+          modo_pagamento_id?: string | null
+          quantidade?: number
+          tipo?: string
+          valor_pago?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotativo_credito_movimentos_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotativo_credito_movimentos_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotativo_credito_movimentos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotativo_credito_movimentos_inscricao_id_fkey"
+            columns: ["inscricao_id"]
+            isOneToOne: false
+            referencedRelation: "rotativo_inscricoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotativo_credito_movimentos_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "rotativo_credito_lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotativo_credito_movimentos_modo_pagamento_id_fkey"
+            columns: ["modo_pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "modo_pagamento"
             referencedColumns: ["id"]
           },
         ]
@@ -1787,130 +3238,52 @@ export type Database = {
             referencedRelation: "rotativos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rotativo_inscricoes_modo_pagamento_id_fkey"
+            columns: ["modo_pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "modo_pagamento"
+            referencedColumns: ["id"]
+          },
         ]
-      }
-      rotativo_courts: {
-        Row: {
-          id: string
-          rotativo_id: string
-          court_id: string
-        }
-        Insert: {
-          id?: string
-          rotativo_id: string
-          court_id: string
-        }
-        Update: {
-          id?: string
-          rotativo_id?: string
-          court_id?: string
-        }
-        Relationships: []
       }
       rotativo_pacotes: {
         Row: {
-          id: string
           arena_id: string
-          quantidade: number
-          valor_reais: number
+          created_at: string
+          id: string
           ordem: number
-          created_at: string
+          quantidade: number
           updated_at: string
-        }
-        Insert: {
-          id?: string
-          arena_id: string
-          quantidade: number
           valor_reais: number
-          ordem?: number
+        }
+        Insert: {
+          arena_id: string
           created_at?: string
+          id?: string
+          ordem?: number
+          quantidade: number
           updated_at?: string
+          valor_reais: number
         }
         Update: {
-          id?: string
           arena_id?: string
+          created_at?: string
+          id?: string
+          ordem?: number
           quantidade?: number
+          updated_at?: string
           valor_reais?: number
-          ordem?: number
-          created_at?: string
-          updated_at?: string
         }
-        Relationships: []
-      }
-      rotativo_credito_lotes: {
-        Row: {
-          id: string
-          arena_id: string
-          atleta_id: string
-          quantidade_inicial: number
-          quantidade_restante: number
-          data_vencimento: string
-          created_by: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          arena_id: string
-          atleta_id: string
-          quantidade_inicial: number
-          quantidade_restante: number
-          data_vencimento: string
-          created_by?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          arena_id?: string
-          atleta_id?: string
-          quantidade_inicial?: number
-          quantidade_restante?: number
-          data_vencimento?: string
-          created_by?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
-      rotativo_credito_movimentos: {
-        Row: {
-          id: string
-          arena_id: string
-          atleta_id: string
-          tipo: string
-          quantidade: number
-          lote_id: string | null
-          inscricao_id: string | null
-          valor_pago: number | null
-          modo_pagamento_id: string | null
-          created_by: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          arena_id: string
-          atleta_id: string
-          tipo: string
-          quantidade: number
-          lote_id?: string | null
-          inscricao_id?: string | null
-          valor_pago?: number | null
-          modo_pagamento_id?: string | null
-          created_by?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          arena_id?: string
-          atleta_id?: string
-          tipo?: string
-          quantidade?: number
-          lote_id?: string | null
-          inscricao_id?: string | null
-          valor_pago?: number | null
-          modo_pagamento_id?: string | null
-          created_by?: string | null
-          created_at?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rotativo_pacotes_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rotativos: {
         Row: {
@@ -2273,6 +3646,7 @@ export type Database = {
         Row: {
           created_at: string
           features: Json | null
+          gateway_price_id: string
           id: string
           is_active: boolean
           is_internal: boolean
@@ -2281,12 +3655,12 @@ export type Database = {
           max_spaces: number
           price_cents: number
           sort_order: number
-          gateway_price_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           features?: Json | null
+          gateway_price_id?: string
           id?: string
           is_active?: boolean
           is_internal?: boolean
@@ -2295,12 +3669,12 @@ export type Database = {
           max_spaces: number
           price_cents: number
           sort_order?: number
-          gateway_price_id?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           features?: Json | null
+          gateway_price_id?: string
           id?: string
           is_active?: boolean
           is_internal?: boolean
@@ -2309,7 +3683,6 @@ export type Database = {
           max_spaces?: number
           price_cents?: number
           sort_order?: number
-          gateway_price_id?: string
           updated_at?: string
         }
         Relationships: []
@@ -2436,6 +3809,45 @@ export type Database = {
           },
         ]
       }
+      times_resenha_mensagens: {
+        Row: {
+          created_at: string | null
+          id: string
+          id_atleta: string
+          id_time: string
+          mensagem: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          id_atleta: string
+          id_time: string
+          mensagem: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          id_atleta?: string
+          id_time?: string
+          mensagem?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "times_resenha_mensagens_id_atleta_fkey"
+            columns: ["id_atleta"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "times_resenha_mensagens_id_time_fkey"
+            columns: ["id_time"]
+            isOneToOne: false
+            referencedRelation: "times"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           arena_id: string
@@ -2521,6 +3933,7 @@ export type Database = {
       }
       users: {
         Row: {
+          auth_user_id: string | null
           cpf: string | null
           created_at: string
           email: string
@@ -2531,6 +3944,7 @@ export type Database = {
           role: string | null
         }
         Insert: {
+          auth_user_id?: string | null
           cpf?: string | null
           created_at?: string
           email: string
@@ -2541,6 +3955,7 @@ export type Database = {
           role?: string | null
         }
         Update: {
+          auth_user_id?: string | null
           cpf?: string | null
           created_at?: string
           email?: string
@@ -2551,6 +3966,259 @@ export type Database = {
           role?: string | null
         }
         Relationships: []
+      }
+      whatsapp_channels: {
+        Row: {
+          access_token_encrypted: string
+          arena_id: string
+          connected_at: string | null
+          created_at: string
+          display_phone_number: string | null
+          id: string
+          last_inbound_at: string | null
+          phone_number_id: string
+          provider: string
+          status: string
+          token_expires_at: string | null
+          updated_at: string
+          verified_name: string | null
+          waba_id: string
+        }
+        Insert: {
+          access_token_encrypted: string
+          arena_id: string
+          connected_at?: string | null
+          created_at?: string
+          display_phone_number?: string | null
+          id?: string
+          last_inbound_at?: string | null
+          phone_number_id: string
+          provider?: string
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          verified_name?: string | null
+          waba_id: string
+        }
+        Update: {
+          access_token_encrypted?: string
+          arena_id?: string
+          connected_at?: string | null
+          created_at?: string
+          display_phone_number?: string | null
+          id?: string
+          last_inbound_at?: string | null
+          phone_number_id?: string
+          provider?: string
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          verified_name?: string | null
+          waba_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_channels_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: true
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_conversations: {
+        Row: {
+          arena_id: string
+          channel_id: string | null
+          contact_name: string | null
+          contact_wa_id: string
+          created_at: string
+          id: string
+          last_message_at: string | null
+          message_count: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          arena_id: string
+          channel_id?: string | null
+          contact_name?: string | null
+          contact_wa_id: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          message_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          arena_id?: string
+          channel_id?: string | null
+          contact_name?: string | null
+          contact_wa_id?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          message_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          arena_id: string
+          audio_seconds: number | null
+          completion_tokens: number | null
+          content: string | null
+          content_type: string
+          conversation_id: string
+          created_at: string
+          direction: string
+          error_message: string | null
+          id: string
+          llm_model: string | null
+          media_id: string | null
+          prompt_tokens: number | null
+          status: string
+          tool_calls: Json | null
+          transcribed_from_audio: boolean
+          transcription_model: string | null
+          wa_message_id: string | null
+        }
+        Insert: {
+          arena_id: string
+          audio_seconds?: number | null
+          completion_tokens?: number | null
+          content?: string | null
+          content_type?: string
+          conversation_id: string
+          created_at?: string
+          direction: string
+          error_message?: string | null
+          id?: string
+          llm_model?: string | null
+          media_id?: string | null
+          prompt_tokens?: number | null
+          status?: string
+          tool_calls?: Json | null
+          transcribed_from_audio?: boolean
+          transcription_model?: string | null
+          wa_message_id?: string | null
+        }
+        Update: {
+          arena_id?: string
+          audio_seconds?: number | null
+          completion_tokens?: number | null
+          content?: string | null
+          content_type?: string
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          error_message?: string | null
+          id?: string
+          llm_model?: string | null
+          media_id?: string | null
+          prompt_tokens?: number | null
+          status?: string
+          tool_calls?: Json | null
+          transcribed_from_audio?: boolean
+          transcription_model?: string | null
+          wa_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_webhook_events: {
+        Row: {
+          arena_id: string | null
+          attempts: number
+          created_at: string
+          error_message: string | null
+          event_type: string | null
+          id: string
+          payload: Json | null
+          phone_number_id: string | null
+          processed_at: string | null
+          processing_started_at: string | null
+          provider: string
+          provider_event_id: string | null
+          status: string
+          updated_at: string
+          wa_message_id: string | null
+        }
+        Insert: {
+          arena_id?: string | null
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          phone_number_id?: string | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          provider?: string
+          provider_event_id?: string | null
+          status?: string
+          updated_at?: string
+          wa_message_id?: string | null
+        }
+        Update: {
+          arena_id?: string | null
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          phone_number_id?: string | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          provider?: string
+          provider_event_id?: string | null
+          status?: string
+          updated_at?: string
+          wa_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_webhook_events_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -2576,14 +4244,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      rotativo_credito_saldo: {
-        Row: {
-          arena_id: string | null
-          atleta_id: string | null
-          saldo: number | null
-        }
-        Relationships: []
       }
       geography_columns: {
         Row: {
@@ -2626,6 +4286,29 @@ export type Database = {
           type?: string | null
         }
         Relationships: []
+      }
+      rotativo_credito_saldo: {
+        Row: {
+          arena_id: string | null
+          atleta_id: string | null
+          saldo: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotativo_credito_lotes_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotativo_credito_lotes_atleta_id_fkey"
+            columns: ["atleta_id"]
+            isOneToOne: false
+            referencedRelation: "atleta"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -2756,6 +4439,124 @@ export type Database = {
             }
             Returns: string
           }
+      app_limit_day_start: { Args: { p_reference?: string }; Returns: string }
+      app_limit_month_start: { Args: { p_reference?: string }; Returns: string }
+      assert_athlete_connection_peer_acceptance_slot: {
+        Args: { p_atleta_id: string }
+        Returns: undefined
+      }
+      assert_athlete_connection_slot: {
+        Args: { p_accepting?: boolean; p_atleta_id: string }
+        Returns: undefined
+      }
+      assert_athlete_team_creation_slot: {
+        Args: { p_atleta_id: string }
+        Returns: undefined
+      }
+      assert_open_game_creation_slot: {
+        Args: { p_atleta_id: string }
+        Returns: undefined
+      }
+      assert_team_resenha_message_slot: {
+        Args: { p_atleta_id: string; p_reference?: string; p_time_id: string }
+        Returns: undefined
+      }
+      athlete_accepted_connection_count: {
+        Args: { p_atleta_id: string }
+        Returns: number
+      }
+      athlete_connection_usage_count: {
+        Args: { p_atleta_id: string }
+        Returns: number
+      }
+      can_access_booking: { Args: { p_booking_id: string }; Returns: boolean }
+      can_access_booking_result: {
+        Args: { p_booking_result_id: string }
+        Returns: boolean
+      }
+      can_manage_team: { Args: { p_team_id: string }; Returns: boolean }
+      can_view_open_game: { Args: { p_open_game_id: string }; Returns: boolean }
+      can_view_team: { Args: { p_team_id: string }; Returns: boolean }
+      cancel_my_booking: { Args: { p_booking_id: string }; Returns: string }
+      cancel_open_game_request: {
+        Args: { p_request_id: string }
+        Returns: string
+      }
+      cancel_rotativo_inscricao: {
+        Args: { p_atleta_id: string; p_rotativo_id: string }
+        Returns: boolean
+      }
+      claim_my_legacy_athlete_profile: { Args: never; Returns: string }
+      complete_my_athlete_signup: {
+        Args: {
+          p_city_id: number
+          p_cpf: string
+          p_first_name: string
+          p_last_name: string
+          p_level_id: string
+          p_sport_id: string
+        }
+        Returns: string
+      }
+      confirm_booking_payment: {
+        Args: {
+          p_booking_payment_id: string
+          p_gateway_payment_id: string
+          p_paid_at?: string
+          p_payload?: Json
+        }
+        Returns: string
+      }
+      confirm_booking_result: {
+        Args: {
+          p_atleta_id: string
+          p_booking_result_id: string
+          p_confirmed: boolean
+          p_note?: string
+        }
+        Returns: string
+      }
+      consume_mobile_auth_rate_limit: {
+        Args: {
+          p_action: string
+          p_key_hash: string
+          p_limit?: number
+          p_window_seconds?: number
+        }
+        Returns: {
+          allowed: boolean
+          remaining: number
+          retry_after_seconds: number
+        }[]
+      }
+      create_open_game: {
+        Args: {
+          p_arena_id: string
+          p_booking_id?: string
+          p_date: string
+          p_end_time: string
+          p_level_max_id?: string
+          p_level_min_id?: string
+          p_needed_players: number
+          p_notes?: string
+          p_sport_id: string
+          p_start_time: string
+          p_visibility?: string
+        }
+        Returns: string
+      }
+      create_team: {
+        Args: {
+          p_accepts_join_requests: boolean
+          p_city_id: number
+          p_is_public: boolean
+          p_name: string
+          p_private_description: string
+          p_public_description: string
+          p_sport_id: string
+        }
+        Returns: string
+      }
       criar_reserva_com_participantes: {
         Args: {
           p_arena_id: string
@@ -2771,6 +4572,25 @@ export type Database = {
         }
         Returns: string
       }
+      criar_reserva_com_participantes_confirmed_legacy: {
+        Args: {
+          p_arena_id: string
+          p_atleta_id: string
+          p_atleta_nome: string
+          p_court_id: string
+          p_end_time: string
+          p_id_time: string
+          p_participantes: string[]
+          p_price: number
+          p_sport_id: string
+          p_start_time: string
+        }
+        Returns: string
+      }
+      current_auth_athlete_app_plan: { Args: never; Returns: string }
+      current_auth_athlete_id: { Args: never; Returns: string }
+      current_auth_public_user_id: { Args: never; Returns: string }
+      delete_my_account: { Args: never; Returns: boolean }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -2804,6 +4624,15 @@ export type Database = {
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      expire_stale_booking_payments: { Args: never; Returns: number }
+      fail_booking_payment: {
+        Args: {
+          p_booking_payment_id: string
+          p_payload?: Json
+          p_status: string
+        }
+        Returns: string
+      }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }
@@ -2902,6 +4731,14 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_arena_booking_blocks: {
+        Args: { p_arena_id: string; p_end_time: string; p_start_time: string }
+        Returns: {
+          court_id: string
+          end_time: string
+          start_time: string
+        }[]
+      }
       get_arena_finance_daily_totals: {
         Args: { p_arena_id: string; p_end_date: string; p_start_date: string }
         Returns: {
@@ -2922,7 +4759,47 @@ export type Database = {
         }[]
       }
       get_arena_presence: { Args: { p_arena_id: string }; Returns: number }
+      get_current_athlete: {
+        Args: never
+        Returns: {
+          athlete_id: string
+          auth_user_id: string
+          email: string
+          name: string
+          nome_perfil: string
+          role: string
+          user_id: string
+        }[]
+      }
+      get_home_feed: { Args: { p_atleta_id?: string }; Returns: Json }
+      get_rotativo_availability: {
+        Args: { p_rotativo_ids: string[] }
+        Returns: {
+          is_full: boolean
+          registration_count: number
+          remaining_spots: number
+          rotativo_id: string
+        }[]
+      }
+      get_team_roster: {
+        Args: { p_team_id: string }
+        Returns: {
+          athlete_id: string
+          display_name: string
+          photo_url: string
+          team_role: string
+        }[]
+      }
       gettransactionid: { Args: never; Returns: unknown }
+      invite_athlete_to_team: {
+        Args: { p_athlete_id: string; p_team_id: string }
+        Returns: string
+      }
+      leave_team: { Args: { p_team_id: string }; Returns: string }
+      lock_athlete_app_limit: {
+        Args: { p_atleta_id: string; p_scope: string }
+        Returns: undefined
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
@@ -2964,6 +4841,74 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      register_rotativo_inscricao: {
+        Args: {
+          p_atleta_id: string
+          p_modo_pagamento_id?: string
+          p_observacao?: string
+          p_rotativo_id: string
+          p_tipo_pagamento?: string
+        }
+        Returns: string
+      }
+      remove_team_member: {
+        Args: { p_member_athlete_id: string; p_team_id: string }
+        Returns: string
+      }
+      request_athlete_connection: {
+        Args: { p_target_athlete_id: string }
+        Returns: string
+      }
+      request_open_game_spot: {
+        Args: {
+          p_atleta_id: string
+          p_message?: string
+          p_open_game_id: string
+        }
+        Returns: string
+      }
+      request_to_join_team: { Args: { p_team_id: string }; Returns: string }
+      resolve_athlete_app_plan: {
+        Args: { p_atleta_id: string }
+        Returns: string
+      }
+      resolve_signup_identity: {
+        Args: { p_cpf: string; p_email: string }
+        Returns: {
+          athlete_by_cpf_cpf: string
+          athlete_by_cpf_email: string
+          athlete_by_cpf_id: string
+          athlete_by_cpf_user_id: string
+          user_by_cpf_auth_user_id: string
+          user_by_cpf_cpf: string
+          user_by_cpf_email: string
+          user_by_cpf_id: string
+          user_by_email_auth_user_id: string
+          user_by_email_cpf: string
+          user_by_email_email: string
+          user_by_email_id: string
+        }[]
+      }
+      respond_athlete_connection: {
+        Args: { p_accept: boolean; p_connection_id: string }
+        Returns: string
+      }
+      respond_my_booking_invite: {
+        Args: { p_accept: boolean; p_participant_id: string }
+        Returns: string
+      }
+      respond_open_game_request: {
+        Args: {
+          p_accept: boolean
+          p_owner_atleta_id: string
+          p_request_id: string
+        }
+        Returns: string
+      }
+      respond_team_membership: {
+        Args: { p_accept: boolean; p_membership_id: string }
+        Returns: string
+      }
       search_arenas_by_proximity: {
         Args: {
           comodidades_filter?: string[]
@@ -2999,6 +4944,54 @@ export type Database = {
           tiktok: string
           zip_code: string
         }[]
+      }
+      search_public_athletes: {
+        Args: {
+          p_limit?: number
+          p_nearby?: boolean
+          p_offset?: number
+          p_query?: string
+          p_user_lat?: number
+          p_user_lng?: number
+        }
+        Returns: {
+          accepted_connection_count: number
+          athlete_id: string
+          bio: string
+          city_id: number
+          city_name: string
+          display_name: string
+          distance_meters: number
+          facebook: string
+          instagram: string
+          is_connected: boolean
+          is_pending: boolean
+          lat: number
+          lng: number
+          photo_url: string
+          sport_ids: string[]
+          sports: Json
+          state_name: string
+          tiktok: string
+        }[]
+      }
+      search_public_teams: {
+        Args: { p_limit?: number; p_offset?: number; p_query?: string }
+        Returns: {
+          accepts_join_requests: boolean
+          city_id: number
+          created_at: string
+          name: string
+          owner_athlete_id: string
+          photo_url: string
+          public_description: string
+          sport_id: string
+          team_id: string
+        }[]
+      }
+      set_internal_test_plan_for_arena: {
+        Args: { enabled?: boolean; target_arena_id: string }
+        Returns: undefined
       }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
@@ -3581,7 +5574,31 @@ export type Database = {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
       }
+      submit_booking_result: {
+        Args: { p_booking_id: string; p_reported_by: string; p_sides: Json }
+        Returns: string
+      }
+      try_parse_jsonb: { Args: { p_value: string }; Returns: Json }
+      try_parse_timestamptz: { Args: { p_value: string }; Returns: string }
       unlockrows: { Args: { "": string }; Returns: number }
+      update_my_team: {
+        Args: {
+          p_accepts_join_requests: boolean
+          p_city_id: number
+          p_is_public: boolean
+          p_name: string
+          p_private_description: string
+          p_public_description: string
+          p_sport_id: string
+          p_status?: string
+          p_team_id: string
+        }
+        Returns: string
+      }
+      update_open_game_status: {
+        Args: { p_open_game_id: string; p_status: string }
+        Returns: string
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string

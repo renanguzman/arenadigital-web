@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "db:push": "supabase db push --yes",
+    "db:types": "npx supabase gen types typescript --project-id zojnnynuxlmcdsfzdnie --schema public > src/types/supabase.types.ts",
     "db:migrate-validate": "supabase migration list && pnpm exec tsc --noEmit",
     "email-templates:apply": "node supabase/email-templates/apply.mjs"
   },

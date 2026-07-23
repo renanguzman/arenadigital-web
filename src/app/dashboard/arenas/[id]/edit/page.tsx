@@ -4,6 +4,8 @@ import { SupabaseArenaRepository } from '@/modules/arenas/repositories/SupabaseA
 import { ArenaForm } from '@/modules/arenas/components/ArenaForm'
 import { ArenaPixSplitSettingsCard } from '@/modules/arenas/components/ArenaPixSplitSettingsCard'
 import { getArenaPixSplitSettingsAction } from '@/modules/arenas/actions/arenaActions'
+import { ArenaAiAgentSettingsCard } from '@/modules/ai-agent/components/ArenaAiAgentSettingsCard'
+import { getAgentSettingsAction } from '@/modules/ai-agent/actions/agentActions'
 import { redirect } from 'next/navigation'
 
 export default async function EditArenaPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,9 +18,10 @@ export default async function EditArenaPage({ params }: { params: Promise<{ id: 
     }
 
     const { dbUserId } = await requireAuthenticatedDbUser()
-    const [arena, pixSplitSettings] = await Promise.all([
+    const [arena, pixSplitSettings, agentSettings] = await Promise.all([
         new SupabaseArenaRepository(getSupabaseAdmin()).findById(id),
         getArenaPixSplitSettingsAction(id),
+        getAgentSettingsAction(id),
     ])
 
     if (!arena) redirect('/dashboard/settings/arenas')
@@ -31,6 +34,7 @@ export default async function EditArenaPage({ params }: { params: Promise<{ id: 
             </div>
             <ArenaForm ownerId={dbUserId} initialData={arena} />
             <ArenaPixSplitSettingsCard arenaId={id} initialSettings={pixSplitSettings.data} />
+            <ArenaAiAgentSettingsCard arenaId={id} initialSettings={agentSettings.data} />
         </div>
     )
 }

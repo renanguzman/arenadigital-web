@@ -225,6 +225,20 @@ Evolução do Catálogo para agrupar produtos/serviços por família e dar contr
   2. **Reajuste em massa:** `bulkAdjustPricesAction` recebe categoria, tipo (percentual ou valor fixo), arredondamento (exato, terminação ,00/,50/,90) e flag de incluir inativos. Calcula os novos preços, aplica com preview obrigatório na UI e grava uma linha `bulk` por item alterado, todas com o mesmo `batch_id`. Em caso de erro, faz rollback dos preços já atualizados e apaga o lote de histórico.
   3. **Backfill inicial:** a migração cria categorias a partir dos `item_type` existentes de cada arena e vincula os produtos automaticamente.
 
+### 2.12. Agente de IA no WhatsApp (`arena_ai_agents`, `whatsapp_channels`, `whatsapp_webhook_events`, `whatsapp_conversations`, `whatsapp_messages`)
+
+Módulo do **Agente de IA da Arena**: cada arena pode conectar um número de WhatsApp (Meta Cloud API) e ativar um agente LLM (OpenAI) que responde clientes sobre horários, quadras, preços (avulso/mensalista) e disponibilidade. O agente interpreta **texto e áudio** (áudio transcrito por speech-to-text; imagem/vídeo não são interpretados no MVP). Plano completo em `docs/PLANO-Agente-IA-WhatsApp.md`. Migração: `supabase/migrations/20260722_ai_agent_whatsapp.sql`.
+
+- **Tabela `arena_ai_agents`:** Configuração do agente por arena (1:1 com `arenas`).
+  - `id`, `arena_id` (FK -> `arenas`, **UNIQUE**), `enabled` (liga/desliga o agente), `persona_prompt` (personalidade definida pelo gestor), `model` (default `gpt-4o-mini`), `temperature`, `max_output_tokens`, `monthly_token_cap` (teto de custo), `fallback_message`, `status` ('draft'|'active'|'paused'), `created_by` (FK -> `users`), `created_at`, `updated_at`.
+- **Tabela `whatsapp_channels`:** Vínculo número ↔ arena. **Um número pertence a exatamente uma arena e vice-versa** (`arena_id` UNIQUE **e** `phone_number_id` UNIQUE).
+  - `id`, `arena_id` (FK, UNIQUE), `provider` (default 'meta'), `phone_number_id` (UNIQUE — **chave de roteamento** do webhook), `waba_id`, `display_phone_number`, `verified_name`, `access_token_encrypted` (**token cifrado em aplicação** com `AI_AGENT_ENCRYPTION_KEY` — nunca em texto puro), `token_expires_at`, `status` ('pending'|'connected'|'error'|'disconnected'), `connected_at`, `last_inbound_at`, timestamps.
+- **Tabela `whatsapp_webhook_events`:** Idempotência dos eventos recebidos do Meta (espelha `payment_webhook_events`). Dedupe por `(provider, wa_message_id)` (índice único parcial). Colunas: `provider`, `provider_event_id`, `wa_message_id`, `phone_number_id`, `arena_id`, `event_type`, `status` ('processing'|'processed'|'failed'|'ignored'), `payload` (jsonb), `error_message`, `attempts`, `processing_started_at`, `processed_at`, timestamps.
+- **Tabela `whatsapp_conversations`:** Thread por contato/arena. `arena_id`, `channel_id`, `contact_wa_id`, `contact_name`, `last_message_at`, `message_count`, `status` ('open'|'idle'|'closed'). UNIQUE (`arena_id`, `contact_wa_id`).
+- **Tabela `whatsapp_messages`:** Log de mensagens e custo. `conversation_id`, `arena_id`, `direction` ('inbound'|'outbound'), `wa_message_id`, `content`, `content_type` ('text'|'audio'|'unsupported'), `transcribed_from_audio`, `media_id`, `llm_model`, `transcription_model`, `prompt_tokens`, `completion_tokens`, `audio_seconds`, `tool_calls` (jsonb), `status` ('received'|'sent'|'delivered'|'failed'), `error_message`, `created_at`.
+- **Isolamento entre arenas (regra de ouro):** o `arena_id` é sempre derivado do `whatsapp_channels.phone_number_id` recebido no webhook — **nunca** do texto da mensagem ou do LLM. Todas as consultas das ferramentas do agente são filtradas por esse `arena_id`.
+- **RLS:** políticas permissivas `Allow all for ...` no padrão atual do projeto. **Exceção de segurança:** o token de acesso (`access_token_encrypted`) é protegido por **cifra em aplicação**, não por RLS.
+
 ---
 
 ## 3. Row Level Security (RLS) policies 🛡️

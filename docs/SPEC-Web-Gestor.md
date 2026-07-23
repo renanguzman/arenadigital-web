@@ -294,6 +294,11 @@ SUPABASE_URL
 
 SUPABASE_SERVICE_ROLE_KEY
 
+Agente de IA (WhatsApp) — ver seção 14:
+META_APP_ID, META_APP_SECRET, META_WHATSAPP_VERIFY_TOKEN, META_GRAPH_API_VERSION,
+OPENAI_API_KEY, OPENAI_AGENT_MODEL, OPENAI_TRANSCRIBE_MODEL,
+AI_AGENT_ENCRYPTION_KEY, WHATSAPP_MAX_AUDIO_SECONDS
+
 12. Estações — Listagem Paginada de Comandas
 
 Tela: /dashboard/arenas/{id}/stations/{stationId}
@@ -336,3 +341,72 @@ Server action: getAthletesByArenaAction(arenaId, searchTerm?) — src/modules/at
   (join arenas_atleta) — SupabaseAthleteRepository.findByArena
 - Ao selecionar, o atleta vira um chip com opção de remover (X); o id alimenta o campo
   athleteId do formulário (react-hook-form + zod)
+
+14. Agente de IA no WhatsApp
+
+Status: Em implementação (MVP — 22/07/2026). Plano completo: docs/PLANO-Agente-IA-WhatsApp.md.
+Módulo: src/modules/ai-agent. Integrações: Meta WhatsApp Business Cloud API + OpenAI (chat/tool calling + transcrição).
+
+14.1 Modelo de dados (migração supabase/migrations/20260722_ai_agent_whatsapp.sql)
+
+arena_ai_agents      -- config por arena (1:1). enabled, persona_prompt, model,
+                        temperature, max_output_tokens, monthly_token_cap,
+                        fallback_message, status (draft|active|paused). unique(arena_id)
+whatsapp_channels    -- vínculo número↔arena. phone_number_id (UNIQUE, chave de
+                        roteamento), waba_id, display_phone_number, verified_name,
+                        access_token_encrypted (CIFRADO EM APP), status
+                        (pending|connected|error|disconnected). unique(arena_id) E unique(phone_number_id)
+whatsapp_webhook_events -- idempotência (espelha payment_webhook_events); dedupe por
+                        (provider, wa_message_id)
+whatsapp_conversations  -- thread por contato/arena. unique(arena_id, contact_wa_id)
+whatsapp_messages       -- log inbound/outbound: content_type (text|audio|unsupported),
+                        transcribed_from_audio, media_id, llm_model, transcription_model,
+                        prompt_tokens, completion_tokens, audio_seconds, tool_calls, status
+
+RLS permissiva no padrão do projeto, EXCETO o token de acesso, que é protegido por
+cifra em aplicação (AES-256-GCM, chave AI_AGENT_ENCRYPTION_KEY) — nunca em texto puro.
+
+14.2 Endpoints (API routes)
+
+POST /api/whatsapp/webhook           -- recebe mensagens do Meta. Verifica assinatura
+                                        X-Hub-Signature-256, registra idempotência,
+                                        responde 200 imediatamente e processa via after().
+GET  /api/whatsapp/webhook           -- handshake (hub.verify_token → hub.challenge).
+POST /api/whatsapp/embedded-signup   -- troca code→token do Embedded Signup, inscreve o
+                                        app no WABA (subscribed_apps) e conecta o canal.
+
+URL a cadastrar no painel do Meta: https://<dominio>/api/whatsapp/webhook (runtime nodejs).
+
+14.3 Server Actions (src/modules/ai-agent/actions/agentActions.ts)
+
+- getAgentSettingsAction(arenaId) → { agent, channel }
+- updateAgentConfigAction(arenaId, input)  -- persona, fallback, teto de tokens (zod)
+- toggleAgentAction(arenaId, enabled)      -- só ativa com canal conectado; auditado
+- connectChannelAction(input)              -- valida unicidade do número; cifra o token; auditado
+- disconnectChannelAction(arenaId)         -- desliga o agente junto; auditado
+
+Todas com assertArenaBackofficeAccess(arenaId). UI: ArenaAiAgentSettingsCard, renderizado
+em src/app/dashboard/arenas/[id]/edit/page.tsx (ao lado do card de Pix).
+
+14.4 Ferramentas do agente (tool calling — tools/agent-tools.ts)
+
+Todas recebem arena_id FIXO do canal (o LLM nunca fornece arena):
+- get_opening_hours()                       -- arenas.opening_hours
+- list_courts(sport?)                        -- courts + court_sports (ativas)
+- get_pricing(court?, sport?)                -- avulso do day_config; mensal é ESTIMATIVA
+- check_availability(date, time?, court?, sport?) -- grade (day_config) × bookings; fuso BR (UTC-3)
+
+14.5 Fluxo de mensagem (resumo)
+
+1. Webhook verifica assinatura → idempotência → ACK 200 → after(processInboundMessage).
+2. processInboundMessage: roteia por phone_number_id; gates (agente ligado + assinatura
+   ativa via hasUsableSubscription); persiste conversa. Tipo não suportado → fallback.
+3. generateAgentReply: transcreve áudio (guarda de tamanho via file_size), aplica teto
+   mensal de tokens, monta prompt (persona + guardrails + data/hora BR), roda o loop de
+   tool calling (máx. 5 rodadas), envia a resposta e registra tokens/custo.
+
+14.6 Segurança
+- Isolamento por phone_number_id; queries sempre filtradas por arena_id do canal.
+- Assinatura X-Hub-Signature-256 (App Secret) e verify_token no handshake.
+- Token de acesso cifrado em app; exposto apenas no caminho de envio.
+- Gate de assinatura + enabled; auditoria em audit_logs (entity_type 'arena_ai_agent').

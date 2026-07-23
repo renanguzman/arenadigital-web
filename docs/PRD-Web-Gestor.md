@@ -52,11 +52,14 @@ O acesso ao sistema ocorre por meio de login, disponível a partir da landing pa
 - Gestão de produtos
 - Gestão de caixas
 - Gestão de estações
+- Agente de IA no WhatsApp (atendimento automático da arena)
 
 ### Fora do Escopo (MVP)
 - Marketplace
 - Multi-idioma
 - White-label
+- Interpretação de imagem e vídeo pelo Agente de IA
+- Efetuar reservas/pagamentos pelo chat do Agente de IA
 
 ---
 
@@ -239,6 +242,34 @@ O acesso ao sistema ocorre por meio de login, disponível a partir da landing pa
 - Registro de toda alteração de preço, individual (edição do item) ou em massa.
 - Cada registro guarda preço anterior, novo preço, tipo (manual/em massa), percentual aplicado, motivo, autor e data.
 - Consulta por produto/serviço através de modal de histórico.
+
+---
+
+### 5.10 Agente de IA no WhatsApp
+- **Status:** Em implementação (MVP — 22/07/2026). Plano técnico completo em `docs/PLANO-Agente-IA-WhatsApp.md`.
+- **Objetivo:** conectar um número de WhatsApp à arena para que um agente de IA responda automaticamente os clientes, no escopo daquela arena.
+- **Integrações:** Meta (WhatsApp Business Cloud API) para mensageria e OpenAI (ChatGPT) para a conversa/entendimento de contexto.
+
+#### 5.10.1 Capacidades do agente (MVP)
+- Horário de funcionamento da arena.
+- Quadras/espaços ativos e suas modalidades.
+- Valores de reserva **avulsa** (por hora) e **estimativa** de valor mensal.
+- Disponibilidade de quadras por dia e horário (cruzando a grade com as reservas existentes).
+- Entende mensagens de **texto** e de **áudio** (áudio é transcrito; a resposta é sempre em texto).
+- Fora do escopo (horários/quadras/preços/disponibilidade) ou tipos não suportados (imagem, vídeo): responde com uma mensagem de fallback educada.
+
+#### 5.10.2 Setup pelo gestor
+- Card "Agente de IA (WhatsApp)" na tela de edição da arena.
+- **Conectar número:** vínculo seguro e validado; **um número pertence a uma única arena** (e vice-versa).
+- **Personalidade:** campo de prompt onde o gestor descreve o tom/personalidade do agente da sua arena.
+- **Ligar/Desligar:** o gestor ativa ou desativa o agente a qualquer momento; desligado, nenhuma mensagem é respondida.
+- **Mensagem de fallback** e **teto mensal de tokens** configuráveis.
+
+#### 5.10.3 Regras e segurança
+- O agente só responde se a arena tiver **assinatura ativa** e o agente estiver **ligado**.
+- Isolamento total entre arenas: os dados respondidos são sempre e apenas da arena vinculada ao número.
+- O agente **não efetua reservas nem cobranças** — apenas informa e orienta a procurar a arena.
+- Nunca inventa dados: horários, preços e disponibilidade vêm sempre do banco.
 
 ---
 
