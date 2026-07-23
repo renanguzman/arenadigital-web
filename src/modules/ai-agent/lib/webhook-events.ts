@@ -1,6 +1,37 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/supabase.types'
-import type { WebhookEventStatus } from '../types/agent.types'
+import type { MessageStatus, WebhookEventStatus } from '../types/agent.types'
+import type { ParsedStatusEvent } from './parse-inbound'
+
+// Recibos do Meta → status da mensagem outbound. Ignoramos 'sent' (a mensagem
+// já nasce 'sent'); só promovemos para delivered/failed para não regredir.
+const STATUS_MAP: Record<string, MessageStatus> = {
+  delivered: 'delivered',
+  read: 'delivered',
+  failed: 'failed',
+}
+
+export async function applyStatusEvents(
+  client: SupabaseClient<Database>,
+  statuses: ParsedStatusEvent[]
+): Promise<void> {
+  for (const s of statuses) {
+    const mapped = STATUS_MAP[s.status]
+    if (!mapped) continue
+    const patch: Database['public']['Tables']['whatsapp_messages']['Update'] = { status: mapped }
+    if (s.errorMessage) patch.error_message = s.errorMessage
+    const { error } = await client
+      .from('whatsapp_messages')
+      .update(patch)
+      .eq('wa_message_id', s.waMessageId)
+    if (error) {
+      console.error('[whatsapp-webhook] applyStatusEvents update failed', {
+        waMessageId: s.waMessageId,
+        error,
+      })
+    }
+  }
+}
 
 // Idempotência de eventos do webhook do WhatsApp.
 // Espelha o padrão de payment_webhook_events: dedupe por (provider, wa_message_id).

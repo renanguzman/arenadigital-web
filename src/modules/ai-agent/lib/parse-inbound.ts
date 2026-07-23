@@ -14,10 +14,18 @@ interface MetaMessage {
   audio?: { id?: string; mime_type?: string; voice?: boolean }
 }
 
+interface MetaStatus {
+  id?: string
+  status?: string
+  recipient_id?: string
+  errors?: Array<{ code?: number; title?: string; message?: string }>
+}
+
 interface MetaValue {
   metadata?: { phone_number_id?: string; display_phone_number?: string }
   contacts?: Array<{ profile?: { name?: string }; wa_id?: string }>
   messages?: MetaMessage[]
+  statuses?: MetaStatus[]
 }
 
 interface MetaChange {
@@ -75,5 +83,30 @@ export function parseInboundMessages(payload: unknown): ParsedInboundMessage[] {
     }
   }
 
+  return result
+}
+
+/** Recibo de entrega/leitura/falha de uma mensagem enviada por nós. */
+export interface ParsedStatusEvent {
+  waMessageId: string
+  status: string // sent | delivered | read | failed
+  errorMessage: string | null
+}
+
+export function parseStatusEvents(payload: unknown): ParsedStatusEvent[] {
+  const body = payload as MetaWebhookPayload
+  const result: ParsedStatusEvent[] = []
+  for (const entry of body.entry ?? []) {
+    for (const change of entry.changes ?? []) {
+      for (const s of change.value?.statuses ?? []) {
+        if (!s.id || !s.status) continue
+        const err = s.errors?.[0]
+        const errorMessage = err
+          ? `(#${err.code ?? ''}) ${err.title ?? err.message ?? ''}`.trim()
+          : null
+        result.push({ waMessageId: s.id, status: s.status, errorMessage })
+      }
+    }
+  }
   return result
 }

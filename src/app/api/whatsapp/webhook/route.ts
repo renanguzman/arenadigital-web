@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Json } from '@/types/supabase.types'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { verifyMetaSignature, verifyWebhookHandshake } from '@/modules/ai-agent/lib/meta-signature'
-import { parseInboundMessages } from '@/modules/ai-agent/lib/parse-inbound'
-import { beginWebhookProcessing } from '@/modules/ai-agent/lib/webhook-events'
+import { parseInboundMessages, parseStatusEvents } from '@/modules/ai-agent/lib/parse-inbound'
+import { applyStatusEvents, beginWebhookProcessing } from '@/modules/ai-agent/lib/webhook-events'
 import { processInboundMessage } from '@/modules/ai-agent/usecases/process-inbound-message.usecase'
 
 // crypto (assinatura) exige runtime Node.
@@ -64,14 +64,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true })
   }
 
+  const supabase = getSupabaseAdmin()
+
+  // Recibos de entrega/leitura/falha das mensagens que enviamos.
+  const statuses = parseStatusEvents(payload)
+  if (statuses.length > 0) {
+    try {
+      await applyStatusEvents(supabase, statuses)
+    } catch (error) {
+      console.error('[whatsapp-webhook] failed to apply status events', error)
+    }
+  }
+
   const messages = parseInboundMessages(payload)
   if (messages.length === 0) {
-    // Ex.: eventos de status de entrega — ignorados no MVP.
     return NextResponse.json({ received: true })
   }
 
   // 3) Idempotência + agendamento do processamento assíncrono.
-  const supabase = getSupabaseAdmin()
   for (const message of messages) {
     try {
       const { id, shouldProcess } = await beginWebhookProcessing(supabase, {
