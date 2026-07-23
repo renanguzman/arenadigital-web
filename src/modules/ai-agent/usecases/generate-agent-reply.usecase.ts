@@ -233,6 +233,21 @@ export async function generateAgentReply(input: GenerateAgentReplyInput): Promis
     break
   }
 
+  // Se o loop terminou sem uma resposta em texto (estourou as rodadas de
+  // ferramentas ou veio vazio), força uma última resposta SEM ferramentas a
+  // partir do contexto já coletado — evita cair no fallback à toa.
+  if (!replyText || !replyText.trim()) {
+    const forced = await llm.complete({
+      model: input.agent.model,
+      messages,
+      temperature: input.agent.temperature,
+      maxOutputTokens: input.agent.maxOutputTokens,
+    })
+    promptTokens += forced.usage.promptTokens
+    completionTokens += forced.usage.completionTokens
+    replyText = forced.message.content
+  }
+
   const finalText =
     replyText?.trim() || input.agent.fallbackMessage?.trim() || DEFAULT_FALLBACK_MESSAGE
 

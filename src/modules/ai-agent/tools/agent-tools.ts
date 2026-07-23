@@ -92,6 +92,30 @@ function matchesCourt(court: AgentCourt, filters: { court?: string; sport?: stri
   return true
 }
 
+const WEEKDAY_NAMES = [
+  'Domingo',
+  'Segunda-feira',
+  'Terça-feira',
+  'Quarta-feira',
+  'Quinta-feira',
+  'Sexta-feira',
+  'Sábado',
+]
+
+// opening_hours pode vir com chaves numéricas 0..6 (0 = Domingo, padrão getDay()).
+// Traduz para nomes de dia para o LLM não se confundir; mantém chaves não-numéricas.
+function normalizeOpeningHours(oh: unknown): unknown {
+  if (!oh || typeof oh !== 'object' || Array.isArray(oh)) return oh
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(oh as Record<string, unknown>)) {
+    const idx = Number(key)
+    const label =
+      Number.isInteger(idx) && idx >= 0 && idx <= 6 ? WEEKDAY_NAMES[idx] : key
+    out[label] = value
+  }
+  return out
+}
+
 function weekdayName(dateYmd: string): string {
   // Ancorar ao meio-dia para não escorregar de dia por fuso.
   const d = parseISO(`${dateYmd}T12:00:00${BR_OFFSET}`)
@@ -147,7 +171,7 @@ export async function executeAgentTool(
       const arena = await ctx.data.getArenaInfo(ctx.arenaId)
       return {
         arena: arena?.name ?? null,
-        openingHours: arena?.openingHours ?? null,
+        openingHours: normalizeOpeningHours(arena?.openingHours ?? null),
       }
     }
 
