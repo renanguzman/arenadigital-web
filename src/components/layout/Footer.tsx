@@ -32,7 +32,7 @@ export function Footer() {
                             <Link href="/termos-de-uso" className="transition-colors hover:text-white">
                                 Termos de Uso
                             </Link>
-                            <Link href="#" className="transition-colors hover:text-white">
+                            <Link href="/politica-de-privacidade" className="transition-colors hover:text-white">
                                 Política de Privacidade
                             </Link>
                         </div>
