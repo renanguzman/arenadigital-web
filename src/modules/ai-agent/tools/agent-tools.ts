@@ -195,11 +195,17 @@ export async function executeAgentTool(
       const court = typeof args.court === 'string' ? args.court : undefined
       const sport = typeof args.sport === 'string' ? args.sport : undefined
       const courts = await ctx.data.getActiveCourts(ctx.arenaId)
+      const filtered = courts.filter((c) => matchesCourt(c, { court, sport }))
+      // Rede de segurança: filtro sem resultado (ex.: modalidade errada do modelo)
+      // → devolve todos os espaços em vez de vazio.
+      const effective = filtered.length > 0 ? filtered : courts
       return {
         note:
+          (filtered.length > 0
+            ? ''
+            : 'Nenhum espaço específico bateu com o filtro; segue a lista completa. ') +
           'Valores avulsos por hora vêm da configuração da arena. O valor mensal é uma ESTIMATIVA (preço/hora × sessões no mês) — confirmar com a arena.',
-        courts: courts
-          .filter((c) => matchesCourt(c, { court, sport }))
+        courts: effective
           .map((c) => {
             const enabledDays = c.dayConfig.filter((d) => d.enabled)
             const basePrice = enabledDays[0]?.price ?? 0
@@ -244,8 +250,10 @@ export async function executeAgentTool(
 
       const dayName = weekdayName(date)
       const filtered = courts.filter((c) => matchesCourt(c, { court, sport }))
+      // Rede de segurança: filtro sem resultado → considera todos os espaços.
+      const effective = filtered.length > 0 ? filtered : courts
 
-      const results = filtered.map((c) => {
+      const results = effective.map((c) => {
         const config = findDayConfig(c, dayName)
         if (!config || !config.enabled) {
           return { court: c.name, closed: true, availableHours: [] as string[] }
@@ -268,7 +276,16 @@ export async function executeAgentTool(
         }
       })
 
-      return { date, weekday: dayName, requestedTime: time ?? null, courts: results }
+      return {
+        date,
+        weekday: dayName,
+        requestedTime: time ?? null,
+        note:
+          filtered.length > 0
+            ? undefined
+            : 'Nenhum espaço específico bateu com o filtro; disponibilidade de todos os espaços abaixo.',
+        courts: results,
+      }
     }
 
     default:
