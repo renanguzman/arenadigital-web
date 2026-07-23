@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { assertArenaBackofficeAccess, requireAuthenticatedDbUser } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { logAuditEvent } from '@/modules/audit/audit-log.service'
+import { MetaWhatsAppClient } from '../providers/whatsapp/MetaWhatsAppClient'
 import { SupabaseAgentRepository } from '../repositories/SupabaseAgentRepository'
 import { SupabaseWhatsAppChannelRepository } from '../repositories/SupabaseWhatsAppChannelRepository'
 import { agentConfigSchema, connectChannelSchema } from '../schemas/agent-config.schema'
@@ -134,7 +135,7 @@ export async function toggleAgentAction(
 
 export async function connectChannelAction(
   input: unknown
-): Promise<{ success: boolean; data?: WhatsAppChannelPublic; error?: string }> {
+): Promise<{ success: boolean; data?: WhatsAppChannelPublic; error?: string; warning?: string }> {
   try {
     const parsed = connectChannelSchema.safeParse(input)
     if (!parsed.success) {
@@ -154,6 +155,23 @@ export async function connectChannelAction(
       tokenExpiresAt: parsed.data.tokenExpiresAt ?? null,
     })
 
+    // Inscreve o app na WABA para os webhooks de mensagem chegarem (best-effort:
+    // não desfaz a conexão se falhar, mas avisa o gestor).
+    let warning: string | undefined
+    try {
+      await new MetaWhatsAppClient().subscribeAppToWaba({
+        wabaId: parsed.data.wabaId,
+        accessToken: parsed.data.accessToken,
+      })
+    } catch (subErr) {
+      warning =
+        'Número conectado, mas não foi possível inscrever o app para receber mensagens automaticamente. Verifique se o token tem a permissão whatsapp_business_management.'
+      console.error('[agentActions] subscribeAppToWaba falhou', {
+        arenaId: parsed.data.arenaId,
+        error: subErr instanceof Error ? subErr.message : subErr,
+      })
+    }
+
     await logAuditEvent({
       entityType: 'arena_ai_agent',
       entityId: parsed.data.arenaId,
@@ -168,7 +186,7 @@ export async function connectChannelAction(
     })
 
     revalidateArena(parsed.data.arenaId)
-    return { success: true, data: channel }
+    return { success: true, data: channel, warning }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro ao conectar o número de WhatsApp'
     return { success: false, error: message }

@@ -35,7 +35,14 @@ export interface DownloadMediaResult {
   mimeType: string
 }
 
+export interface SubscribeAppInput {
+  wabaId: string
+  accessToken: string
+}
+
 export interface IWhatsAppClient {
   sendText(input: SendTextInput): Promise<SendTextResult>
   downloadMedia(input: DownloadMediaInput): Promise<DownloadMediaResult>
+  /** Inscreve o app do token na WABA para receber os webhooks de mensagens. */
+  subscribeAppToWaba(input: SubscribeAppInput): Promise<void>
 }

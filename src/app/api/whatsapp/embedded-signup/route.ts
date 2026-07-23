@@ -3,6 +3,7 @@ import * as z from 'zod'
 import { assertArenaBackofficeAccess, requireAuthenticatedDbUser } from '@/lib/server-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { logAuditEvent } from '@/modules/audit/audit-log.service'
+import { MetaWhatsAppClient } from '@/modules/ai-agent/providers/whatsapp/MetaWhatsAppClient'
 import { SupabaseWhatsAppChannelRepository } from '@/modules/ai-agent/repositories/SupabaseWhatsAppChannelRepository'
 
 export const runtime = 'nodejs'
@@ -48,18 +49,6 @@ async function exchangeCodeForToken(code: string): Promise<string> {
   return json.access_token
 }
 
-/** Inscreve o app do Arena Digital no WABA para receber os webhooks. */
-async function subscribeAppToWaba(wabaId: string, accessToken: string): Promise<void> {
-  const response = await fetch(`${graphBase()}/${wabaId}/subscribed_apps`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-  if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(`Meta subscribe app failed ${response.status}: ${detail.slice(0, 300)}`)
-  }
-}
-
 export async function POST(request: NextRequest) {
   let parsed: z.infer<typeof bodySchema>
   try {
@@ -74,7 +63,7 @@ export async function POST(request: NextRequest) {
     await assertArenaBackofficeAccess(parsed.arenaId)
 
     const accessToken = await exchangeCodeForToken(parsed.code)
-    await subscribeAppToWaba(parsed.wabaId, accessToken)
+    await new MetaWhatsAppClient().subscribeAppToWaba({ wabaId: parsed.wabaId, accessToken })
 
     const channel = await new SupabaseWhatsAppChannelRepository(getSupabaseAdmin()).connect({
       arenaId: parsed.arenaId,

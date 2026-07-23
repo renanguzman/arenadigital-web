@@ -119,6 +119,7 @@ export function ArenaAiAgentSettingsCard({ arenaId, initialSettings }: Props) {
             setSettings((prev) => ({ ...prev, channel: res.data! }))
             setConnect(EMPTY_CONNECT)
             toast.success("Número de WhatsApp conectado.")
+            if (res.warning) toast.warning(res.warning)
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Não foi possível conectar o número.")
         } finally {

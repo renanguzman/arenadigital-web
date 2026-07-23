@@ -5,6 +5,7 @@ import {
   type IWhatsAppClient,
   type SendTextInput,
   type SendTextResult,
+  type SubscribeAppInput,
 } from './IWhatsAppClient'
 
 // Implementação da Meta WhatsApp Business Cloud API via Graph API (REST).
@@ -40,6 +41,17 @@ export class MetaWhatsAppClient implements IWhatsAppClient {
 
     const json = (await response.json()) as { messages?: Array<{ id?: string }> }
     return { waMessageId: json.messages?.[0]?.id ?? null }
+  }
+
+  async subscribeAppToWaba(input: SubscribeAppInput): Promise<void> {
+    const response = await fetch(`${graphBaseUrl()}/${input.wabaId}/subscribed_apps`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${input.accessToken}` },
+    })
+    if (!response.ok) {
+      const detail = await response.text()
+      throw new Error(`Meta subscribeAppToWaba error ${response.status}: ${detail.slice(0, 300)}`)
+    }
   }
 
   async downloadMedia(input: DownloadMediaInput): Promise<DownloadMediaResult> {
