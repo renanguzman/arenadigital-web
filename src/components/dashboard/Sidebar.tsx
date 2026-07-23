@@ -157,6 +157,7 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
 
     const settingsUsersHref = selectedArena ? `/dashboard/settings/users/${selectedArena}` : "/dashboard/settings/users";
     const settingsSubscriptionHref = selectedArena ? `/dashboard/settings/subscription/${selectedArena}` : "/dashboard/settings/subscription";
+    const settingsWhatsappHref = selectedArena ? `/dashboard/settings/whatsapp/${selectedArena}` : "/dashboard/settings/whatsapp";
     const reportsHref = selectedArena ? `/dashboard/reports/${selectedArena}/status-pagamentos` : "/dashboard/reports";
 
     const isEditingArena = !!pathname.match(/\/dashboard\/arenas\/[^\/]+\/edit$/);
@@ -468,6 +469,22 @@ export function Sidebar({ className, onNavItemClick }: { className?: string, onN
                                         >
                                             <Link href="/dashboard/settings/arenas">
                                                 Perfil da Arena
+                                            </Link>
+                                        </Button>
+
+                                        <Button
+                                            variant="ghost"
+                                            asChild
+                                            className={cn(
+                                                "h-9 w-full justify-start px-2 text-sm font-normal",
+                                                pathname.startsWith("/dashboard/settings/whatsapp")
+                                                    ? cn(navActiveText, "bg-white/5 hover:bg-white/10 hover:text-arena-accent")
+                                                    : "text-white hover:bg-white/5 hover:text-white"
+                                            )}
+                                            onClick={onNavItemClick}
+                                        >
+                                            <Link href={settingsWhatsappHref}>
+                                                WhatsApp
                                             </Link>
                                         </Button>
                                     </div>

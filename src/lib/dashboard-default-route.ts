@@ -12,6 +12,7 @@ type DashboardSection =
   | 'athletes'
   | 'users'
   | 'subscription'
+  | 'whatsapp'
   | 'reports'
 
 type AccessibleArenaTarget = {
@@ -80,6 +81,13 @@ export async function resolveDashboardDefaultRoute(section: DashboardSection): P
     const subscriptionArena = arenas.find((arena) => arena.isOwner || arena.role === 'Gestor')
     return subscriptionArena
       ? `/dashboard/settings/subscription/${subscriptionArena.arenaId}`
+      : '/dashboard/settings/arenas'
+  }
+
+  if (section === 'whatsapp') {
+    const adminArena = arenas.find((arena) => arena.isOwner || arena.role === 'Gestor')
+    return adminArena
+      ? `/dashboard/settings/whatsapp/${adminArena.arenaId}`
       : '/dashboard/settings/arenas'
   }
 
