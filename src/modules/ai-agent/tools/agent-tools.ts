@@ -83,13 +83,14 @@ function normalize(text: string): string {
 }
 
 function matchesCourt(court: AgentCourt, filters: { court?: string; sport?: string }): boolean {
-  if (filters.court && !normalize(court.name).includes(normalize(filters.court))) return false
-  if (
-    filters.sport &&
-    !court.sports.some((s) => normalize(s).includes(normalize(filters.sport!)))
-  )
-    return false
-  return true
+  // Busca tolerante: o modelo às vezes manda "areia"/"churrasqueira" como sport,
+  // mas o termo está no nome/tipo do espaço. Casamos contra nome + tipo + modalidades.
+  const terms = [filters.court, filters.sport]
+    .filter((t): t is string => Boolean(t && t.trim()))
+    .map(normalize)
+  if (terms.length === 0) return true
+  const haystack = [court.name, court.type ?? '', ...court.sports].map(normalize)
+  return terms.every((term) => haystack.some((h) => h.includes(term)))
 }
 
 const WEEKDAY_NAMES = [
